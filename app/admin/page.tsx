@@ -542,5 +542,4 @@ if(!isAdmin)return (
   </div>
 </div>
 </main></>
-);
 }
