@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import {supabase,configured} from "@/lib/supabase";
 type Week={id:string;title:string;topic:string;content:string;week_label:string;starts_at:string;ends_at:string;is_published:boolean;photo_paths?:string[]};
 export default function Admin(){
@@ -319,7 +320,119 @@ async function removeWeek(id: string) {
   load();
 }
  async function qr(){const url=`${window.location.origin}/tbm`;const data=await QRCode.toDataURL(url,{width:500,margin:2});const a=document.createElement("a");a.href=data;a.download="DOSCO_TBM_QR.png";a.click()}
- function excel(){const rows=acks.map(a=>({"교육 회차":a.tbm_weeks?.week_label,"회사":a.companies?.name,"조":a.teams?.name,"이름":a.worker_name,"확인 일시":new Date(a.acknowledged_at).toLocaleString("ko-KR")}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"개인별 확인");const pr=photos.map(p=>({"교육 회차":p.tbm_weeks?.week_label,"회사":p.companies?.name,"조":p.teams?.name,"제출자":p.leader_name,"제출 일시":new Date(p.submitted_at).toLocaleString("ko-KR"),"사진 경로":p.photo_path}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pr),"조별 사진");XLSX.writeFile(wb,"DOSCO_TBM_교육실적.xlsx")}
+
+async function excel() {
+  const wb = new ExcelJS.Workbook();
+
+  // 개인별 교육 확인 기록
+  const ackSheet = wb.addWorksheet("개인별 확인");
+
+  ackSheet.columns = [
+    { header: "교육 회차", key: "week", width: 20 },
+    { header: "회사", key: "company", width: 18 },
+    { header: "조", key: "team", width: 18 },
+    { header: "이름", key: "name", width: 15 },
+    { header: "확인 일시", key: "date", width: 25 },
+  ];
+
+  ackSheet.addRows(
+    acks.map(a => ({
+      week: a.tbm_weeks?.week_label || "",
+      company: a.companies?.name || "",
+      team: a.teams?.name || "",
+      name: a.worker_name || "",
+      date: new Date(a.acknowledged_at).toLocaleString("ko-KR"),
+    }))
+  );
+
+  // 조별 사진 제출 기록
+  const photoSheet = wb.addWorksheet("조별 사진");
+
+  photoSheet.columns = [
+    { header: "교육 회차", key: "week", width: 20 },
+    { header: "회사", key: "company", width: 18 },
+    { header: "조", key: "team", width: 18 },
+    { header: "제출자", key: "leader", width: 15 },
+    { header: "제출 일시", key: "date", width: 25 },
+    { header: "사진 경로", key: "path", width: 35 },
+    { header: "제출 사진", key: "image", width: 20 },
+  ];
+
+  for (const p of photos) {
+    const row = photoSheet.addRow({
+      week: p.tbm_weeks?.week_label || "",
+      company: p.companies?.name || "",
+      team: p.teams?.name || "",
+      leader: p.leader_name || "",
+      date: new Date(p.submitted_at).toLocaleString("ko-KR"),
+      path: p.photo_path || "",
+      image: "",
+    });
+
+    row.height = 65;
+
+    if (!p.photo_url) {
+      row.getCell(7).value = "사진 URL 없음";
+      continue;
+    }
+
+    try {
+      const response = await fetch(p.photo_url);
+
+      if (!response.ok) {
+        row.getCell(7).value = "사진 불러오기 실패";
+        continue;
+      }
+
+      const blob = await response.blob();
+      const bitmap = await createImageBitmap(blob);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        bitmap.close();
+        continue;
+      }
+
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+
+      const base64 = canvas.toDataURL("image/png").split(",")[1];
+
+      const imageId = wb.addImage({
+        base64,
+        extension: "png",
+      });
+
+      photoSheet.addImage(imageId, {
+        tl: { col: 6, row: row.number - 1 },
+        ext: { width: 110, height: 65 },
+      });
+    } catch (error) {
+      console.error("엑셀 사진 삽입 실패:", error);
+      row.getCell(7).value = "사진 삽입 실패";
+    }
+  }
+
+  // 엑셀 파일 다운로드
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer as BlobPart], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "DOSCO_TBM_교육실적.xlsx";
+  link.click();
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
  const latest=weeks.find(w=>w.is_published);const count=acks.filter(a=>a.tbm_weeks?.week_label===latest?.week_label).length;
  if(!configured)return <main className="shell"><div className="card"><h1>Supabase 연결 필요</h1><p className="muted">프로젝트 루트의 .env.local 설정을 확인하고 개발 서버를 다시 시작해 주세요.</p></div></main>;
  if(checking)return <main className="shell"><div className="card">관리자 권한 확인 중...</div></main>;
