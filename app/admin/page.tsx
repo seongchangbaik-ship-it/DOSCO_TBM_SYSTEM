@@ -486,7 +486,6 @@ if(!isAdmin)return (
     </table>
   </div>
 </div>{msg&&<p className="muted">{msg}</p>}</div>
- <div className="section"><h2>최근 교육자료</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>주제</th><th>게시 상태</th><th>교육 기간</th></tr></thead><tbody>{weeks.map(w=><tr key={w.id}><td>{w.week_label}</td><td>{w.topic}</td><td><span className={`pill ${w.is_published?"ok":"wait"}`}>{w.is_published?"게시 중":"미게시"}</span></td><td>{w.starts_at} ~ {w.ends_at}</td></tr>)}{!weeks.length&&<tr><td colSpan={4} className="empty">등록된 자료가 없습니다.</td></tr>}</tbody></table></div></div>
  <div className="section"><h2>개인별 교육 확인 기록</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>회사</th><th>조</th><th>이름</th><th>확인 일시</th></tr></thead><tbody>{acks.slice(0,30).map(a=><tr key={a.id}><td>{a.tbm_weeks?.week_label}</td><td>{a.companies?.name}</td><td>{a.teams?.name}</td><td>{a.worker_name}</td><td>{new Date(a.acknowledged_at).toLocaleString("ko-KR")}</td></tr>)}{!acks.length&&<tr><td colSpan={5} className="empty">교육 확인 기록이 없습니다.</td></tr>}</tbody></table></div></div>
 <div className="section">
   <h2>조별 TBM 사진 제출 기록</h2>
