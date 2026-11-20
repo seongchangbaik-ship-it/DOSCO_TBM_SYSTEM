@@ -8,6 +8,14 @@ import {supabase,configured} from "@/lib/supabase";
 type Week={id:string;title:string;topic:string;content:string;week_label:string;starts_at:string;ends_at:string;is_published:boolean;photo_paths?:string[]};
 export default function Admin(){
  const [weeks,setWeeks]=useState<Week[]>([]),[acks,setAcks]=useState<any[]>([]),[photos,setPhotos]=useState<any[]>([]),[msg,setMsg]=useState("");
+ const [selectedWeekId, setSelectedWeekId] = useState<string>("all");
+ const filteredAcks = selectedWeekId === "all"
+  ? acks
+  : acks.filter(a => a.week_id === selectedWeekId);
+
+const filteredPhotos = selectedWeekId === "all"
+  ? photos
+  : photos.filter(p => p.week_id === selectedWeekId);
  const [checking,setChecking]=useState(true),[isAdmin,setIsAdmin]=useState(false),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[loginMsg,setLoginMsg]=useState("");
  const [resetSending,setResetSending]=useState(false);
  const [editingId,setEditingId]=useState<string|null>(null);
@@ -547,7 +555,19 @@ if(!isAdmin)return (
 )}
 
 <div className="section">
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
   <h2>최근 교육자료</h2>
+  <button
+    className="btn secondary"
+    onClick={() => setSelectedWeekId("all")}
+    style={{
+      background: selectedWeekId === "all" ? "#dbeafe" : undefined,
+      fontWeight: selectedWeekId === "all" ? "bold" : "normal"
+    }}
+  >
+    전체 보기
+  </button>
+</div>
   <div className="tablewrap">
     <table>
       <thead>
@@ -562,7 +582,18 @@ if(!isAdmin)return (
       <tbody>
         {weeks.map(w => (
           <tr key={w.id}>
-            <td>{w.week_label}</td>
+<td>
+  <button
+    className="btn secondary"
+    style={{
+      background: selectedWeekId === w.id ? "#dbeafe" : undefined,
+      fontWeight: selectedWeekId === w.id ? "bold" : "normal"
+    }}
+    onClick={() => setSelectedWeekId(w.id)}
+  >
+    {w.week_label}
+  </button>
+</td>
             <td>{w.topic}</td>
             <td>
               <span className={`pill ${w.is_published ? "ok" : "wait"}`}>
@@ -599,7 +630,7 @@ if(!isAdmin)return (
     </table>
   </div>
 </div>{msg&&<p className="muted">{msg}</p>}</div>
- <div className="section"><h2>개인별 교육 확인 기록</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>회사</th><th>조</th><th>이름</th><th>확인 일시</th></tr></thead><tbody>{acks.slice(0,30).map(a=><tr key={a.id}><td>{a.tbm_weeks?.week_label}</td><td>{a.companies?.name}</td><td>{a.teams?.name}</td><td>{a.worker_name}</td><td>{new Date(a.acknowledged_at).toLocaleString("ko-KR")}</td></tr>)}{!acks.length&&<tr><td colSpan={5} className="empty">교육 확인 기록이 없습니다.</td></tr>}</tbody></table></div></div>
+ <div className="section"><h2>개인별 교육 확인 기록</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>회사</th><th>조</th><th>이름</th><th>확인 일시</th></tr></thead><tbody>{filteredAcks.slice(0,30).map(a=><tr key={a.id}><td>{a.tbm_weeks?.week_label}</td><td>{a.companies?.name}</td><td>{a.teams?.name}</td><td>{a.worker_name}</td><td>{new Date(a.acknowledged_at).toLocaleString("ko-KR")}</td></tr>)}{!acks.length&&<tr><td colSpan={5} className="empty">교육 확인 기록이 없습니다.</td></tr>}</tbody></table></div></div>
 <div className="section">
   <h2>조별 TBM 사진 제출 기록</h2>
   <div className="tablewrap">
@@ -615,7 +646,7 @@ if(!isAdmin)return (
         </tr>
       </thead>
       <tbody>
-        {photos.map(p => (
+        {filteredPhotos.map(p => (
           <tr key={p.id}>
             <td>{p.tbm_weeks?.week_label}</td>
             <td>{p.companies?.name}</td>
