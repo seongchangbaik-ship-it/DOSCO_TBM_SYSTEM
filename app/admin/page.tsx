@@ -128,7 +128,35 @@ async function sendResetEmail(){
   setResetSending(false);
 }
  async function logout(){await supabase.auth.signOut();setIsAdmin(false);setPassword("")}
- async function load(){if(!configured||!isAdmin)return;const [w,a,p]=await Promise.all([supabase.from("tbm_weeks").select("*").order("starts_at",{ascending:false}),supabase.from("tbm_acknowledgements").select("*,companies(name),teams(name),tbm_weeks(week_label,topic)").order("acknowledged_at",{ascending:false}).limit(1000),supabase.from("tbm_team_submissions").select("*,companies(name),teams(name),tbm_weeks(week_label)").order("submitted_at",{ascending:false}).limit(500)]);setWeeks(w.data||[]);setAcks(a.data||[]);setPhotos(p.data||[])}
+async function load() {
+  if (!configured || !isAdmin) return;
+
+  const [w, a, p] = await Promise.all([
+    supabase.from("tbm_weeks").select("*").order("starts_at", { ascending: false }),
+    supabase.from("tbm_acknowledgements").select("*,companies(name),teams(name),tbm_weeks(week_label,topic)").order("acknowledged_at", { ascending: false }).limit(1000),
+    supabase.from("tbm_team_submissions").select("*,companies(name),teams(name),tbm_weeks(week_label)").order("submitted_at", { ascending: false }).limit(500)
+  ]);
+
+  setWeeks(w.data || []);
+  setAcks(a.data || []);
+
+  const submissionPhotos = await Promise.all(
+    (p.data || []).map(async (item) => {
+      if (!item.photo_path) return { ...item, photo_url: "" };
+
+      const { data, error } = await supabase.storage
+        .from("tbm-photos")
+        .createSignedUrl(item.photo_path, 3600);
+
+      return {
+        ...item,
+        photo_url: error ? "" : data?.signedUrl || ""
+      };
+    })
+  );
+
+  setPhotos(submissionPhotos);
+}
  useEffect(()=>{if(isAdmin)load()},[isAdmin]);
 
 async function publish() {
@@ -460,6 +488,57 @@ if(!isAdmin)return (
 </div>{msg&&<p className="muted">{msg}</p>}</div>
  <div className="section"><h2>최근 교육자료</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>주제</th><th>게시 상태</th><th>교육 기간</th></tr></thead><tbody>{weeks.map(w=><tr key={w.id}><td>{w.week_label}</td><td>{w.topic}</td><td><span className={`pill ${w.is_published?"ok":"wait"}`}>{w.is_published?"게시 중":"미게시"}</span></td><td>{w.starts_at} ~ {w.ends_at}</td></tr>)}{!weeks.length&&<tr><td colSpan={4} className="empty">등록된 자료가 없습니다.</td></tr>}</tbody></table></div></div>
  <div className="section"><h2>개인별 교육 확인 기록</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>회사</th><th>조</th><th>이름</th><th>확인 일시</th></tr></thead><tbody>{acks.slice(0,30).map(a=><tr key={a.id}><td>{a.tbm_weeks?.week_label}</td><td>{a.companies?.name}</td><td>{a.teams?.name}</td><td>{a.worker_name}</td><td>{new Date(a.acknowledged_at).toLocaleString("ko-KR")}</td></tr>)}{!acks.length&&<tr><td colSpan={5} className="empty">교육 확인 기록이 없습니다.</td></tr>}</tbody></table></div></div>
- <div className="section"><h2>조별 TBM 사진 제출 기록</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>회사</th><th>조</th><th>제출자</th><th>제출 일시</th></tr></thead><tbody>{photos.map(p=><tr key={p.id}><td>{p.tbm_weeks?.week_label}</td><td>{p.companies?.name}</td><td>{p.teams?.name}</td><td>{p.leader_name}</td><td>{new Date(p.submitted_at).toLocaleString("ko-KR")}</td></tr>)}{!photos.length&&<tr><td colSpan={5} className="empty">사진 제출 기록이 없습니다.</td></tr>}</tbody></table></div></div>
- <div className="footer">관리자 페이지는 실제 운영 전 반드시 인증 및 접근권한 정책을 적용해야 합니다.</div></main></>
-}
+<div className="section">
+  <h2>조별 TBM 사진 제출 기록</h2>
+  <div className="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>교육 회차</th>
+          <th>회사</th>
+          <th>조</th>
+          <th>제출자</th>
+          <th>제출 일시</th>
+          <th>제출 사진</th>
+        </tr>
+      </thead>
+      <tbody>
+        {photos.map(p => (
+          <tr key={p.id}>
+            <td>{p.tbm_weeks?.week_label}</td>
+            <td>{p.companies?.name}</td>
+            <td>{p.teams?.name}</td>
+            <td>{p.leader_name}</td>
+            <td>{new Date(p.submitted_at).toLocaleString("ko-KR")}</td>
+            <td>
+              {p.photo_url ? (
+                <a href={p.photo_url} target="_blank" rel="noreferrer">
+                  <img
+                    src={p.photo_url}
+                    alt="조별 TBM 제출 사진"
+                    style={{
+                      width: 100,
+                      height: 75,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      cursor: "pointer"
+                    }}
+                  />
+                </a>
+              ) : (
+                "사진을 불러올 수 없습니다."
+              )}
+            </td>
+          </tr>
+        ))}
+        {!photos.length && (
+          <tr>
+            <td colSpan={6} className="empty">
+              사진 제출 기록이 없습니다.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
