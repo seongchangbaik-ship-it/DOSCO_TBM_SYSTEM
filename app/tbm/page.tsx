@@ -122,6 +122,11 @@ if(error){
 
  return (
   <main className="mobile">
+    <div style={{marginBottom:10}}>
+  <Link href="/" className="btn secondary">
+    ← 홈으로
+  </Link>
+</div>
     <div className="mobilehero">
       <div style={{fontSize:12,opacity:.8}}>DONG-A STEEL · SAFETY</div>
       <h1>DOSCO TBM</h1>

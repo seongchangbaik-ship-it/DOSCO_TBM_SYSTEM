@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
+import Link from "next/link";
 import {supabase,configured} from "@/lib/supabase";
 type Company={id:string;name:string};type Team={id:string;name:string;company_id:string};type Week={id:string;week_label:string;topic:string};
 export default function LeaderPage(){
@@ -13,7 +14,13 @@ export default function LeaderPage(){
  const {error}=await supabase.from("tbm_team_submissions").insert({week_id:week,company_id:company,team_id:team,leader_name:leader.trim(),photo_path:path,submitted_at:new Date().toISOString()});
  if(error){setMsg("제출 기록 저장 실패: "+error.message);return}setMsg("조별 TBM 사진이 제출되었습니다.");
  }
- return <main className="mobile"><div className="mobilehero"><div style={{fontSize:12,opacity:.8}}>DONG-A STEEL · LEADER</div><h1>조별 TBM 사진 제출</h1><div style={{fontSize:13,opacity:.85}}>조장 또는 지정 담당자용</div></div><div className="card">
+ return <main className="mobile">
+ <div style={{marginBottom:10}}>
+  <Link href="/" className="btn secondary">
+   ← 홈으로
+  </Link>
+ </div>
+ <div className="mobilehero"><div style={{fontSize:12,opacity:.8}}>DONG-A STEEL · LEADER</div><h1>조별 TBM 사진 제출</h1><div style={{fontSize:13,opacity:.85}}>조장 또는 지정 담당자용</div></div><div className="card">
  {!configured&&<p className="muted">Supabase 연결 후 사용할 수 있습니다.</p>}
  <div className="field"><label>교육 회차</label><select value={week} onChange={e=>setWeek(e.target.value)}><option value="">회차 선택</option>{weeks.map(w=><option key={w.id} value={w.id}>{w.week_label} · {w.topic}</option>)}</select></div>
  <div className="field"><label>소속 회사</label><select value={company} onChange={e=>{setCompany(e.target.value);setTeam("")}}><option value="">회사 선택</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
