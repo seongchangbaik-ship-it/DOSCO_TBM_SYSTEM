@@ -98,7 +98,11 @@ async function verifyAdmin() {
     password
   });
   if(error){
-    setLoginMsg("로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.");
+    console.error("Supabase 로그인 오류:", error);
+    setLoginMsg(
+      "로그인 실패: " + error.message +
+      (error.status ? " (상태코드: " + error.status + ")" : "")
+    );
     return;
   }
   await verifyAdmin();
