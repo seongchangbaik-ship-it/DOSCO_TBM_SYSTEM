@@ -39,13 +39,88 @@ useEffect(() => {
   const orderedTeams = [...filtered].sort((a, b) => {
     const order = teamOrder[selectedCompanyName || ""] || [];
     return order.indexOf(a.name) - order.indexOf(b.name);
-  }); async function upload(){if(!company||!team||!week||!leader.trim()||!file){setMsg("모든 항목과 사진을 입력해 주세요.");return}if(file.size>8*1024*1024){setMsg("사진은 8MB 이하로 올려 주세요.");return}
- const ext=file.name.split(".").pop()||"jpg",path=`${week}/${team}/${Date.now()}.${ext}`;
- const up=await supabase.storage.from("tbm-photos").upload(path,file,{upsert:false,contentType:file.type});
- if(up.error){setMsg("사진 업로드 실패: "+up.error.message);return}
- const {error}=await supabase.from("tbm_team_submissions").insert({week_id:week,company_id:company,team_id:team,leader_name:leader.trim(),photo_path:path,submitted_at:new Date().toISOString()});
- if(error){setMsg("제출 기록 저장 실패: "+error.message);return}setMsg("조별 TBM 사진이 제출되었습니다.");
- }
+  }); async function compressImage(rawFile: File): Promise<Blob | File> {
+    if (!rawFile.type.startsWith("image/")) return rawFile;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(rawFile);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const maxSide = 1280;
+        let { width, height } = img;
+        if (width > maxSide || height > maxSide) {
+          if (width > height) {
+            height = Math.round((height * maxSide) / width);
+            width = maxSide;
+          } else {
+            width = Math.round((width * maxSide) / height);
+            height = maxSide;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(rawFile);
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < rawFile.size) resolve(blob);
+            else resolve(rawFile);
+          },
+          "image/jpeg",
+          0.75
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(rawFile);
+      };
+      img.src = objectUrl;
+    });
+  }
+
+  async function upload() {
+    if (!company || !team || !week || !leader.trim() || !file) {
+      setMsg("모든 항목과 사진을 입력해 주세요.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setMsg("사진은 20MB 이하로 올려 주세요.");
+      return;
+    }
+    setMsg("사진 용량을 최적화하여 업로드 중입니다...");
+    const compressed = await compressImage(file);
+    const isJpeg = compressed !== file;
+    const ext = isJpeg ? "jpg" : (file.name.split(".").pop() || "jpg");
+    const path = `${week}/${team}/${Date.now()}.${ext}`;
+    const up = await supabase.storage.from("tbm-photos").upload(path, compressed, {
+      upsert: false,
+      contentType: isJpeg ? "image/jpeg" : file.type,
+    });
+    if (up.error) {
+      setMsg("사진 업로드 실패: " + up.error.message);
+      return;
+    }
+    const { error } = await supabase.from("tbm_team_submissions").insert({
+      week_id: week,
+      company_id: company,
+      team_id: team,
+      leader_name: leader.trim(),
+      photo_path: path,
+      submitted_at: new Date().toISOString(),
+    });
+    if (error) {
+      setMsg("제출 기록 저장 실패: " + error.message);
+      return;
+    }
+    setMsg("조별 TBM 사진이 제출되었습니다.");
+  }
  return <main className="mobile">
  <div style={{marginBottom:10}}>
   <Link href="/" className="btn secondary">

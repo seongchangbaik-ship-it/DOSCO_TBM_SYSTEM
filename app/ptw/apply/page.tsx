@@ -230,12 +230,63 @@ export default function PtwApplyPage() {
     setSignName("");
   };
 
+async function compressImage(file: File): Promise<Blob | File> {
+    if (!file.type.startsWith("image/")) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const maxSide = 1280;
+        let { width, height } = img;
+        if (width > maxSide || height > maxSide) {
+          if (width > height) {
+            height = Math.round((height * maxSide) / width);
+            width = maxSide;
+          } else {
+            width = Math.round((width * maxSide) / height);
+            height = maxSide;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < file.size) resolve(blob);
+            else resolve(file);
+          },
+          "image/jpeg",
+          0.75
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+      img.src = objectUrl;
+    });
+  }
+
   async function uploadMultipleFiles(files: File[], folder: string) {
     const paths: string[] = [];
     for (const file of files) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `${folder}/${crypto.randomUUID()}-${safeName}`;
-      const { error } = await supabase.storage.from("tbm-photos").upload(path, file);
+      const compressed = await compressImage(file);
+      const isJpeg = compressed !== file;
+      const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const ext = isJpeg ? "jpg" : (file.name.split(".").pop() || "jpg");
+      const path = `${folder}/${crypto.randomUUID()}-${baseName}.${ext}`;
+      const { error } = await supabase.storage.from("tbm-photos").upload(path, compressed, {
+        contentType: isJpeg ? "image/jpeg" : file.type,
+      });
       if (!error) paths.push(path);
     }
     return paths;
