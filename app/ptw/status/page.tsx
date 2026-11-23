@@ -144,9 +144,96 @@ export default function PtwStatusPage() {
   const selectedFireItems: any[] = selectedItem?.fire_work_details?.fireItems || [];
   const selectedHeavyPersonnel: any[] = selectedItem?.heavy_lifting_details?.personnel || [];
 
-  return (
+return (
     <div>
-
+      <style>{`
+        .ptw-table-scroll {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+        }
+        .ptw-table-scroll table {
+          min-width: 680px;
+          width: 100%;
+        }
+        .ptw-table-scroll th,
+        .ptw-table-scroll td {
+          white-space: nowrap;
+          word-break: keep-all;
+        }
+        @media screen and (max-width: 768px) {
+          .mobile-scroll-hint {
+            display: block !important;
+          }
+          .print-modal-wrapper {
+            padding: 8px !important;
+          }
+          .print-modal-card {
+            padding: 12px !important;
+          }
+          .print-scroll-box {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+          }
+          #print-area {
+            min-width: 720px;
+          }
+        }
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        @media print {
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .no-print,
+          .mobile-scroll-hint {
+            display: none !important;
+          }
+          .print-modal-wrapper {
+            position: static !important;
+            inset: auto !important;
+            overflow: visible !important;
+            background: none !important;
+            padding: 0 !important;
+            display: block !important;
+            height: auto !important;
+          }
+          .print-modal-card {
+            box-shadow: none !important;
+            border: none !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .print-scroll-box {
+            overflow: visible !important;
+            border: none !important;
+          }
+          #print-area {
+            position: static !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            padding: 10mm !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
+          }
+          .page-break {
+            break-before: page !important;
+            page-break-before: always !important;
+            margin-top: 0 !important;
+            padding-top: 10mm !important;
+          }
+        }
+      `}</style>
 
       <header className="topbar no-print">
         <div className="brand">
@@ -173,9 +260,12 @@ export default function PtwStatusPage() {
 
         {msg && <p style={{ color: "#b33", marginBottom: 12 }}>{msg}</p>}
 
-        <div className="card section">
+<div className="card section">
           <h2>안전작업허가서 제출 기록</h2>
-          <div className="tablewrap">
+          <div className="mobile-scroll-hint" style={{ display: "none", fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
+            ← 표를 좌우로 밀어서 전체 항목을 확인하세요 →
+          </div>
+          <div className="tablewrap ptw-table-scroll">
             <table>
               <thead>
                 <tr>
@@ -248,6 +338,10 @@ export default function PtwStatusPage() {
               </div>
             )}
 
+<div className="no-print mobile-scroll-hint" style={{ display: "none", fontSize: 12, color: "#6b7280", textAlign: "center", marginBottom: 6 }}>
+              ← 양식을 좌우로 밀어서 전체 내용을 확인하세요 →
+            </div>
+            <div className="print-scroll-box">
             <div id="print-area" style={{ padding: 6 }}>
               {/* ================= [1 PAGE] 안전작업허가서 + 화기취급작업 신청서 ================= */}
               <div>
@@ -577,7 +671,7 @@ export default function PtwStatusPage() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+<div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {(selectedItem.ptw_signatures || []).map(sig => (
                     <div key={sig.id} style={{ border: "1px solid #999", padding: 6, textAlign: "center", width: 110 }}>
                       <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 45, objectFit: "contain" }} />
@@ -586,6 +680,7 @@ export default function PtwStatusPage() {
                   ))}
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
