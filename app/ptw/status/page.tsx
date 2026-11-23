@@ -169,7 +169,6 @@ export default function PtwStatusPage() {
         </div>
       </main>
 
-      {/* 상세 보기 및 A4 인쇄/PDF 모달 */}
       {selectedItem && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, overflowY: "auto", padding: 20 }}>
           <div className="card" style={{ maxWidth: 800, margin: "0 auto", background: "#fff" }}>
@@ -178,7 +177,6 @@ export default function PtwStatusPage() {
               <button className="btn secondary" onClick={() => setSelectedItem(null)}>닫기</button>
             </div>
 
-            {/* 실제 출력 영역 */}
             <div id="print-area" style={{ padding: 10 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 13 }}>
                 <tbody>
@@ -244,7 +242,6 @@ export default function PtwStatusPage() {
                 </tbody>
               </table>
 
-              {/* 교육일지 및 서약 서명란 */}
               <div style={{ marginTop: 16, border: "1px solid #000", padding: 10 }}>
                 <div style={{ fontWeight: "bold", marginBottom: 6 }}>[안전교육일지 및 참여자 서약 서명]</div>
                 {selectedItem.training_type === "form" ? (
