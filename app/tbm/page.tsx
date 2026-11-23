@@ -53,8 +53,9 @@ setCompanies(
 );
     setTeams(t.data||[]);
 
-    if(w.data){
-      const currentWeek=w.data as Week;
+if(w.data && w.data.length > 0){
+      setWeeks(w.data as Week[]);
+      const currentWeek=w.data[0] as Week;
       setWeek(currentWeek);
 
       const paths=currentWeek.photo_paths||[];
