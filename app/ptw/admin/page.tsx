@@ -129,6 +129,14 @@ export default function PtwAdminPage() {
     return item.company_name || "외부업체";
   }
 
+  function formatWorkDate(item: PtwApplication) {
+    const common = item.fire_work_details?._common || {};
+    if (common.workPeriodType === "period" && common.endDate && common.endDate !== item.work_date) {
+      return `${item.work_date} ~ ${common.endDate}`;
+    }
+    return item.work_date;
+  }
+
   async function approvePtw(id: string) {
     if (!window.confirm("해당 작업허가서를 '허가 승인' 처리하시겠습니까?")) return;
 
@@ -234,6 +242,7 @@ export default function PtwAdminPage() {
     const common = item.fire_work_details?._common || {};
     const vehicles = common.vehicles || [];
     const fireItems = item.fire_work_details?.fireItems || [];
+    const dateRangeText = formatWorkDate(item);
 
     ws.mergeCells("A1:C2");
     ws.getCell("A1").value = "안 전 작 업 허 가 서";
@@ -295,7 +304,7 @@ export default function PtwAdminPage() {
 
     ws.getCell("A9").value = "작업일자";
     ws.mergeCells("B9:F9");
-    ws.getCell("B9").value = `${item.work_date} (${item.starts_at?.slice(0, 5)} ~ ${item.ends_at?.slice(0, 5)})`;
+    ws.getCell("B9").value = `${dateRangeText} (${item.starts_at?.slice(0, 5)} ~ ${item.ends_at?.slice(0, 5)})`;
 
     ws.getCell("A10").value = "작업인원";
     ws.mergeCells("B10:C10");
@@ -357,7 +366,7 @@ export default function PtwAdminPage() {
       fSheet.columns = [{ width: 18 }, { width: 55 }];
       const fRows = [
         ["작업명칭", item.project_name],
-        ["작업기간", `${item.work_date} ${item.starts_at?.slice(0, 5)} ~ ${item.ends_at?.slice(0, 5)}`],
+        ["작업기간", `${dateRangeText} ${item.starts_at?.slice(0, 5)} ~ ${item.ends_at?.slice(0, 5)}`],
         ["작업장소", item.work_location],
         ["작업 책임자", `${item.site_manager} (${item.contact_number || ""})`],
         ["화재감시자", f.fireWatcher || ""],
@@ -383,7 +392,7 @@ export default function PtwAdminPage() {
         .join("\n");
       const hRows = [
         ["작업명", item.project_name],
-        ["작업일시 / 장소", `${item.work_date} (${item.starts_at?.slice(0, 5)}~${item.ends_at?.slice(0, 5)}) / ${item.work_location}`],
+        ["작업일시 / 장소", `${dateRangeText} (${item.starts_at?.slice(0, 5)}~${item.ends_at?.slice(0, 5)}) / ${item.work_location}`],
         ["신호방법 / 제한속도", `${h.signalMethod || ""} / ${h.speedLimit || ""}`],
         ["직책별 작업인원", personnelText],
         ["작업순서", h.workSequence || ""],
@@ -536,7 +545,7 @@ export default function PtwAdminPage() {
               <tbody>
                 {items.map(item => (
                   <tr key={item.id}>
-                    <td>{item.work_date}</td>
+                    <td>{formatWorkDate(item)}</td>
                     <td><b>{getCompanyName(item)}</b></td>
                     <td>{item.project_name}</td>
                     <td>{(item.work_types || []).join(", ")}</td>
@@ -659,7 +668,7 @@ export default function PtwAdminPage() {
                   <tr>
                     <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업일자</th>
                     <td colSpan={6} style={{ border: "1px solid #000", padding: 6 }}>
-                      {selectedItem.work_date} ({selectedItem.starts_at?.slice(0, 5)} ~ {selectedItem.ends_at?.slice(0, 5)})
+                      {formatWorkDate(selectedItem)} ({selectedItem.starts_at?.slice(0, 5)} ~ {selectedItem.ends_at?.slice(0, 5)})
                     </td>
                   </tr>
                   <tr>

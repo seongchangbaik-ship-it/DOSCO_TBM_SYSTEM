@@ -78,6 +78,14 @@ export default function PtwStatusPage() {
     return item.company_name || "외부업체";
   }
 
+  function formatWorkDate(item: PtwApplication) {
+    const common = item.fire_work_details?._common || {};
+    if (common.workPeriodType === "period" && common.endDate && common.endDate !== item.work_date) {
+      return `${item.work_date} ~ ${common.endDate}`;
+    }
+    return item.work_date;
+  }
+
   async function getSignedFileUrl(path?: string | null) {
     if (!path) return "";
     const { data } = await supabase.storage.from("tbm-photos").createSignedUrl(path, 3600);
@@ -174,7 +182,7 @@ export default function PtwStatusPage() {
                 ) : items.length > 0 ? (
                   items.map(item => (
                     <tr key={item.id}>
-                      <td>{item.work_date}</td>
+                      <td>{formatWorkDate(item)}</td>
                       <td><b>{getCompanyName(item)}</b></td>
                       <td>{item.project_name}</td>
                       <td>{(item.work_types || []).join(", ")}</td>
@@ -272,7 +280,7 @@ export default function PtwStatusPage() {
                   <tr>
                     <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업일자</th>
                     <td colSpan={6} style={{ border: "1px solid #000", padding: 6 }}>
-                      {selectedItem.work_date} ({selectedItem.starts_at?.slice(0, 5)} ~ {selectedItem.ends_at?.slice(0, 5)})
+                      {formatWorkDate(selectedItem)} ({selectedItem.starts_at?.slice(0, 5)} ~ {selectedItem.ends_at?.slice(0, 5)})
                     </td>
                   </tr>
                   <tr>

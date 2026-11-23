@@ -7,11 +7,29 @@ type VehicleRow = { name: string; count: string; safetyDevice: string; etc: stri
 type FireItemRow = { name: string; count: string; safetyDevice: string; working: string; note: string };
 type HeavyPersonnelRow = { role: string; nameContact: string; location: string; ppe: string; license: string };
 
+function addDaysToYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return ymd;
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+function diffDaysYmd(startYmd: string, endYmd: string): number {
+  const [y1, m1, d1] = startYmd.split("-").map(Number);
+  const [y2, m2, d2] = endYmd.split("-").map(Number);
+  if (!y1 || !y2) return 0;
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((t2 - t1) / (1000 * 60 * 60 * 24));
+}
+
 export default function PtwApplyPage() {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [msg, setMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const todayYmd = new Date().toISOString().slice(0, 10);
 
   const [form, setForm] = useState({
     companyType: "internal",
@@ -21,7 +39,9 @@ export default function PtwApplyPage() {
     siteManager: "",
     contact: "",
     location: "",
-    date: new Date().toISOString().slice(0, 10),
+    workPeriodType: "single" as "single" | "period",
+    date: todayYmd,
+    endDate: todayYmd,
     startTime: "08:00",
     endTime: "17:00",
     workerCount: "",
@@ -116,6 +136,39 @@ export default function PtwApplyPage() {
     }
   }, []);
 
+  const maxPeriodEndDate = addDaysToYmd(form.date, 6);
+  const selectedPeriodDays = form.workPeriodType === "period"
+    ? Math.max(1, diffDaysYmd(form.date, form.endDate || form.date) + 1)
+    : 1;
+
+  const handleStartDateChange = (newStart: string) => {
+    if (!newStart) return;
+    if (form.workPeriodType === "single") {
+      setForm({ ...form, date: newStart, endDate: newStart });
+      return;
+    }
+    const maxEnd = addDaysToYmd(newStart, 6);
+    let nextEnd = form.endDate || newStart;
+    if (nextEnd < newStart) nextEnd = newStart;
+    if (nextEnd > maxEnd) nextEnd = maxEnd;
+    setForm({ ...form, date: newStart, endDate: nextEnd });
+  };
+
+  const handleEndDateChange = (newEnd: string) => {
+    if (!newEnd) return;
+    const maxEnd = addDaysToYmd(form.date, 6);
+    if (newEnd < form.date) {
+      setForm({ ...form, endDate: form.date });
+      return;
+    }
+    if (newEnd > maxEnd) {
+      alert("기간작업은 시작일로부터 최대 일주일(7일)까지만 설정할 수 있습니다.");
+      setForm({ ...form, endDate: maxEnd });
+      return;
+    }
+    setForm({ ...form, endDate: newEnd });
+  };
+
   const toggleWorkType = (type: string, checked: boolean) => {
     if (checked) setForm({ ...form, workTypes: [...form.workTypes, type] });
     else setForm({ ...form, workTypes: form.workTypes.filter(t => t !== type) });
@@ -194,6 +247,12 @@ export default function PtwApplyPage() {
     if (!form.projectName.trim() || !form.siteManager.trim() || !form.workContent.trim()) {
       return setMsg("필수 항목(공사명, 현장관리감독자, 작업내용)을 입력하세요.");
     }
+    if (form.workPeriodType === "period") {
+      const days = diffDaysYmd(form.date, form.endDate);
+      if (days < 0 || days > 6) {
+        return setMsg("기간작업은 시작일로부터 최대 일주일(7일) 이내로만 설정 가능합니다.");
+      }
+    }
     if (form.workTypes.length === 0) return setMsg("작업 종류를 1개 이상 선택하세요.");
     if (signatures.length === 0) return setMsg("최소 1명 이상의 서약 및 교육 서명이 필요합니다.");
 
@@ -222,6 +281,8 @@ export default function PtwApplyPage() {
         attachmentPath: fireAttachPaths[0] || "",
       } : {}),
       _common: {
+        workPeriodType: form.workPeriodType,
+        endDate: form.workPeriodType === "period" ? form.endDate : form.date,
         vehicles,
         specialEnv: form.specialEnv,
         specialSafety: form.specialSafety,
@@ -363,19 +424,80 @@ export default function PtwApplyPage() {
             </div>
           </div>
 
-          <div className="formgrid" style={{ marginTop: 14 }}>
-            <div className="field">
-              <label>작업 일자</label>
-              <input type="date" className="input" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+          {/* 작업 기간 구분 및 작업 일자 */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+              <label style={{ fontWeight: "bold", margin: 0 }}>작업 기간 구분</label>
+              <label className="checkrow" style={{ margin: 0, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="workPeriodType"
+                  checked={form.workPeriodType === "single"}
+                  onChange={() => setForm({ ...form, workPeriodType: "single", endDate: form.date })}
+                />
+                <span>당일작업</span>
+              </label>
+              <label className="checkrow" style={{ margin: 0, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="workPeriodType"
+                  checked={form.workPeriodType === "period"}
+                  onChange={() => {
+                    const maxEnd = addDaysToYmd(form.date, 6);
+                    let nextEnd = form.endDate && form.endDate >= form.date ? form.endDate : form.date;
+                    if (nextEnd > maxEnd) nextEnd = maxEnd;
+                    setForm({ ...form, workPeriodType: "period", endDate: nextEnd });
+                  }}
+                />
+                <span>기간작업</span>
+              </label>
             </div>
-            <div className="field" style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label>시작 시간</label>
-                <input type="time" className="input" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
+
+            <div className="formgrid">
+              <div className="field">
+                <label>{form.workPeriodType === "single" ? "작업 일자" : "작업 기간 (시작일 ~ 종료일)"}</label>
+                {form.workPeriodType === "single" ? (
+                  <input
+                    type="date"
+                    className="input"
+                    value={form.date}
+                    onChange={e => handleStartDateChange(e.target.value)}
+                  />
+                ) : (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input
+                        type="date"
+                        className="input"
+                        value={form.date}
+                        onChange={e => handleStartDateChange(e.target.value)}
+                      />
+                      <span style={{ fontWeight: "bold" }}>~</span>
+                      <input
+                        type="date"
+                        className="input"
+                        value={form.endDate}
+                        min={form.date}
+                        max={maxPeriodEndDate}
+                        onChange={e => handleEndDateChange(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ color: "#dc2626", fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+                      ※ 기간작업일 경우 최대 일주일까지만 설정 가능합니다. (선택: {selectedPeriodDays}일)
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ flex: 1 }}>
-                <label>종료 시간</label>
-                <input type="time" className="input" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
+
+              <div className="field" style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label>시작 시간</label>
+                  <input type="time" className="input" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>종료 시간</label>
+                  <input type="time" className="input" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
+                </div>
               </div>
             </div>
           </div>
@@ -757,79 +879,4 @@ export default function PtwApplyPage() {
         <div className="card section">
           <h3>4. 안전관리 준수 서약 및 서명</h3>
           <div style={{ background: "#f8f9fa", padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.6, maxHeight: 160, overflowY: "auto", marginBottom: 16, border: "1px solid #ddd" }}>
-            <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.</b><br />
-            01. 도급공사 관련 작업허가신청서를 작성·제출하여 공장장의 승인을 득한 후 작업한다.<br />
-            02. 작업자에 필요한 안전보건교육을 실시 후 작업한다.<br />
-            03. 작업현장 내 작업 시 보호구(안전헬멧, 안전화) 착용하여 작업한다.<br />
-            04. 고소작업, 전기작업, 화기작업(용접, 절단 등)의 안전수칙 준수하여 작업한다.<br />
-            05. 작업 전에는 반드시 작업준비 상태를 점검 및 위험예지훈련(TBM)을 실시한다.<br />
-            06. 작업현장 내 모든 위험작업의 수행은 위험성평가를 실시한 후 작업한다.<br />
-            07. 사다리 작업 시 최상부에는 올라가서 작업하지 않는다.<br />
-            08. 작업현장에 대한 안전점검을 실시하고 안전점검표 작성·보관한다.<br />
-            09. 밀폐공간출입, 중량물 취급, 굴착작업은 안전수칙을 준수하여 작업한다.<br />
-            10. 중장비 사용 시 사용승인을 받고, 신호수 배치하여 작업한다.<br />
-            11. 작업현장 내 작업 시 안전장치나 안전시설물은 임의로 해체하지 않는다.<br />
-            12. 작업현장 정리정돈 철저, 흡연구역 이외의 흡연행위 금지한다.<br />
-            13. 작업 시 산업안전보건법, 중대재해처벌법 등 기타 관련법규를 준수하여 작업한다.<br />
-            14. 안전보건공단에서 Guide하는 안전수칙 준수한다.<br />
-            15. 귀사 안전·보건에 관한 요구사항 준수하여 이행한다.<br />
-            16. 상기 내용을 지키지 않을 경우 작업을 중지한다.
-          </div>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-            {signatures.map((sig, idx) => (
-              <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 8, textAlign: "center", width: 120 }}>
-                <img src={sig.data} alt="서명" style={{ width: "100%", height: 60, objectFit: "contain", background: "#f1f1f1", borderRadius: 4 }} />
-                <div style={{ marginTop: 4, fontSize: 12 }}><b>{sig.name}</b> ({sig.type})</div>
-              </div>
-            ))}
-
-            <button type="button" className="btn secondary" style={{ width: 120, height: 95 }} onClick={() => setShowSignModal(true)}>
-              + 서명 추가
-            </button>
-          </div>
-        </div>
-
-        <button type="button" className="btn" style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: 60 }} onClick={submitPtw} disabled={isSubmitting}>
-          {isSubmitting ? "전송 중..." : "안전작업허가서 제출 (승인 요청)"}
-        </button>
-
-        {msg && <p style={{ color: "#b33", textAlign: "center", marginBottom: 40 }}>{msg}</p>}
-
-        {showSignModal && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div className="card" style={{ width: "100%", maxWidth: 400 }}>
-              <h3>작업자 전자 서명</h3>
-
-              <div className="field" style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                <select className="input" value={signType} onChange={e => setSignType(e.target.value)} style={{ width: 100 }}>
-                  <option value="대표자">대표자</option>
-                  <option value="근로자">근로자</option>
-                </select>
-                <input className="input" placeholder="이름 입력" value={signName} onChange={e => setSignName(e.target.value)} style={{ flex: 1 }} />
-              </div>
-
-              <div style={{ border: "2px dashed #ccc", borderRadius: 8, background: "#fafafa", marginBottom: 16 }}>
-                <canvas
-                  ref={canvasRef} width={360} height={150}
-                  style={{ width: "100%", height: 150, touchAction: "none" }}
-                  onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 12px 8px" }}>
-                  <span style={{ fontSize: 12, color: "#888" }}>이곳에 손가락으로 서명하세요</span>
-                  <button type="button" className="btn secondary" style={{ padding: "4px 8px", fontSize: 12 }} onClick={clearCanvas}>지우기</button>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={() => setShowSignModal(false)}>취소</button>
-                <button type="button" className="btn" style={{ flex: 1 }} onClick={saveSignature}>서명 완료</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
+            <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히
