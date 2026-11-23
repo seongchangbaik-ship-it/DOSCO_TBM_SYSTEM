@@ -52,7 +52,8 @@ export default function PtwApplyPage() {
     specialSafety: "",
     trainingType: "form",
     trainingInstructor: "",
-    trainingContent: "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 보호구 착용 및 작업 전 안전교육 실시",
+    trainingContent:
+      "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)",
   });
 
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
@@ -857,7 +858,7 @@ export default function PtwApplyPage() {
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>안전 교육 내용</label>
-                <textarea value={form.trainingContent} onChange={e => setForm({ ...form, trainingContent: e.target.value })} style={{ height: 100 }} />
+                <textarea value={form.trainingContent} onChange={e => setForm({ ...form, trainingContent: e.target.value })} style={{ height: 210 }} />
               </div>
             </div>
           ) : (
@@ -893,7 +894,43 @@ export default function PtwApplyPage() {
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
             {signatures.map((sig, idx) => (
-              <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 8, textAlign: "center", width: 120 }}>
+              <div
+                key={idx}
+                style={{
+                  position: "relative",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  padding: 8,
+                  textAlign: "center",
+                  width: 120,
+                  background: "#fff",
+                }}
+              >
+                <button
+                  type="button"
+                  title="서명 삭제"
+                  onClick={() => setSignatures(signatures.filter((_, i) => i !== idx))}
+                  style={{
+                    position: "absolute",
+                    top: -8,
+                    right: -8,
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    border: "1px solid #dc2626",
+                    background: "#ef4444",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: "bold",
+                    lineHeight: "20px",
+                    textAlign: "center",
+                    padding: 0,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  ✕
+                </button>
                 <img src={sig.data} alt="서명" style={{ width: "100%", height: 60, objectFit: "contain", background: "#f1f1f1", borderRadius: 4 }} />
                 <div style={{ marginTop: 4, fontSize: 12 }}><b>{sig.name}</b> ({sig.type})</div>
               </div>
