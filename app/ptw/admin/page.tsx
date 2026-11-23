@@ -40,6 +40,25 @@ type PtwApplication = {
   ptw_signatures?: PtwSignature[];
 };
 
+const PLEDGE_ITEMS = [
+  "1. 도급공사 관련 작업허가신청서를 작성·제출하여 공장장의 승인을 득한 후 작업한다.",
+  "2. 작업자에 필요한 안전보건교육을 실시 후 작업한다.",
+  "3. 작업현장 내 작업 시 보호구(안전헬멧, 안전화) 착용하여 작업한다.",
+  "4. 고소작업, 전기작업, 화기작업(용접, 절단 등)의 안전수칙 준수하여 작업한다.",
+  "5. 작업 전에는 반드시 작업준비 상태를 점검 및 위험예지훈련(TBM)을 실시한다.",
+  "6. 작업현장 내 모든 위험작업의 수행은 위험성평가를 실시한 후 작업한다.",
+  "7. 사다리 작업 시 최상부에는 올라가서 작업하지 않는다.",
+  "8. 작업현장에 대한 안전점검을 실시하고 안전점검표 작성·보관한다.",
+  "9. 밀폐공간출입, 중량물 취급, 굴착작업은 안전수칙을 준수하여 작업한다.",
+  "10. 중장비 사용 시 사용승인을 받고, 신호수 배치하여 작업한다.",
+  "11. 작업현장 내 작업 시 안전장치나 안전시설물은 임의로 해체하지 않는다.",
+  "12. 작업현장 정리정돈 철저, 흡연구역 이외의 흡연행위 금지한다.",
+  "13. 작업 시 산업안전보건법, 중대재해처벌법 등 기타 관련법규를 준수하여 작업한다.",
+  "14. 안전보건공단에서 Guide하는 안전수칙 준수한다.",
+  "15. 귀사 안전·보건에 관한 요구사항 준수하여 이행한다.",
+  "16. 상기 내용을 지키지 않을 경우 작업을 중지한다.",
+];
+
 export default function PtwAdminPage() {
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -54,7 +73,6 @@ export default function PtwAdminPage() {
   const [heavyDrawingUrls, setHeavyDrawingUrls] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
-  // 반려 사유 입력 모달 상태
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -419,14 +437,38 @@ export default function PtwAdminPage() {
       });
     }
 
-    const sigSheet = wb.addWorksheet("서약 및 교육 서명명단");
+    const sigSheet = wb.addWorksheet("안전교육 및 준수서약서");
     sigSheet.columns = [
-      { header: "구분", key: "type", width: 15 },
-      { header: "성명", key: "name", width: 20 },
-      { header: "서명여부", key: "signed", width: 15 },
+      { width: 16 },
+      { width: 24 },
+      { width: 45 },
     ];
+    sigSheet.mergeCells("A1:C1");
+    sigSheet.getCell("A1").value = "안전교육일지 및 안전관리 준수 서약서";
+    sigSheet.getCell("A1").font = { size: 14, bold: true };
+    sigSheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+
+    sigSheet.getCell("A2").value = "교육 강사";
+    sigSheet.mergeCells("B2:C2");
+    sigSheet.getCell("B2").value = item.training_instructor || "-";
+
+    sigSheet.getCell("A3").value = "교육 내용";
+    sigSheet.mergeCells("B3:C3");
+    sigSheet.getCell("B3").value = item.training_type === "form" ? item.training_content : "(첨부 사진 참조)";
+    sigSheet.getCell("B3").alignment = { wrapText: true };
+
+    sigSheet.getCell("A4").value = "서약서 내용";
+    sigSheet.mergeCells("B4:C4");
+    sigSheet.getCell("B4").value =
+      "상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.\n" +
+      PLEDGE_ITEMS.join("\n");
+    sigSheet.getCell("B4").alignment = { wrapText: true };
+    sigSheet.getRow(4).height = 240;
+
+    const headerRow = sigSheet.addRow(["구분", "성명", "서명여부"]);
+    headerRow.font = { bold: true };
     (item.ptw_signatures || []).forEach(s => {
-      sigSheet.addRow({ type: s.worker_type, name: s.worker_name, signed: "전자서명 완료" });
+      sigSheet.addRow([s.worker_type, s.worker_name, "전자서명 완료"]);
     });
 
     const buffer = await wb.xlsx.writeBuffer();
@@ -907,15 +949,15 @@ export default function PtwAdminPage() {
               )}
 
               {/* 4. 교육일지 및 서약 서명란 */}
-              <div style={{ marginTop: 16, border: "1px solid #000", padding: 10 }}>
-                <div style={{ fontWeight: "bold", marginBottom: 6 }}>[안전교육일지 및 참여자 서약 서명]</div>
+              <div style={{ marginTop: 16, border: "1px solid #000", padding: 12 }}>
+                <div style={{ fontWeight: "bold", fontSize: 14, marginBottom: 8 }}>[안전교육일지 및 참여자 서약 서명]</div>
                 {selectedItem.training_type === "form" ? (
-                  <div style={{ fontSize: 12, marginBottom: 10, whiteSpace: "pre-wrap" }}>
+                  <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
                     <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
                     <b>교육내용:</b><br />{selectedItem.training_content}
                   </div>
                 ) : (
-                  <div style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 12 }}>
                     {trainingPhotoUrl ? (
                       <img src={trainingPhotoUrl} alt="교육일지" style={{ maxHeight: 200, border: "1px solid #ccc" }} />
                     ) : (
@@ -924,7 +966,25 @@ export default function PtwAdminPage() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+                {/* 안전관리 준수 서약서 전문 */}
+                <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "10px 12px", marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
+                  <div style={{ fontWeight: "bold", fontSize: 13, textAlign: "center", marginBottom: 6 }}>
+                    [안전관리 준수 서약서]
+                  </div>
+                  <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
+                    상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
+                  </p>
+                  <div>
+                    {PLEDGE_ITEMS.map((line, i) => (
+                      <div key={i}>{line}</div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
+                    서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {(selectedItem.ptw_signatures || []).map(sig => (
                     <div key={sig.id} style={{ border: "1px solid #999", padding: 6, textAlign: "center", width: 110 }}>
                       <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 45, objectFit: "contain" }} />
