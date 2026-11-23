@@ -356,8 +356,8 @@ export default function PtwApplyPage() {
     );
 }
 
-  return (
-    <div>
+return (
+    <div className="ptw-apply-page">
       <header className="topbar">
         <div className="brand">DOSCO PTW SYSTEM<small>안전작업허가서 신청</small></div>
         <nav className="nav">
