@@ -3,6 +3,10 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
 
+type VehicleRow = { name: string; count: string; safetyDevice: string; etc: string };
+type FireItemRow = { name: string; count: string; safetyDevice: string; working: string; note: string };
+type HeavyPersonnelRow = { role: string; nameContact: string; location: string; ppe: string; license: string };
+
 export default function PtwApplyPage() {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [msg, setMsg] = useState("");
@@ -22,12 +26,67 @@ export default function PtwApplyPage() {
     endTime: "17:00",
     workerCount: "",
     workContent: "",
-    safetyGear: "안전모, 안전화, 안전대",
+    safetyGear: "안전모, 안전화, 안전대, 보안면",
     workTypes: [] as string[],
+    specialEnv: "",
+    specialSafety: "",
     trainingType: "form",
     trainingInstructor: "",
-    trainingContent: "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 작업 전 안전교육 실시",
+    trainingContent: "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 보호구 착용 및 작업 전 안전교육 실시",
   });
+
+  // 기본 허가서 - 차량 및 중장비 현황
+  const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
+
+  // 화기취급작업 신청서 상세 상태
+  const [fireDetails, setFireDetails] = useState({
+    fireWorkType: "용접 · 용단 작업",
+    fireWatcher: "",
+    procedure: "1. 작업 반경 10m 이내 가연물·인화물 제거 및 불티비산방지포 설치\n2. 소화기 및 화재감시자 배치 후 화기작업 실시\n3. 작업 종료 후 30분 이상 잔불 확인",
+    supplementaryWorks: [] as string[],
+  });
+  const [fireItems, setFireItems] = useState<FireItemRow[]>([
+    { name: "전기용접기 / 절단기", count: "1", safetyDevice: "전격방지기 / 역화방지기", working: "양호", note: "" }
+  ]);
+  const [fireFiles, setFireFiles] = useState<File[]>([]);
+
+  // 중량물 취급 작업계획서 상세 상태
+  const [heavyDetails, setHeavyDetails] = useState({
+    signalMethod: "무전기 및 표준 수신호",
+    speedLimit: "10km/h 이하",
+    workSequence: "1. 작업 전 장비 점검 및 아웃트리거(지지대) 최대 인출 확인\n2. 작업구역 출입통제선(주차콘) 설치 및 유도자(신호수) 배치\n3. 줄걸이 상태 확인 후 지면 10cm 인양 정지(중심 확인)\n4. 지정 경로로 저속 운반 및 안착 후 줄걸이 해체",
+    itemName: "",
+    itemShape: "원형 파이프 / 철골 구조물",
+    itemSpec: "",
+    totalWeight: "",
+    singleWeight: "",
+    fixingMethod: "2줄 걸이 이상 와이어로프 및 샤클 체결",
+    machineName: "이동식 크레인 / 지게차",
+    machineNo: "",
+    modelName: "",
+    machineSpec: "",
+    capacity: "",
+    radius: "",
+    operatorLicense: "유 (자격증 확인)",
+    insurancePeriod: "",
+    inspectionStatus: "합격 (안전검사 필)",
+    slingingMethod: "2줄 걸이 (각도 60도 이내 유지)",
+    transportDistance: "",
+    slingingGear: "와이어로프, 섬유벨트슬링, 샤클",
+    preWorkHazard: "장비 전도, 줄걸이 용구 파단, 작업구역 내 비인가자 출입",
+    preWorkMeasure: "지반 침하 여부 확인 및 아웃트리거 설치, 와이어로프·샤클 손상 사전 점검, 신호수 배치 및 접근금지 조치",
+    liftingHazard: "중량물 흔들림·낙하, 협착 및 충돌 위험",
+    liftingMeasure: "급격한 선회·권상 금지, 보조로프(유도로프) 사용, 인양물 하부 출입 절대 금지",
+    landingHazard: "안착 시 전도 및 손·발 협착",
+    landingMeasure: "받침목(고임목) 사전 설치, 완전히 안착된 후 줄걸이 해체",
+  });
+  const [heavyPersonnel, setHeavyPersonnel] = useState<HeavyPersonnelRow[]>([
+    { role: "작업지휘자", nameContact: "", location: "작업현장 전반", ppe: "지급완료", license: "-" },
+    { role: "유도자(신호수)", nameContact: "", location: "인양구간 전방", ppe: "지급완료", license: "-" },
+    { role: "조종(운전)자", nameContact: "", location: "장비 운전석", ppe: "지급완료", license: "기중기/지게차" },
+    { role: "작업자", nameContact: "", location: "줄걸이 및 안착위치", ppe: "지급완료", license: "-" },
+  ]);
+  const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
 
   const [trainingPhoto, setTrainingPhoto] = useState<File | null>(null);
   const [signatures, setSignatures] = useState<{ name: string; type: string; data: string }[]>([]);
@@ -38,9 +97,14 @@ export default function PtwApplyPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const ALL_WORK_TYPES = [
-    "일반작업", "화기작업", "제한공간(밀폐)작업", "고소작업",
-    "중량물취급작업", "페인트작업", "굴착작업", "전기작업"
+  const GENERAL_WORK_TYPES = [
+    "일반작업", "화기작업", "페인트작업", "고소작업", "굴착작업", "전기작업"
+  ];
+  const HAZARD_WORK_TYPES = [
+    "제한공간(밀폐)작업", "중량물취급작업", "방사능작업", "환경", "Utility 작업", "석면작업"
+  ];
+  const FIRE_SUPPLEMENTARY_TYPES = [
+    "밀폐공간출입", "정전작업", "굴착작업", "방사선 사용", "고소작업", "중장비 작업"
   ];
 
   useEffect(() => {
@@ -51,6 +115,11 @@ export default function PtwApplyPage() {
         });
     }
   }, []);
+
+  const toggleWorkType = (type: string, checked: boolean) => {
+    if (checked) setForm({ ...form, workTypes: [...form.workTypes, type] });
+    else setForm({ ...form, workTypes: form.workTypes.filter(t => t !== type) });
+  };
 
   const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
@@ -72,7 +141,6 @@ export default function PtwApplyPage() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-
     const { x, y } = getCoords(e, canvas);
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
@@ -82,16 +150,13 @@ export default function PtwApplyPage() {
     setIsDrawing(true);
   };
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
+  const stopDrawing = () => { setIsDrawing(false); };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     const { x, y } = getCoords(e, canvas);
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -100,39 +165,77 @@ export default function PtwApplyPage() {
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const saveSignature = () => {
     if (!signName.trim()) return alert("이름을 입력하세요.");
     if (!canvasRef.current) return;
-
     const dataUrl = canvasRef.current.toDataURL("image/png");
     setSignatures([...signatures, { name: signName.trim(), type: signType, data: dataUrl }]);
     setShowSignModal(false);
     setSignName("");
   };
 
+  async function uploadMultipleFiles(files: File[], folder: string) {
+    const paths: string[] = [];
+    for (const file of files) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${folder}/${crypto.randomUUID()}-${safeName}`;
+      const { error } = await supabase.storage.from("tbm-photos").upload(path, file);
+      if (!error) paths.push(path);
+    }
+    return paths;
+  }
+
   async function submitPtw() {
     if (form.companyType === "internal" && !form.companyId) return setMsg("협력사를 선택하세요.");
     if (form.companyType === "external" && !form.companyName.trim()) return setMsg("외부업체명을 입력하세요.");
     if (!form.projectName.trim() || !form.siteManager.trim() || !form.workContent.trim()) {
-      return setMsg("필수 항목(공사명, 책임자, 작업내용)을 입력하세요.");
+      return setMsg("필수 항목(공사명, 현장관리감독자, 작업내용)을 입력하세요.");
     }
     if (form.workTypes.length === 0) return setMsg("작업 종류를 1개 이상 선택하세요.");
     if (signatures.length === 0) return setMsg("최소 1명 이상의 서약 및 교육 서명이 필요합니다.");
 
     setIsSubmitting(true);
-    setMsg("허가서를 전송하고 있습니다...");
+    setMsg("허가서와 첨부자료를 전송하고 있습니다...");
 
-    let photoPath = null;
+    let photoPath: string | null = null;
     if (form.trainingType === "photo" && trainingPhoto) {
-      const safeName = trainingPhoto.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      photoPath = `ptw-training/${crypto.randomUUID()}-${safeName}`;
-      await supabase.storage.from("tbm-photos").upload(photoPath, trainingPhoto);
+      const uploaded = await uploadMultipleFiles([trainingPhoto], "ptw-training");
+      photoPath = uploaded[0] || null;
     }
+
+    const fireAttachPaths = form.workTypes.includes("화기작업")
+      ? await uploadMultipleFiles(fireFiles, "ptw-fire")
+      : [];
+
+    const heavyDrawPaths = form.workTypes.includes("중량물취급작업")
+      ? await uploadMultipleFiles(heavyFiles, "ptw-heavy")
+      : [];
+
+    const firePayload = {
+      ...(form.workTypes.includes("화기작업") ? {
+        ...fireDetails,
+        fireItems,
+        attachmentPaths: fireAttachPaths,
+        attachmentPath: fireAttachPaths[0] || "",
+      } : {}),
+      _common: {
+        vehicles,
+        specialEnv: form.specialEnv,
+        specialSafety: form.specialSafety,
+      },
+    };
+
+    const heavyPayload = form.workTypes.includes("중량물취급작업")
+      ? {
+          ...heavyDetails,
+          personnel: heavyPersonnel,
+          drawingPaths: heavyDrawPaths,
+          drawingPath: heavyDrawPaths[0] || "",
+        }
+      : {};
 
     const { data: ptwData, error: ptwError } = await supabase.from("ptw_applications").insert({
       company_type: form.companyType,
@@ -149,6 +252,8 @@ export default function PtwApplyPage() {
       work_content: form.workContent,
       safety_gear: form.safetyGear,
       work_types: form.workTypes,
+      fire_work_details: firePayload,
+      heavy_lifting_details: heavyPayload,
       training_type: form.trainingType,
       training_instructor: form.trainingInstructor,
       training_content: form.trainingContent,
@@ -180,10 +285,10 @@ export default function PtwApplyPage() {
         <div className="card">
           <div className="pill ok" style={{ display: "inline-block", marginBottom: 16 }}>신청 완료</div>
           <h2>안전작업허가서가 제출되었습니다.</h2>
-          <p className="muted">관리자 승인 후 작업이 가능합니다.</p>
+          <p className="muted">승인 현황 메뉴에서 허가 여부를 확인하고 양식을 출력하실 수 있습니다.</p>
           <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20 }}>
+            <Link href="/ptw/status" className="btn">승인 현황 바로가기</Link>
             <Link href="/ptw" className="btn secondary">허가서 메인으로</Link>
-            <Link href="/" className="btn">전체 홈으로</Link>
           </div>
         </div>
       </main>
@@ -196,18 +301,20 @@ export default function PtwApplyPage() {
         <div className="brand">DOSCO PTW SYSTEM<small>안전작업허가서 신청</small></div>
         <nav className="nav">
           <Link href="/ptw">허가서 메인</Link>
+          <Link href="/ptw/status">승인 현황</Link>
           <Link href="/">전체 홈</Link>
         </nav>
       </header>
-      <main className="shell" style={{ maxWidth: 700 }}>
+      <main className="shell" style={{ maxWidth: 820 }}>
 
         <div className="pagehead" style={{ marginBottom: 16 }}>
-          <h1>안전작업허가서 (일반)</h1>
-          <p className="muted">아래 항목을 빠짐없이 입력해 주세요.</p>
+          <h1>안전작업허가서 작성 및 요청</h1>
+          <p className="muted">화기작업·중량물취급작업을 선택하면 해당 신청서 및 작업계획서 입력란이 자동으로 펼쳐집니다.</p>
         </div>
 
+        {/* 1. 기본 정보 */}
         <div className="card section">
-          <h3>1. 기본 정보</h3>
+          <h3>1. 기본 정보 (안전작업허가서)</h3>
 
           <div className="formgrid">
             <div className="field">
@@ -232,23 +339,23 @@ export default function PtwApplyPage() {
 
             <div className="field" style={{ gridColumn: "1 / -1" }}>
               <label>공사명 (또는 작업명)</label>
-              <input className="input" value={form.projectName} onChange={e => setForm({ ...form, projectName: e.target.value })} />
+              <input className="input" placeholder="예: 2공장 크레인 레일 보수작업" value={form.projectName} onChange={e => setForm({ ...form, projectName: e.target.value })} />
             </div>
 
             <div className="field">
-              <label>현장 책임자(신청자)</label>
+              <label>현장관리감독자 (작업책임자)</label>
               <input className="input" value={form.siteManager} onChange={e => setForm({ ...form, siteManager: e.target.value })} />
             </div>
             <div className="field">
-              <label>책임자 연락처</label>
-              <input className="input" type="tel" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
+              <label>담당자 연락처 (TEL)</label>
+              <input className="input" type="tel" placeholder="010-0000-0000" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
             </div>
           </div>
 
-          <div className="formgrid" style={{ marginTop: 16 }}>
+          <div className="formgrid" style={{ marginTop: 14 }}>
             <div className="field">
-              <label>작업 위치 (설비명/라인)</label>
-              <input className="input" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
+              <label>작업 장소 (설비명/라인)</label>
+              <input className="input" placeholder="예: 1공장 P5 라인" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
             </div>
             <div className="field">
               <label>작업 인원 (명)</label>
@@ -256,7 +363,7 @@ export default function PtwApplyPage() {
             </div>
           </div>
 
-          <div className="formgrid" style={{ marginTop: 16 }}>
+          <div className="formgrid" style={{ marginTop: 14 }}>
             <div className="field">
               <label>작업 일자</label>
               <input type="date" className="input" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
@@ -273,50 +380,352 @@ export default function PtwApplyPage() {
             </div>
           </div>
 
-          <div className="field" style={{ marginTop: 16 }}>
+          <div className="field" style={{ marginTop: 14 }}>
             <label>안전보호장구</label>
             <input className="input" value={form.safetyGear} onChange={e => setForm({ ...form, safetyGear: e.target.value })} />
           </div>
 
-          <div className="field" style={{ marginTop: 16 }}>
+          <div className="field" style={{ marginTop: 14 }}>
             <label>상세 작업 내용</label>
             <textarea value={form.workContent} onChange={e => setForm({ ...form, workContent: e.target.value })} style={{ height: 80 }} />
           </div>
+
+          {/* 차량 및 중장비 현황 */}
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e5e7eb" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <label style={{ fontWeight: "bold", margin: 0 }}>차량 및 중장비 현황 (해당 시 추가)</label>
+              <button
+                type="button"
+                className="btn secondary"
+                style={{ padding: "6px 12px", fontSize: 13 }}
+                onClick={() => setVehicles([...vehicles, { name: "", count: "1", safetyDevice: "", etc: "" }])}
+              >
+                + 장비 추가
+              </button>
+            </div>
+            {vehicles.map((v, idx) => (
+              <div key={idx} style={{ display: "grid", gridTemplateColumns: "2fr 0.8fr 2fr 1.5fr auto", gap: 6, marginBottom: 8 }}>
+                <input className="input" placeholder="장비명 (예: 지게차)" value={v.name} onChange={e => {
+                  const next = [...vehicles]; next[idx].name = e.target.value; setVehicles(next);
+                }} />
+                <input className="input" placeholder="수량" value={v.count} onChange={e => {
+                  const next = [...vehicles]; next[idx].count = e.target.value; setVehicles(next);
+                }} />
+                <input className="input" placeholder="안전장치명" value={v.safetyDevice} onChange={e => {
+                  const next = [...vehicles]; next[idx].safetyDevice = e.target.value; setVehicles(next);
+                }} />
+                <input className="input" placeholder="기타장비/비고" value={v.etc} onChange={e => {
+                  const next = [...vehicles]; next[idx].etc = e.target.value; setVehicles(next);
+                }} />
+                <button type="button" className="btn secondary" style={{ padding: "0 10px" }} onClick={() => setVehicles(vehicles.filter((_, i) => i !== idx))}>삭제</button>
+              </div>
+            ))}
+          </div>
+
+          {/* 특별요구사항 */}
+          <div className="formgrid" style={{ marginTop: 12 }}>
+            <div className="field">
+              <label>특별요구사항 (환경)</label>
+              <input className="input" placeholder="폐기물·분진·폐수 등 환경 주의사항 (없으면 공란)" value={form.specialEnv} onChange={e => setForm({ ...form, specialEnv: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>특별요구사항 (안전)</label>
+              <input className="input" placeholder="추가 안전 요구사항 (없으면 공란)" value={form.specialSafety} onChange={e => setForm({ ...form, specialSafety: e.target.value })} />
+            </div>
+          </div>
         </div>
 
+        {/* 2. 작업 종류 선택 */}
         <div className="card section">
-          <h3>2. 작업 종류 선택 (다중 선택 가능)</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-            {ALL_WORK_TYPES.map(type => (
-              <label key={type} className="checkrow" style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={form.workTypes.includes(type)}
-                  onChange={(e) => {
-                    if (e.target.checked) setForm({ ...form, workTypes: [...form.workTypes, type] });
-                    else setForm({ ...form, workTypes: form.workTypes.filter(t => t !== type) });
-                  }}
-                />
-                <span>{type}</span>
+          <h3>2. 작업 종류 및 위험작업 선택 (다중 선택 가능)</h3>
+          <div style={{ fontSize: 13, fontWeight: "bold", marginTop: 10, marginBottom: 6 }}>[작업종류]</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+            {GENERAL_WORK_TYPES.map(type => (
+              <label key={type} className="checkrow" style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, margin: 0, background: form.workTypes.includes(type) ? "#eff6ff" : "#fff" }}>
+                <input type="checkbox" checked={form.workTypes.includes(type)} onChange={e => toggleWorkType(type, e.target.checked)} />
+                <span><b>{type}</b></span>
+              </label>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 13, fontWeight: "bold", marginTop: 14, marginBottom: 6 }}>[위험작업 구분]</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 10 }}>
+            {HAZARD_WORK_TYPES.map(type => (
+              <label key={type} className="checkrow" style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, margin: 0, background: form.workTypes.includes(type) ? "#eff6ff" : "#fff" }}>
+                <input type="checkbox" checked={form.workTypes.includes(type)} onChange={e => toggleWorkType(type, e.target.checked)} />
+                <span><b>{type}</b></span>
               </label>
             ))}
           </div>
         </div>
 
+        {/* 화기작업 선택 시 자동 확장 양식 */}
         {form.workTypes.includes("화기작업") && (
-          <div className="card section" style={{ border: "2px solid #eab308" }}>
-            <h3 style={{ color: "#ca8a04" }}>🔥 화기취급작업 신청서 추가 대상</h3>
-            <p className="muted" style={{ marginBottom: 0 }}>화기작업이 선택되었습니다. 제출 시 화기작업 허가 대상으로 표시됩니다.</p>
+          <div className="card section" style={{ border: "2px solid #eab308", background: "#fefce8" }}>
+            <h3 style={{ color: "#a16207", marginTop: 0 }}>🔥 화기취급작업 신청서 및 화기현황</h3>
+            <p className="muted" style={{ marginBottom: 14 }}>작업명칭·기간·장소·책임자는 상단 기본 정보와 자동 연동됩니다.</p>
+
+            <div className="formgrid">
+              <div className="field">
+                <label>화기 작업종류</label>
+                <input className="input" placeholder="예: 전기용접, 산소절단, 그라인더" value={fireDetails.fireWorkType} onChange={e => setFireDetails({ ...fireDetails, fireWorkType: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>화재감시자 성명</label>
+                <input className="input" placeholder="화재감시자 이름 입력" value={fireDetails.fireWatcher} onChange={e => setFireDetails({ ...fireDetails, fireWatcher: e.target.value })} />
+              </div>
+            </div>
+
+            {/* 화기현황 표 */}
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontWeight: "bold", margin: 0 }}>화기현황 (사용 화기 및 안전장치)</label>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  style={{ padding: "5px 10px", fontSize: 12 }}
+                  onClick={() => setFireItems([...fireItems, { name: "", count: "1", safetyDevice: "", working: "양호", note: "" }])}
+                >
+                  + 화기 추가
+                </button>
+              </div>
+              {fireItems.map((item, idx) => (
+                <div key={idx} style={{ display: "grid", gridTemplateColumns: "2fr 0.7fr 2fr 1fr 1.2fr auto", gap: 6, marginBottom: 6 }}>
+                  <input className="input" placeholder="화기명" value={item.name} onChange={e => {
+                    const next = [...fireItems]; next[idx].name = e.target.value; setFireItems(next);
+                  }} />
+                  <input className="input" placeholder="수량" value={item.count} onChange={e => {
+                    const next = [...fireItems]; next[idx].count = e.target.value; setFireItems(next);
+                  }} />
+                  <input className="input" placeholder="안전장치명" value={item.safetyDevice} onChange={e => {
+                    const next = [...fireItems]; next[idx].safetyDevice = e.target.value; setFireItems(next);
+                  }} />
+                  <select className="input" value={item.working} onChange={e => {
+                    const next = [...fireItems]; next[idx].working = e.target.value; setFireItems(next);
+                  }}>
+                    <option value="양호">작동:양호</option>
+                    <option value="불량">작동:불량</option>
+                  </select>
+                  <input className="input" placeholder="비고" value={item.note} onChange={e => {
+                    const next = [...fireItems]; next[idx].note = e.target.value; setFireItems(next);
+                  }} />
+                  <button type="button" className="btn secondary" style={{ padding: "0 8px" }} onClick={() => setFireItems(fireItems.filter((_, i) => i !== idx))}>삭제</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>작업절차 및 안전조치 내용</label>
+              <textarea style={{ height: 85 }} value={fireDetails.procedure} onChange={e => setFireDetails({ ...fireDetails, procedure: e.target.value })} />
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>보충작업 필요여부 (해당 시 체크)</label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginTop: 6 }}>
+                {FIRE_SUPPLEMENTARY_TYPES.map(sub => (
+                  <label key={sub} className="checkrow" style={{ fontSize: 13, margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={fireDetails.supplementaryWorks.includes(sub)}
+                      onChange={e => {
+                        if (e.target.checked) setFireDetails({ ...fireDetails, supplementaryWorks: [...fireDetails.supplementaryWorks, sub] });
+                        else setFireDetails({ ...fireDetails, supplementaryWorks: fireDetails.supplementaryWorks.filter(s => s !== sub) });
+                      }}
+                    />
+                    <span>{sub}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>첨부자료 (작업자 명단, 장비목록, 도면 등 여러 장 선택 가능)</label>
+              <input type="file" accept="image/*" multiple onChange={e => setFireFiles(Array.from(e.target.files || []))} />
+              {fireFiles.length > 0 && <div style={{ fontSize: 12, color: "#15803d", marginTop: 4 }}>선택된 파일: {fireFiles.length}개</div>}
+            </div>
           </div>
         )}
 
+        {/* 중량물취급작업 선택 시 자동 확장 양식 */}
         {form.workTypes.includes("중량물취급작업") && (
-          <div className="card section" style={{ border: "2px solid #3b82f6" }}>
-            <h3 style={{ color: "#2563eb" }}>🏗️ 중량물 취급 작업계획서 추가 대상</h3>
-            <p className="muted" style={{ marginBottom: 0 }}>중량물취급작업이 선택되었습니다. 제출 시 중량물 작업계획 대상으로 표시됩니다.</p>
+          <div className="card section" style={{ border: "2px solid #2563eb", background: "#eff6ff" }}>
+            <h3 style={{ color: "#1d4ed8", marginTop: 0 }}>🏗️ 중량물 취급 작업계획서</h3>
+            <p className="muted" style={{ marginBottom: 14 }}>작업명·일시·장소·책임자는 상단 기본 정보와 자동 연동됩니다.</p>
+
+            {/* ① 작업개요 및 작업인원 */}
+            <h4 style={{ marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>① 작업개요 및 직책별 배치 인원</h4>
+            <div className="formgrid">
+              <div className="field">
+                <label>신호방법</label>
+                <input className="input" value={heavyDetails.signalMethod} onChange={e => setHeavyDetails({ ...heavyDetails, signalMethod: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>제한속도</label>
+                <input className="input" value={heavyDetails.speedLimit} onChange={e => setHeavyDetails({ ...heavyDetails, speedLimit: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontWeight: "bold", margin: 0 }}>직책별 작업인원 배치</label>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  style={{ padding: "5px 10px", fontSize: 12 }}
+                  onClick={() => setHeavyPersonnel([...heavyPersonnel, { role: "작업자", nameContact: "", location: "", ppe: "지급완료", license: "-" }])}
+                >
+                  + 인원 추가
+                </button>
+              </div>
+              {heavyPersonnel.map((p, idx) => (
+                <div key={idx} style={{ display: "grid", gridTemplateColumns: "1.3fr 2fr 1.5fr 1fr 1.2fr auto", gap: 6, marginBottom: 6 }}>
+                  <select className="input" value={p.role} onChange={e => {
+                    const next = [...heavyPersonnel]; next[idx].role = e.target.value; setHeavyPersonnel(next);
+                  }}>
+                    <option value="작업지휘자">작업지휘자</option>
+                    <option value="유도자(신호수)">유도자(신호수)</option>
+                    <option value="조종(운전)자">조종(운전)자</option>
+                    <option value="작업자">작업자</option>
+                  </select>
+                  <input className="input" placeholder="성명 및 연락처" value={p.nameContact} onChange={e => {
+                    const next = [...heavyPersonnel]; next[idx].nameContact = e.target.value; setHeavyPersonnel(next);
+                  }} />
+                  <input className="input" placeholder="작업위치" value={p.location} onChange={e => {
+                    const next = [...heavyPersonnel]; next[idx].location = e.target.value; setHeavyPersonnel(next);
+                  }} />
+                  <input className="input" placeholder="보호구" value={p.ppe} onChange={e => {
+                    const next = [...heavyPersonnel]; next[idx].ppe = e.target.value; setHeavyPersonnel(next);
+                  }} />
+                  <input className="input" placeholder="필요자격" value={p.license} onChange={e => {
+                    const next = [...heavyPersonnel]; next[idx].license = e.target.value; setHeavyPersonnel(next);
+                  }} />
+                  <button type="button" className="btn secondary" style={{ padding: "0 8px" }} onClick={() => setHeavyPersonnel(heavyPersonnel.filter((_, i) => i !== idx))}>삭제</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>다. 작업순서</label>
+              <textarea style={{ height: 90 }} value={heavyDetails.workSequence} onChange={e => setHeavyDetails({ ...heavyDetails, workSequence: e.target.value })} />
+            </div>
+
+            {/* ② 중량물 제원 */}
+            <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>② 중량물 제원</h4>
+            <div className="formgrid">
+              <div className="field">
+                <label>품명</label>
+                <input className="input" placeholder="예: 조관기 롤 스탠드" value={heavyDetails.itemName} onChange={e => setHeavyDetails({ ...heavyDetails, itemName: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>중량물 형상</label>
+                <input className="input" value={heavyDetails.itemShape} onChange={e => setHeavyDetails({ ...heavyDetails, itemShape: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>중량물 규격</label>
+                <input className="input" placeholder="예: 2,000 × 1,500 × 1,200 mm" value={heavyDetails.itemSpec} onChange={e => setHeavyDetails({ ...heavyDetails, itemSpec: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>중량 / 1회 운반중량</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" placeholder="총중량 (예: 5톤)" value={heavyDetails.totalWeight} onChange={e => setHeavyDetails({ ...heavyDetails, totalWeight: e.target.value })} />
+                  <input className="input" placeholder="1회 (예: 2.5톤)" value={heavyDetails.singleWeight} onChange={e => setHeavyDetails({ ...heavyDetails, singleWeight: e.target.value })} />
+                </div>
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>고정방법</label>
+                <input className="input" value={heavyDetails.fixingMethod} onChange={e => setHeavyDetails({ ...heavyDetails, fixingMethod: e.target.value })} />
+              </div>
+            </div>
+
+            {/* ③ 기계제원 */}
+            <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>③ 기계(장비) 제원</h4>
+            <div className="formgrid">
+              <div className="field">
+                <label>기계명(장비)</label>
+                <input className="input" placeholder="예: 25톤 이동식 크레인" value={heavyDetails.machineName} onChange={e => setHeavyDetails({ ...heavyDetails, machineName: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>기계번호 (차량번호)</label>
+                <input className="input" placeholder="예: 06가 1234" value={heavyDetails.machineNo} onChange={e => setHeavyDetails({ ...heavyDetails, machineNo: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>모델명 / 기계규격</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" placeholder="모델명" value={heavyDetails.modelName} onChange={e => setHeavyDetails({ ...heavyDetails, modelName: e.target.value })} />
+                  <input className="input" placeholder="규격(톤수)" value={heavyDetails.machineSpec} onChange={e => setHeavyDetails({ ...heavyDetails, machineSpec: e.target.value })} />
+                </div>
+              </div>
+              <div className="field">
+                <label>작업능력 / 작업가능 반경</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" placeholder="작업능력" value={heavyDetails.capacity} onChange={e => setHeavyDetails({ ...heavyDetails, capacity: e.target.value })} />
+                  <input className="input" placeholder="반경(예: 10m)" value={heavyDetails.radius} onChange={e => setHeavyDetails({ ...heavyDetails, radius: e.target.value })} />
+                </div>
+              </div>
+              <div className="field">
+                <label>조종(운전)자격</label>
+                <input className="input" value={heavyDetails.operatorLicense} onChange={e => setHeavyDetails({ ...heavyDetails, operatorLicense: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>보험기간 / 검사여부</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" placeholder="보험기간" value={heavyDetails.insurancePeriod} onChange={e => setHeavyDetails({ ...heavyDetails, insurancePeriod: e.target.value })} />
+                  <input className="input" placeholder="검사여부" value={heavyDetails.inspectionStatus} onChange={e => setHeavyDetails({ ...heavyDetails, inspectionStatus: e.target.value })} />
+                </div>
+              </div>
+              <div className="field">
+                <label>줄걸이 방법 / 운반거리</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" placeholder="줄걸이 방법" value={heavyDetails.slingingMethod} onChange={e => setHeavyDetails({ ...heavyDetails, slingingMethod: e.target.value })} />
+                  <input className="input" placeholder="거리(예: 15m)" value={heavyDetails.transportDistance} onChange={e => setHeavyDetails({ ...heavyDetails, transportDistance: e.target.value })} />
+                </div>
+              </div>
+              <div className="field">
+                <label>줄걸이 용구 (달기구)</label>
+                <input className="input" value={heavyDetails.slingingGear} onChange={e => setHeavyDetails({ ...heavyDetails, slingingGear: e.target.value })} />
+              </div>
+            </div>
+
+            {/* ④ 재해예방대책 */}
+            <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>④ 재해예방대책 (유해·위험요인 및 예방대책)</h4>
+            <div className="formgrid">
+              <div className="field">
+                <label>[작업 전] 유해·위험요인</label>
+                <input className="input" value={heavyDetails.preWorkHazard} onChange={e => setHeavyDetails({ ...heavyDetails, preWorkHazard: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>[작업 전] 재해예방대책</label>
+                <input className="input" value={heavyDetails.preWorkMeasure} onChange={e => setHeavyDetails({ ...heavyDetails, preWorkMeasure: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>[운반(인양)] 유해·위험요인</label>
+                <input className="input" value={heavyDetails.liftingHazard} onChange={e => setHeavyDetails({ ...heavyDetails, liftingHazard: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>[운반(인양)] 재해예방대책</label>
+                <input className="input" value={heavyDetails.liftingMeasure} onChange={e => setHeavyDetails({ ...heavyDetails, liftingMeasure: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>[인양물 안착] 유해·위험요인</label>
+                <input className="input" value={heavyDetails.landingHazard} onChange={e => setHeavyDetails({ ...heavyDetails, landingHazard: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>[인양물 안착] 재해예방대책</label>
+                <input className="input" value={heavyDetails.landingMeasure} onChange={e => setHeavyDetails({ ...heavyDetails, landingMeasure: e.target.value })} />
+              </div>
+            </div>
+
+            {/* ⑤ 운반경로 및 붙임자료 */}
+            <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>⑤ 운반경로(작업도면) 및 기타 붙임자료</h4>
+            <div className="field">
+              <label>작업도면 / 장비 제원표 / 자격증·보험증 사진 첨부 (여러 장 선택 가능)</label>
+              <input type="file" accept="image/*" multiple onChange={e => setHeavyFiles(Array.from(e.target.files || []))} />
+              {heavyFiles.length > 0 && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 4 }}>선택된 파일: {heavyFiles.length}개</div>}
+            </div>
           </div>
         )}
 
+        {/* 3. 안전교육일지 첨부 */}
         <div className="card section">
           <h3>3. 안전교육일지 첨부</h3>
 
@@ -344,14 +753,27 @@ export default function PtwApplyPage() {
           )}
         </div>
 
+        {/* 4. 안전관리 준수 서약 및 서명 */}
         <div className="card section">
           <h3>4. 안전관리 준수 서약 및 서명</h3>
-          <div style={{ background: "#f8f9fa", padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.6, maxHeight: 150, overflowY: "auto", marginBottom: 16, border: "1px solid #ddd" }}>
-            <b>상기 본인은 아래 안전수칙을 성실히 이행할 것을 서약합니다.</b><br />
-            1. 작업허가신청서를 작성 및 승인 득한 후 작업한다.<br />
-            2. 작업자에 필요한 안전보건교육을 실시 후 작업한다.<br />
-            3. 보호구(안전모, 안전화 등) 착용 후 작업한다.<br />
-            (이하 16개 항목 전체 준수 동의)
+          <div style={{ background: "#f8f9fa", padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.6, maxHeight: 160, overflowY: "auto", marginBottom: 16, border: "1px solid #ddd" }}>
+            <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.</b><br />
+            01. 도급공사 관련 작업허가신청서를 작성·제출하여 공장장의 승인을 득한 후 작업한다.<br />
+            02. 작업자에 필요한 안전보건교육을 실시 후 작업한다.<br />
+            03. 작업현장 내 작업 시 보호구(안전헬멧, 안전화) 착용하여 작업한다.<br />
+            04. 고소작업, 전기작업, 화기작업(용접, 절단 등)의 안전수칙 준수하여 작업한다.<br />
+            05. 작업 전에는 반드시 작업준비 상태를 점검 및 위험예지훈련(TBM)을 실시한다.<br />
+            06. 작업현장 내 모든 위험작업의 수행은 위험성평가를 실시한 후 작업한다.<br />
+            07. 사다리 작업 시 최상부에는 올라가서 작업하지 않는다.<br />
+            08. 작업현장에 대한 안전점검을 실시하고 안전점검표 작성·보관한다.<br />
+            09. 밀폐공간출입, 중량물 취급, 굴착작업은 안전수칙을 준수하여 작업한다.<br />
+            10. 중장비 사용 시 사용승인을 받고, 신호수 배치하여 작업한다.<br />
+            11. 작업현장 내 작업 시 안전장치나 안전시설물은 임의로 해체하지 않는다.<br />
+            12. 작업현장 정리정돈 철저, 흡연구역 이외의 흡연행위 금지한다.<br />
+            13. 작업 시 산업안전보건법, 중대재해처벌법 등 기타 관련법규를 준수하여 작업한다.<br />
+            14. 안전보건공단에서 Guide하는 안전수칙 준수한다.<br />
+            15. 귀사 안전·보건에 관한 요구사항 준수하여 이행한다.<br />
+            16. 상기 내용을 지키지 않을 경우 작업을 중지한다.
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>

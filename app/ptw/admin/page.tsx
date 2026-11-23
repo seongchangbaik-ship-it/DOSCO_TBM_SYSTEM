@@ -28,6 +28,8 @@ type PtwApplication = {
   work_content: string;
   safety_gear: string;
   work_types: string[];
+  fire_work_details?: Record<string, any>;
+  heavy_lifting_details?: Record<string, any>;
   training_type: string;
   training_instructor: string;
   training_content: string;
@@ -47,6 +49,8 @@ export default function PtwAdminPage() {
   const [items, setItems] = useState<PtwApplication[]>([]);
   const [selectedItem, setSelectedItem] = useState<PtwApplication | null>(null);
   const [trainingPhotoUrl, setTrainingPhotoUrl] = useState<string>("");
+  const [fireAttachUrls, setFireAttachUrls] = useState<string[]>([]);
+  const [heavyDrawingUrls, setHeavyDrawingUrls] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
   async function verifyAdmin() {
@@ -140,14 +144,34 @@ export default function PtwAdminPage() {
     loadPtwList();
   }
 
+  async function getSignedFileUrl(path?: string | null) {
+    if (!path) return "";
+    const { data } = await supabase.storage.from("tbm-photos").createSignedUrl(path, 3600);
+    return data?.signedUrl || "";
+  }
+
   async function openDetail(item: PtwApplication) {
     setSelectedItem(item);
     setTrainingPhotoUrl("");
+    setFireAttachUrls([]);
+    setHeavyDrawingUrls([]);
+
     if (item.training_type === "photo" && item.training_photo_path) {
-      const { data } = await supabase.storage
-        .from("tbm-photos")
-        .createSignedUrl(item.training_photo_path, 3600);
-      if (data?.signedUrl) setTrainingPhotoUrl(data.signedUrl);
+      setTrainingPhotoUrl(await getSignedFileUrl(item.training_photo_path));
+    }
+
+    const fPaths: string[] = item.fire_work_details?.attachmentPaths ||
+      (item.fire_work_details?.attachmentPath ? [item.fire_work_details.attachmentPath] : []);
+    if (fPaths.length > 0) {
+      const urls = await Promise.all(fPaths.map(p => getSignedFileUrl(p)));
+      setFireAttachUrls(urls.filter(Boolean));
+    }
+
+    const hPaths: string[] = item.heavy_lifting_details?.drawingPaths ||
+      (item.heavy_lifting_details?.drawingPath ? [item.heavy_lifting_details.drawingPath] : []);
+    if (hPaths.length > 0) {
+      const urls = await Promise.all(hPaths.map(p => getSignedFileUrl(p)));
+      setHeavyDrawingUrls(urls.filter(Boolean));
     }
   }
 
@@ -156,10 +180,10 @@ export default function PtwAdminPage() {
     const ws = wb.addWorksheet("안전작업허가서");
 
     ws.columns = [
-      { width: 14 },
+      { width: 15 },
       { width: 22 },
       { width: 16 },
-      { width: 16 },
+      { width: 20 },
       { width: 14 },
       { width: 18 },
     ];
@@ -170,6 +194,10 @@ export default function PtwAdminPage() {
       bottom: { style: "thin" },
       right: { style: "thin" },
     };
+
+    const common = item.fire_work_details?._common || {};
+    const vehicles = common.vehicles || [];
+    const fireItems = item.fire_work_details?.fireItems || [];
 
     ws.mergeCells("A1:C2");
     ws.getCell("A1").value = "안 전 작 업 허 가 서";
@@ -209,11 +237,11 @@ export default function PtwAdminPage() {
 
     ws.getCell("A5").value = "작업종류";
     ws.mergeCells("B5:F5");
-    ws.getCell("B5").value = `${chk("일반작업")}   ${chk("화기작업")}   ${chk("페인트작업")}   ${chk("고소작업")}   ${chk("굴착작업")}   ${chk("전기작업")}`;
+    ws.getCell("B5").value = `${chk("일반작업")}  ${chk("화기작업")}  ${chk("페인트작업")}  ${chk("고소작업")}  ${chk("굴착작업")}  ${chk("전기작업")}`;
 
     ws.getCell("A6").value = "위험작업";
     ws.mergeCells("B6:F6");
-    ws.getCell("B6").value = `${chk("제한공간(밀폐)작업")}   ${chk("중량물취급작업")}`;
+    ws.getCell("B6").value = `${chk("제한공간(밀폐)작업")}  ${chk("중량물취급작업")}  ${chk("방사능작업")}  ${chk("환경")}  ${chk("Utility 작업")}  ${chk("석면작업")}`;
 
     ws.mergeCells("A7:A8");
     ws.getCell("A7").value = "작업내용";
@@ -227,7 +255,7 @@ export default function PtwAdminPage() {
     ws.mergeCells("E8:F8");
     ws.getCell("E8").value = item.safety_gear || "";
     ws.getCell("E8").alignment = { vertical: "top", wrapText: true };
-    ws.getRow(8).height = 70;
+    ws.getRow(8).height = 65;
 
     ws.getCell("A9").value = "작업일자";
     ws.mergeCells("B9:F9");
@@ -244,18 +272,41 @@ export default function PtwAdminPage() {
     ws.mergeCells("B11:F11");
     ws.getCell("B11").value = item.work_location || "";
 
-    ws.mergeCells("A12:F12");
-    ws.getCell("A12").value = "상기와 같이 작업을 허가하오니 안전수칙을 준수하여 재해, 화재 및 환경오염 사고 발생하지 않도록 철저히 준수하시기 바랍니다.";
-    ws.getRow(12).height = 30;
-    ws.getCell("A12").alignment = { wrapText: true, vertical: "middle" };
+    // 화기현황 요약 행
+    ws.getCell("A12").value = "화기현황";
+    ws.mergeCells("B12:F12");
+    ws.getCell("B12").value = fireItems.length > 0
+      ? fireItems.map((f: any) => `${f.name}(${f.count}대, 안전장치:${f.safetyDevice}, ${f.working})`).join(" / ")
+      : "해당없음";
 
-    ws.mergeCells("A13:C13");
-    ws.getCell("A13").value = `승인상태 : ${item.status === "approved" ? "허가완료" : item.status === "rejected" ? "반려" : "승인대기"}`;
-    ws.mergeCells("D13:F13");
-    ws.getCell("D13").value = `신청자 : ${item.site_manager} (서명완료)`;
-    ws.getRow(13).height = 28;
+    // 차량 및 중장비 현황 요약 행
+    ws.getCell("A13").value = "차량·중장비";
+    ws.mergeCells("B13:F13");
+    ws.getCell("B13").value = vehicles.length > 0
+      ? vehicles.map((v: any) => `${v.name}(${v.count}대, 안전장치:${v.safetyDevice})`).join(" / ")
+      : "해당없음";
 
-    for (let r = 4; r <= 13; r++) {
+    // 특별요구사항
+    ws.getCell("A14").value = "특별요구(환경)";
+    ws.mergeCells("B14:F14");
+    ws.getCell("B14").value = common.specialEnv || "";
+
+    ws.getCell("A15").value = "특별요구(안전)";
+    ws.mergeCells("B15:F15");
+    ws.getCell("B15").value = common.specialSafety || "";
+
+    ws.mergeCells("A16:F16");
+    ws.getCell("A16").value = "상기와 같이 작업을 허가하오니 안전수칙을 준수하여 재해, 화재 및 환경오염 사고 발생하지 않도록 철저히 준수하시기 바랍니다.";
+    ws.getRow(16).height = 28;
+    ws.getCell("A16").alignment = { wrapText: true, vertical: "middle" };
+
+    ws.mergeCells("A17:C17");
+    ws.getCell("A17").value = `승인상태 : ${item.status === "approved" ? "허가완료" : item.status === "rejected" ? "반려" : "승인대기"}`;
+    ws.mergeCells("D17:F17");
+    ws.getCell("D17").value = `신청자 : ${item.site_manager} (서명완료)`;
+    ws.getRow(17).height = 26;
+
+    for (let r = 4; r <= 17; r++) {
       for (let c = 1; c <= 6; c++) {
         const cell = ws.getRow(r).getCell(c);
         cell.border = thinBorder;
@@ -267,6 +318,68 @@ export default function PtwAdminPage() {
       }
     }
 
+    // 화기작업 시트
+    if (types.includes("화기작업") && item.fire_work_details) {
+      const f = item.fire_work_details;
+      const fSheet = wb.addWorksheet("화기취급작업 신청서");
+      fSheet.columns = [{ width: 18 }, { width: 55 }];
+      const fRows = [
+        ["작업명칭", item.project_name],
+        ["작업기간", `${item.work_date} ${item.starts_at?.slice(0, 5)} ~ ${item.ends_at?.slice(0, 5)}`],
+        ["작업장소", item.work_location],
+        ["작업 책임자", `${item.site_manager} (${item.contact_number || ""})`],
+        ["화재감시자", f.fireWatcher || ""],
+        ["작업종류", f.fireWorkType || ""],
+        ["화기현황", fireItems.map((fi: any) => `${fi.name} / 수량:${fi.count} / 안전장치:${fi.safetyDevice} / 작동:${fi.working} / ${fi.note}`).join("\n")],
+        ["작업절차", f.procedure || ""],
+        ["보충작업 필요여부", (f.supplementaryWorks || []).join(", ") || "해당없음"],
+      ];
+      fRows.forEach(([k, v]) => {
+        const row = fSheet.addRow([k, v]);
+        row.getCell(1).font = { bold: true };
+        row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
+        row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
+      });
+    }
+
+    // 중량물작업 시트
+    if (types.includes("중량물취급작업") && item.heavy_lifting_details) {
+      const h = item.heavy_lifting_details;
+      const hSheet = wb.addWorksheet("중량물 취급 작업계획서");
+      hSheet.columns = [{ width: 22 }, { width: 55 }];
+      const personnelText = (h.personnel || [])
+        .map((p: any) => `[${p.role}] ${p.nameContact} / 위치:${p.location} / 보호구:${p.ppe} / 자격:${p.license}`)
+        .join("\n");
+      const hRows = [
+        ["작업명", item.project_name],
+        ["작업일시 / 장소", `${item.work_date} (${item.starts_at?.slice(0, 5)}~${item.ends_at?.slice(0, 5)}) / ${item.work_location}`],
+        ["신호방법 / 제한속도", `${h.signalMethod || ""} / ${h.speedLimit || ""}`],
+        ["직책별 작업인원", personnelText],
+        ["작업순서", h.workSequence || ""],
+        ["중량물 품명 / 형상", `${h.itemName || ""} / ${h.itemShape || ""}`],
+        ["중량물 규격", h.itemSpec || ""],
+        ["총중량 / 1회 운반중량", `${h.totalWeight || ""} / ${h.singleWeight || ""}`],
+        ["고정방법", h.fixingMethod || ""],
+        ["기계명 / 기계번호", `${h.machineName || ""} / ${h.machineNo || ""}`],
+        ["모델명 / 규격", `${h.modelName || ""} / ${h.machineSpec || ""}`],
+        ["작업능력 / 반경", `${h.capacity || ""} / ${h.radius || ""}`],
+        ["조종(운전)자격", h.operatorLicense || ""],
+        ["보험기간 / 검사여부", `${h.insurancePeriod || ""} / ${h.inspectionStatus || ""}`],
+        ["줄걸이 방법 / 운반거리", `${h.slingingMethod || ""} / ${h.transportDistance || ""}`],
+        ["줄걸이 용구(달기구)", h.slingingGear || ""],
+        ["[작업 전] 위험요인 / 대책", `${h.preWorkHazard || ""} → ${h.preWorkMeasure || ""}`],
+        ["[운반(인양)] 위험요인 / 대책", `${h.liftingHazard || ""} → ${h.liftingMeasure || ""}`],
+        ["[인양물 안착] 위험요인 / 대책", `${h.landingHazard || ""} → ${h.landingMeasure || ""}`],
+      ];
+      hRows.forEach(([k, v]) => {
+        const row = hSheet.addRow([k, v]);
+        row.getCell(1).font = { bold: true };
+        row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
+        row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
+      });
+    }
+
+    // 참여자 서약 명단 시트
     const sigSheet = wb.addWorksheet("서약 및 교육 서명명단");
     sigSheet.columns = [
       { header: "구분", key: "type", width: 15 },
@@ -319,6 +432,11 @@ export default function PtwAdminPage() {
   const pendingCount = items.filter(i => i.status === "pending").length;
   const approvedCount = items.filter(i => i.status === "approved").length;
 
+  const commonExtra = selectedItem?.fire_work_details?._common || {};
+  const selectedVehicles: any[] = commonExtra.vehicles || [];
+  const selectedFireItems: any[] = selectedItem?.fire_work_details?.fireItems || [];
+  const selectedHeavyPersonnel: any[] = selectedItem?.heavy_lifting_details?.personnel || [];
+
   return (
     <div>
       <style>{`
@@ -327,6 +445,7 @@ export default function PtwAdminPage() {
           #print-area, #print-area * { visibility: visible; }
           #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; box-shadow: none !important; }
           .no-print { display: none !important; }
+          .page-break { page-break-before: always; margin-top: 24px; }
         }
       `}</style>
 
@@ -421,7 +540,7 @@ export default function PtwAdminPage() {
 
       {selectedItem && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, overflowY: "auto", padding: 20 }}>
-          <div className="card" style={{ maxWidth: 800, margin: "0 auto", background: "#fff" }}>
+          <div className="card" style={{ maxWidth: 840, margin: "0 auto", background: "#fff" }}>
             <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #ddd" }}>
               <div style={{ display: "flex", gap: 8 }}>
                 {selectedItem.status !== "approved" && (
@@ -434,74 +553,299 @@ export default function PtwAdminPage() {
             </div>
 
             <div id="print-area" style={{ padding: 10 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 13 }}>
+              {/* 1. 기본 안전작업허가서 */}
+              <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 12 }}>
                 <tbody>
                   <tr>
-                    <td colSpan={4} rowSpan={2} style={{ border: "1px solid #000", textAlign: "center", fontSize: 22, fontWeight: "bold", padding: 12 }}>
+                    <td colSpan={4} rowSpan={2} style={{ border: "1px solid #000", textAlign: "center", fontSize: 22, fontWeight: "bold", padding: 10 }}>
                       안 전 작 업 허 가 서
-                      <div style={{ fontSize: 13, fontWeight: "normal", marginTop: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: "normal", marginTop: 4 }}>
                         (공사명 : {selectedItem.project_name})
                       </div>
                     </td>
-                    <td style={{ border: "1px solid #000", textAlign: "center", width: 70, fontWeight: "bold" }}>담당</td>
-                    <td style={{ border: "1px solid #000", textAlign: "center", width: 70, fontWeight: "bold" }}>확인</td>
-                    <td style={{ border: "1px solid #000", textAlign: "center", width: 70, fontWeight: "bold" }}>공장장</td>
+                    <td style={{ border: "1px solid #000", textAlign: "center", width: 65, fontWeight: "bold" }}>담당</td>
+                    <td style={{ border: "1px solid #000", textAlign: "center", width: 65, fontWeight: "bold" }}>확인</td>
+                    <td style={{ border: "1px solid #000", textAlign: "center", width: 65, fontWeight: "bold" }}>공장장</td>
                   </tr>
                   <tr>
-                    <td style={{ border: "1px solid #000", height: 55, textAlign: "center", fontWeight: "bold", color: "#15803d" }}>
+                    <td style={{ border: "1px solid #000", height: 50, textAlign: "center", fontWeight: "bold", color: "#15803d" }}>
                       {selectedItem.status === "approved" ? "승인완료" : ""}
                     </td>
-                    <td style={{ border: "1px solid #000", height: 55 }}></td>
-                    <td style={{ border: "1px solid #000", height: 55 }}></td>
+                    <td style={{ border: "1px solid #000", height: 50 }}></td>
+                    <td style={{ border: "1px solid #000", height: 50 }}></td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8, width: 110 }}>업체명</th>
-                    <td style={{ border: "1px solid #000", padding: 8 }}>{getCompanyName(selectedItem)}</td>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8, width: 120 }}>현장관리감독자</th>
-                    <td style={{ border: "1px solid #000", padding: 8 }}>{selectedItem.site_manager}</td>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8 }}>TEL</th>
-                    <td colSpan={2} style={{ border: "1px solid #000", padding: 8 }}>{selectedItem.contact_number}</td>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, width: 105 }}>업체명</th>
+                    <td style={{ border: "1px solid #000", padding: 6 }}>{getCompanyName(selectedItem)}</td>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, width: 110 }}>현장관리감독자</th>
+                    <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.site_manager}</td>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>TEL</th>
+                    <td colSpan={2} style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.contact_number}</td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8 }}>작업종류</th>
-                    <td colSpan={6} style={{ border: "1px solid #000", padding: 8 }}>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업종류</th>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: 6 }}>
                       {(selectedItem.work_types || []).join(" / ")}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8, height: 110 }}>작업내용</th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8, verticalAlign: "top", whiteSpace: "pre-wrap" }}>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, height: 85 }}>작업내용</th>
+                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6, verticalAlign: "top", whiteSpace: "pre-wrap" }}>
                       {selectedItem.work_content}
                     </td>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8, verticalAlign: "top" }}>
-                      <div style={{ fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: 4, marginBottom: 6, textAlign: "center" }}>안전보호장구</div>
+                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6, verticalAlign: "top" }}>
+                      <div style={{ fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: 3, marginBottom: 4, textAlign: "center" }}>안전보호장구</div>
                       {selectedItem.safety_gear}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8 }}>작업일자</th>
-                    <td colSpan={6} style={{ border: "1px solid #000", padding: 8 }}>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업일자</th>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: 6 }}>
                       {selectedItem.work_date} ({selectedItem.starts_at?.slice(0, 5)} ~ {selectedItem.ends_at?.slice(0, 5)})
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8 }}>작업인원</th>
-                    <td colSpan={2} style={{ border: "1px solid #000", padding: 8 }}>{selectedItem.worker_count} 명</td>
-                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 8 }}>작업장소</th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>{selectedItem.work_location}</td>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업인원</th>
+                    <td colSpan={2} style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.worker_count} 명</td>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업장소</th>
+                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.work_location}</td>
+                  </tr>
+                  {/* 화기현황 표 */}
+                  <tr>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>화기현황</th>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: 0 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: "#f9fafb" }}>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>화기명</th>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4, width: 50 }}>수량</th>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>안전장치명</th>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4, width: 65 }}>작동유무</th>
+                            <th style={{ borderBottom: "1px solid #000", padding: 4 }}>비고</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedFireItems.length > 0 ? selectedFireItems.map((fi, i) => (
+                            <tr key={i}>
+                              <td style={{ borderRight: "1px solid #000", padding: 4 }}>{fi.name}</td>
+                              <td style={{ borderRight: "1px solid #000", padding: 4, textAlign: "center" }}>{fi.count}</td>
+                              <td style={{ borderRight: "1px solid #000", padding: 4 }}>{fi.safetyDevice}</td>
+                              <td style={{ borderRight: "1px solid #000", padding: 4, textAlign: "center" }}>{fi.working}</td>
+                              <td style={{ padding: 4 }}>{fi.note}</td>
+                            </tr>
+                          )) : (
+                            <tr><td colSpan={5} style={{ padding: 4, textAlign: "center", color: "#666" }}>해당없음</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  {/* 차량 및 중장비 현황 표 */}
+                  <tr>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>차량·중장비</th>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: 0 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: "#f9fafb" }}>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>장비명</th>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4, width: 50 }}>수량</th>
+                            <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>안전장치명</th>
+                            <th style={{ borderBottom: "1px solid #000", padding: 4 }}>기타장비/비고</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedVehicles.length > 0 ? selectedVehicles.map((v, i) => (
+                            <tr key={i}>
+                              <td style={{ borderRight: "1px solid #000", padding: 4 }}>{v.name}</td>
+                              <td style={{ borderRight: "1px solid #000", padding: 4, textAlign: "center" }}>{v.count}</td>
+                              <td style={{ borderRight: "1px solid #000", padding: 4 }}>{v.safetyDevice}</td>
+                              <td style={{ padding: 4 }}>{v.etc}</td>
+                            </tr>
+                          )) : (
+                            <tr><td colSpan={4} style={{ padding: 4, textAlign: "center", color: "#666" }}>해당없음</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </td>
                   </tr>
                   <tr>
-                    <td colSpan={7} style={{ border: "1px solid #000", padding: 10 }}>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>특별요구(환경)</th>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: 6 }}>{commonExtra.specialEnv || "-"}</td>
+                  </tr>
+                  <tr>
+                    <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>특별요구(안전)</th>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: 6 }}>{commonExtra.specialSafety || "-"}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={7} style={{ border: "1px solid #000", padding: 8 }}>
                       상기와 같이 작업을 허가하오니 안전수칙을 준수하여 재해, 화재 및 환경오염 사고 발생하지 않도록 철저히 준수하시기 바랍니다.
                     </td>
                   </tr>
                 </tbody>
               </table>
 
+              {/* 2. 화기취급작업 신청서 */}
+              {(selectedItem.work_types || []).includes("화기작업") && selectedItem.fire_work_details && (
+                <div className="page-break" style={{ marginTop: 20 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 12 }}>
+                    <tbody>
+                      <tr>
+                        <th colSpan={4} style={{ border: "1px solid #000", background: "#374151", color: "#fff", padding: 8, fontSize: 15 }}>
+                          화 기 취 급 작 업 신 청 서
+                        </th>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, width: 120 }}>작업명칭</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.project_name}</td>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, width: 120 }}>화재감시자</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.fire_work_details.fireWatcher || "-"}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>화기 작업종류</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.fire_work_details.fireWorkType || "-"}</td>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>보충작업</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>
+                          {(selectedItem.fire_work_details.supplementaryWorks || []).join(", ") || "해당없음"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업절차</th>
+                        <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap" }}>
+                          {selectedItem.fire_work_details.procedure || "-"}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  {fireAttachUrls.length > 0 && (
+                    <div style={{ marginTop: 8, border: "1px solid #000", padding: 8 }}>
+                      <div style={{ fontWeight: "bold", fontSize: 12, marginBottom: 6 }}>[화기작업 첨부자료]</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {fireAttachUrls.map((url, idx) => (
+                          <img key={idx} src={url} alt="화기 첨부" style={{ maxHeight: 200, border: "1px solid #ccc" }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. 중량물 취급 작업계획서 */}
+              {(selectedItem.work_types || []).includes("중량물취급작업") && selectedItem.heavy_lifting_details && (
+                <div className="page-break" style={{ marginTop: 20 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 12 }}>
+                    <tbody>
+                      <tr>
+                        <th colSpan={4} style={{ border: "1px solid #000", background: "#1e3a8a", color: "#fff", padding: 8, fontSize: 15 }}>
+                          중 량 물 취 급 작 업 계 획 서
+                        </th>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, width: 125 }}>신호방법</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.signalMethod}</td>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6, width: 125 }}>제한속도</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.speedLimit}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>직책별 작업인원</th>
+                        <td colSpan={3} style={{ border: "1px solid #000", padding: 0 }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                            <thead>
+                              <tr style={{ background: "#f9fafb" }}>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>직책</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>성명 및 연락처</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>작업위치</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 4 }}>보호구</th>
+                                <th style={{ borderBottom: "1px solid #000", padding: 4 }}>필요자격</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedHeavyPersonnel.map((p, i) => (
+                                <tr key={i}>
+                                  <td style={{ borderRight: "1px solid #000", padding: 4 }}>{p.role}</td>
+                                  <td style={{ borderRight: "1px solid #000", padding: 4 }}>{p.nameContact}</td>
+                                  <td style={{ borderRight: "1px solid #000", padding: 4 }}>{p.location}</td>
+                                  <td style={{ borderRight: "1px solid #000", padding: 4 }}>{p.ppe}</td>
+                                  <td style={{ padding: 4 }}>{p.license}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업순서</th>
+                        <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap" }}>
+                          {selectedItem.heavy_lifting_details.workSequence}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#e5e7eb", padding: 6 }}>중량물 품명/형상</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.itemName} ({selectedItem.heavy_lifting_details.itemShape})</td>
+                        <th style={{ border: "1px solid #000", background: "#e5e7eb", padding: 6 }}>총중량 / 1회중량</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.totalWeight} / {selectedItem.heavy_lifting_details.singleWeight}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#e5e7eb", padding: 6 }}>중량물 규격</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.itemSpec}</td>
+                        <th style={{ border: "1px solid #000", background: "#e5e7eb", padding: 6 }}>고정방법</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.fixingMethod}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>기계명 / 번호</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.machineName} ({selectedItem.heavy_lifting_details.machineNo})</td>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>모델 / 규격</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.modelName} / {selectedItem.heavy_lifting_details.machineSpec}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업능력 / 반경</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.capacity} / {selectedItem.heavy_lifting_details.radius}</td>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>조종자격 / 검사</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.operatorLicense} / {selectedItem.heavy_lifting_details.inspectionStatus}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>보험기간 / 운반거리</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.insurancePeriod} / {selectedItem.heavy_lifting_details.transportDistance}</td>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>줄걸이 방법/용구</th>
+                        <td style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.heavy_lifting_details.slingingMethod} / {selectedItem.heavy_lifting_details.slingingGear}</td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업 전 예방대책</th>
+                        <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
+                          <b>[위험요인]</b> {selectedItem.heavy_lifting_details.preWorkHazard} / <b>[대책]</b> {selectedItem.heavy_lifting_details.preWorkMeasure}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>운반(인양) 대책</th>
+                        <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
+                          <b>[위험요인]</b> {selectedItem.heavy_lifting_details.liftingHazard} / <b>[대책]</b> {selectedItem.heavy_lifting_details.liftingMeasure}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>안착작업 대책</th>
+                        <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
+                          <b>[위험요인]</b> {selectedItem.heavy_lifting_details.landingHazard} / <b>[대책]</b> {selectedItem.heavy_lifting_details.landingMeasure}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  {heavyDrawingUrls.length > 0 && (
+                    <div style={{ marginTop: 8, border: "1px solid #000", padding: 8 }}>
+                      <div style={{ fontWeight: "bold", fontSize: 12, marginBottom: 6 }}>[운반경로(작업도면) 및 기타 붙임자료]</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {heavyDrawingUrls.map((url, idx) => (
+                          <img key={idx} src={url} alt="작업도면" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 4. 교육일지 및 서약 서명란 */}
               <div style={{ marginTop: 16, border: "1px solid #000", padding: 10 }}>
                 <div style={{ fontWeight: "bold", marginBottom: 6 }}>[안전교육일지 및 참여자 서약 서명]</div>
                 {selectedItem.training_type === "form" ? (
-                  <div style={{ fontSize: 13, marginBottom: 10, whiteSpace: "pre-wrap" }}>
+                  <div style={{ fontSize: 12, marginBottom: 10, whiteSpace: "pre-wrap" }}>
                     <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
                     <b>교육내용:</b><br />{selectedItem.training_content}
                   </div>
