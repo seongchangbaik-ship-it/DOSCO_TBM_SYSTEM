@@ -292,13 +292,13 @@ export default function PtwAdminPage() {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("안전작업허가서");
 
-    ws.columns = [
+ws.columns = [
       { width: 15 },
       { width: 22 },
       { width: 16 },
-      { width: 20 },
-      { width: 14 },
-      { width: 18 },
+      { width: 22 },
+      { width: 22 },
+      { width: 22 },
     ];
 
     const thinBorder: Partial<ExcelJS.Borders> = {
@@ -767,10 +767,9 @@ ws.getRow(2).height = 56;
                           (공사명 : {selectedItem.project_name})
                         </div>
                       </td>
-                      <td style={{ border: "1px solid #000", textAlign: "center", width: 60, fontWeight: "bold", padding: 4 }}>담당</td>
-                      <td style={{ border: "1px solid #000", textAlign: "center", width: 60, fontWeight: "bold", padding: 4 }}>확인</td>
-                      <td style={{ border: "1px solid #000", textAlign: "center", width: 60, fontWeight: "bold", padding: 4 }}>공장장</td>
-                    </tr>
+<td style={{ border: "1px solid #000", textAlign: "center", width: 90, fontWeight: "bold", padding: 4 }}>담당</td>
+                      <td style={{ border: "1px solid #000", textAlign: "center", width: 90, fontWeight: "bold", padding: 4 }}>확인</td>
+                      <td style={{ border: "1px solid #000", textAlign: "center", width: 90, fontWeight: "bold", padding: 4 }}>공장장</td>                    </tr>
 <tr>
                     <td style={{ border: "1px solid #000", height: 70 }}></td>
                     <td style={{ border: "1px solid #000", height: 70 }}></td>
