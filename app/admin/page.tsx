@@ -478,16 +478,24 @@ if(!isAdmin)return (
         로그인
       </button>
 
-<button
-  className="btn secondary"
-  style={{width:"100%",marginTop:10}}
-  onClick={sendResetEmail}
-  disabled={resetSending}
->
-  {resetSending ? "메일 발송 중..." : "비밀번호 찾기"}
-</button>
+      <button
+        className="btn secondary"
+        style={{width:"100%",marginTop:10}}
+        onClick={sendResetEmail}
+        disabled={resetSending}
+      >
+        {resetSending ? "메일 발송 중..." : "비밀번호 찾기"}
+      </button>
 
-      {loginMsg&&<p style={{color:"#b33",fontSize:13}}>{loginMsg}</p>}
+      <Link
+        href="/"
+        className="btn secondary"
+        style={{display:"block", width:"100%", marginTop:10, textAlign:"center", textDecoration:"none"}}
+      >
+        홈으로 돌아가기
+      </Link>
+
+      {loginMsg&&<p style={{color:"#b33",fontSize:13,marginTop:10}}>{loginMsg}</p>}
     </div>
   </main>
 );

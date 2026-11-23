@@ -25,6 +25,7 @@ export default function TBMPage(){
  const [team,setTeam]=useState("");
  const [name,setName]=useState("");
  const [week,setWeek]=useState<Week|null>(null);
+ const [weeks,setWeeks]=useState<Week[]>([]);
  const [photoUrls,setPhotoUrls]=useState<string[]>([]);
  const [ack,setAck]=useState([false,false,false]);
  const [done,setDone]=useState(false);
@@ -40,7 +41,7 @@ export default function TBMPage(){
     const [c,t,w]=await Promise.all([
       supabase.from("companies").select("id,name").eq("active",true).order("name"),
       supabase.from("teams").select("id,name,company_id").eq("active",true).order("name"),
-      supabase.from("tbm_weeks").select("*").eq("is_published",true).order("starts_at",{ascending:false}).limit(1).maybeSingle()
+      supabase.from("tbm_weeks").select("*").eq("is_published",true).order("starts_at",{ascending:false})
     ]);
 
 const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
