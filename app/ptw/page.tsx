@@ -174,19 +174,21 @@ export default function PtwPage() {
     setIsSubmitting(false);
   }
 
-  if (submitted) return (
-    <main className="shell" style={{ maxWidth: 600, paddingTop: 40, textAlign: "center" }}>
-      <div className="card">
-        <div className="pill ok" style={{ display: "inline-block", marginBottom: 16 }}>신청 완료</div>
-        <h2>안전작업허가서가 제출되었습니다.</h2>
-        <p className="muted">관리자 승인 후 작업이 가능합니다.</p>
-        <Link href="/" className="btn" style={{ marginTop: 20 }}>홈으로 돌아가기</Link>
-      </div>
-    </main>
-  );
+  if (submitted) {
+    return (
+      <main className="shell" style={{ maxWidth: 600, paddingTop: 40, textAlign: "center" }}>
+        <div className="card">
+          <div className="pill ok" style={{ display: "inline-block", marginBottom: 16 }}>신청 완료</div>
+          <h2>안전작업허가서가 제출되었습니다.</h2>
+          <p className="muted">관리자 승인 후 작업이 가능합니다.</p>
+          <Link href="/" className="btn" style={{ marginTop: 20 }}>홈으로 돌아가기</Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <>
+    <div>
       <header className="topbar">
         <div className="brand">DOSCO PTW SYSTEM<small>안전작업허가서 신청</small></div>
         <nav className="nav"><Link href="/">홈</Link></nav>
@@ -303,4 +305,92 @@ export default function PtwPage() {
 
           <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
             <label className="checkrow"><input type="radio" checked={form.trainingType === "form"} onChange={() => setForm({ ...form, trainingType: "form" })} /> 화면 직접 작성</label>
-            <label className="check
+            <label className="checkrow"><input type="radio" checked={form.trainingType === "photo"} onChange={() => setForm({ ...form, trainingType: "photo" })} /> 종이일지 사진 촬영</label>
+          </div>
+
+          {form.trainingType === "form" ? (
+            <div className="formgrid">
+              <div className="field">
+                <label>교육 강사 (현장관리감독자)</label>
+                <input className="input" value={form.trainingInstructor} onChange={e => setForm({ ...form, trainingInstructor: e.target.value })} />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>안전 교육 내용</label>
+                <textarea value={form.trainingContent} onChange={e => setForm({ ...form, trainingContent: e.target.value })} style={{ height: 100 }} />
+              </div>
+            </div>
+          ) : (
+            <div className="field">
+              <label>안전교육일지 사진 첨부</label>
+              <input type="file" accept="image/*" capture="environment" onChange={e => setTrainingPhoto(e.target.files?.[0] || null)} />
+            </div>
+          )}
+        </div>
+
+        <div className="card section">
+          <h3>4. 안전관리 준수 서약 및 서명</h3>
+          <div style={{ background: "#f8f9fa", padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.6, maxHeight: 150, overflowY: "auto", marginBottom: 16, border: "1px solid #ddd" }}>
+            <b>상기 본인은 아래 안전수칙을 성실히 이행할 것을 서약합니다.</b><br />
+            1. 작업허가신청서를 작성 및 승인 득한 후 작업한다.<br />
+            2. 작업자에 필요한 안전보건교육을 실시 후 작업한다.<br />
+            3. 보호구(안전모, 안전화 등) 착용 후 작업한다.<br />
+            (이하 16개 항목 전체 준수 동의)
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            {signatures.map((sig, idx) => (
+              <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 8, textAlign: "center", width: 120 }}>
+                <img src={sig.data} alt="서명" style={{ width: "100%", height: 60, objectFit: "contain", background: "#f1f1f1", borderRadius: 4 }} />
+                <div style={{ marginTop: 4, fontSize: 12 }}><b>{sig.name}</b> ({sig.type})</div>
+              </div>
+            ))}
+
+            <button type="button" className="btn secondary" style={{ width: 120, height: 95 }} onClick={() => setShowSignModal(true)}>
+              + 서명 추가
+            </button>
+          </div>
+        </div>
+
+        <button type="button" className="btn" style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: 60 }} onClick={submitPtw} disabled={isSubmitting}>
+          {isSubmitting ? "전송 중..." : "안전작업허가서 제출 (승인 요청)"}
+        </button>
+
+        {msg && <p style={{ color: "#b33", textAlign: "center", marginBottom: 40 }}>{msg}</p>}
+
+        {showSignModal && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div className="card" style={{ width: "100%", maxWidth: 400 }}>
+              <h3>작업자 전자 서명</h3>
+
+              <div className="field" style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                <select className="input" value={signType} onChange={e => setSignType(e.target.value)} style={{ width: 100 }}>
+                  <option value="대표자">대표자</option>
+                  <option value="근로자">근로자</option>
+                </select>
+                <input className="input" placeholder="이름 입력" value={signName} onChange={e => setSignName(e.target.value)} style={{ flex: 1 }} />
+              </div>
+
+              <div style={{ border: "2px dashed #ccc", borderRadius: 8, background: "#fafafa", marginBottom: 16 }}>
+                <canvas
+                  ref={canvasRef} width={360} height={150}
+                  style={{ width: "100%", height: 150, touchAction: "none" }}
+                  onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 12px 8px" }}>
+                  <span style={{ fontSize: 12, color: "#888" }}>이곳에 손가락으로 서명하세요</span>
+                  <button type="button" className="btn secondary" style={{ padding: "4px 8px", fontSize: 12 }} onClick={clearCanvas}>지우기</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={() => setShowSignModal(false)}>취소</button>
+                <button type="button" className="btn" style={{ flex: 1 }} onClick={saveSignature}>서명 완료</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
