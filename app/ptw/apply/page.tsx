@@ -354,7 +354,7 @@ export default function PtwApplyPage() {
         </div>
       </main>
     );
-  }
+}
 
   return (
     <div>
