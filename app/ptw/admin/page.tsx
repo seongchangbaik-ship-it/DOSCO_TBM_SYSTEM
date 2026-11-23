@@ -381,6 +381,55 @@ export default function PtwAdminPage() {
       }
     }
 
+const appendImagesToSheet = async (sheet: ExcelJS.Worksheet, paths: string[], label: string) => {
+      if (!paths || paths.length === 0) return;
+      sheet.addRow([]);
+      const titleRow = sheet.addRow([label]);
+      titleRow.font = { bold: true };
+
+      for (const p of paths) {
+        const url = await getSignedFileUrl(p);
+        if (!url) continue;
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          const ext: "png" | "jpeg" | "gif" =
+            blob.type.includes("png") ? "png" : blob.type.includes("gif") ? "gif" : "jpeg";
+
+          const base64: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          const dims: { w: number; h: number } = await new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => {
+              const maxW = 480;
+              const ratio = img.width > maxW ? maxW / img.width : 1;
+              resolve({ w: Math.round(img.width * ratio), h: Math.round(img.height * ratio) });
+            };
+            img.onerror = () => resolve({ w: 420, h: 280 });
+            img.src = base64;
+          });
+
+          const imgId = wb.addImage({ base64, extension: ext });
+          const startRow = sheet.rowCount;
+          const neededRows = Math.ceil(dims.h / 20) + 1;
+          for (let i = 0; i < neededRows; i++) {
+            sheet.addRow([]);
+          }
+          sheet.addImage(imgId, {
+            tl: { col: 0, row: startRow },
+            ext: { width: dims.w, height: dims.h },
+          });
+        } catch (err) {
+          console.error("엑셀 이미지 삽입 오류:", err);
+        }
+      }
+    };
+
     if (types.includes("화기작업") && item.fire_work_details) {
       const f = item.fire_work_details;
       const fSheet = wb.addWorksheet("화기취급작업 신청서");
@@ -402,6 +451,8 @@ export default function PtwAdminPage() {
         row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
         row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
       });
+      const fPaths: string[] = f.attachmentPaths || (f.attachmentPath ? [f.attachmentPath] : []);
+      await appendImagesToSheet(fSheet, fPaths, "[화기작업 첨부자료]");
     }
 
     if (types.includes("중량물취급작업") && item.heavy_lifting_details) {
@@ -432,6 +483,15 @@ export default function PtwAdminPage() {
         ["[운반(인양)] 위험요인 / 대책", `${h.liftingHazard || ""} → ${h.liftingMeasure || ""}`],
         ["[인양물 안착] 위험요인 / 대책", `${h.landingHazard || ""} → ${h.landingMeasure || ""}`],
       ];
+      hRows.forEach(([k, v]) => {
+        const row = hSheet.addRow([k, v]);
+        row.getCell(1).font = { bold: true };
+        row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
+        row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
+      });
+      const hPaths: string[] = h.drawingPaths || (h.drawingPath ? [h.drawingPath] : []);
+      await appendImagesToSheet(hSheet, hPaths, "[운반경로(작업도면) 및 기타 붙임자료]");
+    }
       hRows.forEach(([k, v]) => {
         const row = hSheet.addRow([k, v]);
         row.getCell(1).font = { bold: true };
@@ -523,16 +583,18 @@ export default function PtwAdminPage() {
 
   return (
     <div>
-      <style>{`
+<style>{`
         @page {
           size: A4 portrait;
-          margin: 10mm;
+          margin: 0;
         }
         @media print {
           html, body {
             height: auto !important;
             overflow: visible !important;
             background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .no-print {
             display: none !important;
@@ -557,14 +619,15 @@ export default function PtwAdminPage() {
           #print-area {
             position: static !important;
             width: 100% !important;
-            padding: 0 !important;
+            padding: 10mm !important;
+            box-sizing: border-box !important;
             overflow: visible !important;
           }
           .page-break {
             break-before: page !important;
             page-break-before: always !important;
             margin-top: 0 !important;
-            padding-top: 2px !important;
+            padding-top: 10mm !important;
           }
         }
       `}</style>

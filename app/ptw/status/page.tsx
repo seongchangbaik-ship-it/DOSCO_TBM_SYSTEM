@@ -146,16 +146,18 @@ export default function PtwStatusPage() {
 
   return (
     <div>
-      <style>{`
+<style>{`
         @page {
           size: A4 portrait;
-          margin: 10mm;
+          margin: 0;
         }
         @media print {
           html, body {
             height: auto !important;
             overflow: visible !important;
             background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .no-print {
             display: none !important;
@@ -180,14 +182,15 @@ export default function PtwStatusPage() {
           #print-area {
             position: static !important;
             width: 100% !important;
-            padding: 0 !important;
+            padding: 10mm !important;
+            box-sizing: border-box !important;
             overflow: visible !important;
           }
           .page-break {
             break-before: page !important;
             page-break-before: always !important;
             margin-top: 0 !important;
-            padding-top: 2px !important;
+            padding-top: 10mm !important;
           }
         }
       `}</style>
