@@ -1097,6 +1097,46 @@ export default function PtwAdminPage() {
           </div>
         </div>
 )}
+
+      {/* 반려 사유 입력 팝업 모달 */}
+      {rejectTargetId && (
+        <div className="no-print" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 440, background: "#fff" }}>
+            <h3 style={{ color: "#b91c1c", marginTop: 0 }}>안전작업허가서 반려 처리</h3>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+              입력하신 반려 사유는 근로자가 보는 <b>승인 현황</b> 화면의 반려 상태 옆에 그대로 표시됩니다.
+            </p>
+            <div className="field">
+              <label>반려 사유 입력</label>
+              <textarea
+                placeholder="예: 화재감시자 성명 누락 및 작업도면 첨부 보완 요망"
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                style={{ height: 90 }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button
+                type="button"
+                className="btn secondary"
+                style={{ flex: 1 }}
+                onClick={() => { setRejectTargetId(null); setRejectReason(""); }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ flex: 1, background: "#b91c1c", borderColor: "#b91c1c" }}
+                onClick={confirmReject}
+              >
+                확인 (반려 확정)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
