@@ -35,6 +35,7 @@ type PtwApplication = {
   training_content: string;
   training_photo_path: string | null;
   status: string;
+  rejection_reason?: string | null;
   created_at: string;
   ptw_signatures?: PtwSignature[];
 };
@@ -52,6 +53,10 @@ export default function PtwAdminPage() {
   const [fireAttachUrls, setFireAttachUrls] = useState<string[]>([]);
   const [heavyDrawingUrls, setHeavyDrawingUrls] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
+
+  // 반려 사유 입력 모달 상태
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   async function verifyAdmin() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -124,23 +129,54 @@ export default function PtwAdminPage() {
     return item.company_name || "외부업체";
   }
 
-  async function updateStatus(id: string, status: "approved" | "rejected") {
-    const label = status === "approved" ? "허가 승인" : "반려";
-    if (!window.confirm(`해당 작업허가서를 '${label}' 처리하시겠습니까?`)) return;
+  async function approvePtw(id: string) {
+    if (!window.confirm("해당 작업허가서를 '허가 승인' 처리하시겠습니까?")) return;
 
     const { error } = await supabase
       .from("ptw_applications")
-      .update({ status })
+      .update({ status: "approved", rejection_reason: null })
       .eq("id", id);
 
     if (error) {
       setMsg("상태 변경 실패: " + error.message);
       return;
     }
-    setMsg(`${label} 처리가 완료되었습니다.`);
+    setMsg("허가 승인 처리가 완료되었습니다.");
     if (selectedItem && selectedItem.id === id) {
-      setSelectedItem({ ...selectedItem, status });
+      setSelectedItem({ ...selectedItem, status: "approved", rejection_reason: null });
     }
+    loadPtwList();
+  }
+
+  function openRejectModal(id: string, currentReason?: string | null) {
+    setRejectTargetId(id);
+    setRejectReason(currentReason || "");
+  }
+
+  async function confirmReject() {
+    if (!rejectTargetId) return;
+    const trimmedReason = rejectReason.trim();
+    if (!trimmedReason) {
+      alert("반려 사유를 입력해 주세요.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("ptw_applications")
+      .update({ status: "rejected", rejection_reason: trimmedReason })
+      .eq("id", rejectTargetId);
+
+    if (error) {
+      setMsg("반려 처리 실패: " + error.message);
+      return;
+    }
+
+    setMsg("반려 처리가 완료되었습니다.");
+    if (selectedItem && selectedItem.id === rejectTargetId) {
+      setSelectedItem({ ...selectedItem, status: "rejected", rejection_reason: trimmedReason });
+    }
+    setRejectTargetId(null);
+    setRejectReason("");
     loadPtwList();
   }
 
@@ -272,21 +308,18 @@ export default function PtwAdminPage() {
     ws.mergeCells("B11:F11");
     ws.getCell("B11").value = item.work_location || "";
 
-    // 화기현황 요약 행
     ws.getCell("A12").value = "화기현황";
     ws.mergeCells("B12:F12");
     ws.getCell("B12").value = fireItems.length > 0
       ? fireItems.map((f: any) => `${f.name}(${f.count}대, 안전장치:${f.safetyDevice}, ${f.working})`).join(" / ")
       : "해당없음";
 
-    // 차량 및 중장비 현황 요약 행
     ws.getCell("A13").value = "차량·중장비";
     ws.mergeCells("B13:F13");
     ws.getCell("B13").value = vehicles.length > 0
       ? vehicles.map((v: any) => `${v.name}(${v.count}대, 안전장치:${v.safetyDevice})`).join(" / ")
       : "해당없음";
 
-    // 특별요구사항
     ws.getCell("A14").value = "특별요구(환경)";
     ws.mergeCells("B14:F14");
     ws.getCell("B14").value = common.specialEnv || "";
@@ -301,7 +334,7 @@ export default function PtwAdminPage() {
     ws.getCell("A16").alignment = { wrapText: true, vertical: "middle" };
 
     ws.mergeCells("A17:C17");
-    ws.getCell("A17").value = `승인상태 : ${item.status === "approved" ? "허가완료" : item.status === "rejected" ? "반려" : "승인대기"}`;
+    ws.getCell("A17").value = `승인상태 : ${item.status === "approved" ? "허가완료" : item.status === "rejected" ? `반려 (${item.rejection_reason || ""})` : "승인대기"}`;
     ws.mergeCells("D17:F17");
     ws.getCell("D17").value = `신청자 : ${item.site_manager} (서명완료)`;
     ws.getRow(17).height = 26;
@@ -318,7 +351,6 @@ export default function PtwAdminPage() {
       }
     }
 
-    // 화기작업 시트
     if (types.includes("화기작업") && item.fire_work_details) {
       const f = item.fire_work_details;
       const fSheet = wb.addWorksheet("화기취급작업 신청서");
@@ -342,7 +374,6 @@ export default function PtwAdminPage() {
       });
     }
 
-    // 중량물작업 시트
     if (types.includes("중량물취급작업") && item.heavy_lifting_details) {
       const h = item.heavy_lifting_details;
       const hSheet = wb.addWorksheet("중량물 취급 작업계획서");
@@ -379,7 +410,6 @@ export default function PtwAdminPage() {
       });
     }
 
-    // 참여자 서약 명단 시트
     const sigSheet = wb.addWorksheet("서약 및 교육 서명명단");
     sigSheet.columns = [
       { header: "구분", key: "type", width: 15 },
@@ -463,7 +493,7 @@ export default function PtwAdminPage() {
         <div className="pagehead">
           <div>
             <h1>안전작업허가서 승인 및 출력 관리</h1>
-            <div className="muted">제출된 허가서를 검토·승인하고 양식 엑셀 또는 PDF로 출력합니다.</div>
+            <div className="muted">제출된 허가서를 검토·승인 또는 반려하고 양식 엑셀·PDF로 출력합니다.</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn secondary" onClick={loadPtwList}>새로고침</button>
@@ -500,7 +530,7 @@ export default function PtwAdminPage() {
                   <th>작업종류</th>
                   <th>책임자</th>
                   <th>상태</th>
-                  <th>승인 및 양식 출력</th>
+                  <th>승인 / 반려 / 출력</th>
                 </tr>
               </thead>
               <tbody>
@@ -514,15 +544,29 @@ export default function PtwAdminPage() {
                     <td>
                       {item.status === "approved" && <span className="pill ok">허가완료</span>}
                       {item.status === "pending" && <span className="pill wait">승인대기</span>}
-                      {item.status === "rejected" && <span className="pill" style={{ background: "#fee2e2", color: "#b91c1c" }}>반려</span>}
+                      {item.status === "rejected" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span className="pill" style={{ background: "#fee2e2", color: "#b91c1c" }}>반려</span>
+                          {item.rejection_reason && (
+                            <span style={{ fontSize: 12, color: "#b91c1c" }}>({item.rejection_reason})</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="btn secondary" onClick={() => openDetail(item)}>상세/출력</button>
                         <button className="btn secondary" onClick={() => downloadPermitExcel(item)}>엑셀</button>
                         {item.status !== "approved" && (
-                          <button className="btn" onClick={() => updateStatus(item.id, "approved")}>승인</button>
+                          <button className="btn" onClick={() => approvePtw(item.id)}>승인</button>
                         )}
+                        <button
+                          className="btn secondary"
+                          style={{ color: "#b91c1c", borderColor: "#fca5a5" }}
+                          onClick={() => openRejectModal(item.id, item.rejection_reason)}
+                        >
+                          반려
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -538,19 +582,33 @@ export default function PtwAdminPage() {
         </div>
       </main>
 
+      {/* 상세 보기 및 A4 인쇄/PDF 모달 */}
       {selectedItem && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, overflowY: "auto", padding: 20 }}>
           <div className="card" style={{ maxWidth: 840, margin: "0 auto", background: "#fff" }}>
-            <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #ddd" }}>
-              <div style={{ display: "flex", gap: 8 }}>
+            <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #ddd", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {selectedItem.status !== "approved" && (
-                  <button className="btn" onClick={() => updateStatus(selectedItem.id, "approved")}>허가 승인 처리</button>
+                  <button className="btn" onClick={() => approvePtw(selectedItem.id)}>허가 승인 처리</button>
                 )}
+                <button
+                  className="btn secondary"
+                  style={{ color: "#b91c1c", borderColor: "#fca5a5" }}
+                  onClick={() => openRejectModal(selectedItem.id, selectedItem.rejection_reason)}
+                >
+                  반려 처리
+                </button>
                 <button className="btn secondary" onClick={() => window.print()}>A4 인쇄 / PDF 저장</button>
                 <button className="btn secondary" onClick={() => downloadPermitExcel(selectedItem)}>엑셀 양식 다운로드</button>
               </div>
               <button className="btn secondary" onClick={() => setSelectedItem(null)}>닫기</button>
             </div>
+
+            {selectedItem.status === "rejected" && (
+              <div className="no-print" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>
+                <b>[반려 상태]</b> 사유: {selectedItem.rejection_reason || "사유 미입력"}
+              </div>
+            )}
 
             <div id="print-area" style={{ padding: 10 }}>
               {/* 1. 기본 안전작업허가서 */}
@@ -610,7 +668,6 @@ export default function PtwAdminPage() {
                     <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>작업장소</th>
                     <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{selectedItem.work_location}</td>
                   </tr>
-                  {/* 화기현황 표 */}
                   <tr>
                     <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>화기현황</th>
                     <td colSpan={6} style={{ border: "1px solid #000", padding: 0 }}>
@@ -640,7 +697,6 @@ export default function PtwAdminPage() {
                       </table>
                     </td>
                   </tr>
-                  {/* 차량 및 중장비 현황 표 */}
                   <tr>
                     <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: 6 }}>차량·중장비</th>
                     <td colSpan={6} style={{ border: "1px solid #000", padding: 0 }}>
@@ -868,6 +924,46 @@ export default function PtwAdminPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 반려 사유 입력 팝업 모달 */}
+      {rejectTargetId && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 440, background: "#fff" }}>
+            <h3 style={{ color: "#b91c1c", marginTop: 0 }}>안전작업허가서 반려 처리</h3>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+              입력하신 반려 사유는 근로자가 보는 <b>승인 현황</b> 화면의 반려 상태 옆에 그대로 표시됩니다.
+            </p>
+            <div className="field">
+              <label>반려 사유 입력</label>
+              <textarea
+                placeholder="예: 화재감시자 성명 누락 및 작업도면 첨부 보완 요망"
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                style={{ height: 90 }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button
+                type="button"
+                className="btn secondary"
+                style={{ flex: 1 }}
+                onClick={() => { setRejectTargetId(null); setRejectReason(""); }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ flex: 1, background: "#b91c1c", borderColor: "#b91c1c" }}
+                onClick={confirmReject}
+              >
+                확인 (반려 확정)
+              </button>
             </div>
           </div>
         </div>

@@ -34,6 +34,7 @@ type PtwApplication = {
   training_content: string;
   training_photo_path: string | null;
   status: string;
+  rejection_reason?: string | null;
   created_at: string;
   ptw_signatures?: PtwSignature[];
 };
@@ -142,7 +143,7 @@ export default function PtwStatusPage() {
           <div>
             <h1>안전작업허가서 승인 현황</h1>
             <div className="muted">
-              제출한 허가서의 승인 여부(승인대기·허가완료)를 확인하고 상세/출력 버튼으로 현장 비치용 허가서를 인쇄할 수 있습니다.
+              제출한 허가서의 승인 여부(승인대기·허가완료·반려 사유)를 확인하고 상세/출력 버튼으로 현장 비치용 허가서를 인쇄할 수 있습니다.
             </div>
           </div>
           <button className="btn secondary" onClick={loadPtwList}>새로고침</button>
@@ -181,7 +182,16 @@ export default function PtwStatusPage() {
                       <td>
                         {item.status === "approved" && <span className="pill ok">허가완료</span>}
                         {item.status === "pending" && <span className="pill wait">승인대기</span>}
-                        {item.status === "rejected" && <span className="pill" style={{ background: "#fee2e2", color: "#b91c1c" }}>반려</span>}
+                        {item.status === "rejected" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span className="pill" style={{ background: "#fee2e2", color: "#b91c1c" }}>반려</span>
+                            {item.rejection_reason && (
+                              <span style={{ fontSize: 12, color: "#b91c1c", fontWeight: 500 }}>
+                                사유: {item.rejection_reason}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <button className="btn secondary" onClick={() => openDetail(item)}>상세/출력</button>
@@ -206,6 +216,12 @@ export default function PtwStatusPage() {
               <button className="btn" onClick={() => window.print()}>A4 인쇄 / PDF 저장</button>
               <button className="btn secondary" onClick={() => setSelectedItem(null)}>닫기</button>
             </div>
+
+            {selectedItem.status === "rejected" && (
+              <div className="no-print" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>
+                <b>[반려 처리됨]</b> 사유: {selectedItem.rejection_reason || "사유 미입력"}
+              </div>
+            )}
 
             <div id="print-area" style={{ padding: 10 }}>
               {/* 1. 기본 안전작업허가서 */}
