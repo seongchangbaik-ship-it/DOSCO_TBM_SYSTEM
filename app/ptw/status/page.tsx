@@ -146,54 +146,7 @@ export default function PtwStatusPage() {
 
   return (
     <div>
-<style>{`
-        @page {
-          size: A4 portrait;
-          margin: 0;
-        }
-        @media print {
-          html, body {
-            height: auto !important;
-            overflow: visible !important;
-            background: #fff !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .print-modal-wrapper {
-            position: static !important;
-            inset: auto !important;
-            overflow: visible !important;
-            background: none !important;
-            padding: 0 !important;
-            display: block !important;
-            height: auto !important;
-          }
-          .print-modal-card {
-            box-shadow: none !important;
-            border: none !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          #print-area {
-            position: static !important;
-            width: 100% !important;
-            padding: 10mm !important;
-            box-sizing: border-box !important;
-            overflow: visible !important;
-          }
-          .page-break {
-            break-before: page !important;
-            page-break-before: always !important;
-            margin-top: 0 !important;
-            padding-top: 10mm !important;
-          }
-        }
-      `}</style>
+
 
       <header className="topbar no-print">
         <div className="brand">
@@ -311,14 +264,17 @@ export default function PtwStatusPage() {
                       <td style={{ border: "1px solid #000", textAlign: "center", width: 60, fontWeight: "bold", padding: 4 }}>확인</td>
                       <td style={{ border: "1px solid #000", textAlign: "center", width: 60, fontWeight: "bold", padding: 4 }}>공장장</td>
                     </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #000", height: 42, textAlign: "center", fontWeight: "bold", color: "#15803d" }}>
-                        {selectedItem.status === "approved" ? "승인완료" : ""}
-                      </td>
-                      <td style={{ border: "1px solid #000", height: 42 }}></td>
-                      <td style={{ border: "1px solid #000", height: 42 }}></td>
-                    </tr>
-                    <tr>
+<tr>
+                    <td style={{ border: "1px solid #000", height: 42, textAlign: "center", fontWeight: "bold", color: "#15803d" }}>
+                      {selectedItem.status === "approved" ? "접수완료" : ""}
+                    </td>
+                    <td style={{ border: "1px solid #000", height: 42, textAlign: "center", fontWeight: "bold", color: "#15803d" }}>
+                      {selectedItem.status === "approved" ? "검토완료" : ""}
+                    </td>
+                    <td style={{ border: "1px solid #000", height: 42, textAlign: "center", fontWeight: "bold", color: "#15803d" }}>
+                      {selectedItem.status === "approved" ? "결재완료" : ""}
+                    </td>
+                  </tr>                    <tr>
                       <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "5px 6px", width: 100 }}>업체명</th>
                       <td style={{ border: "1px solid #000", padding: "5px 6px" }}>{getCompanyName(selectedItem)}</td>
                       <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "5px 6px", width: 105 }}>현장관리감독자</th>
