@@ -240,6 +240,54 @@ export default function PtwAdminPage() {
     }
   }
 
+  const appendImagesToSheet = async (wb: ExcelJS.Workbook, sheet: ExcelJS.Worksheet, paths: string[], label: string) => {
+    if (!paths || paths.length === 0) return;
+    sheet.addRow([]);
+    const titleRow = sheet.addRow([label]);
+    titleRow.font = { bold: true };
+
+    for (const p of paths) {
+      const url = await getSignedFileUrl(p);
+      if (!url) continue;
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const ext: "png" | "jpeg" | "gif" = blob.type.includes("png") ? "png" : blob.type.includes("gif") ? "gif" : "jpeg";
+
+        const base64: string = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        const dims: { w: number; h: number } = await new Promise(resolve => {
+          const img = new Image();
+          img.onload = () => {
+            const maxW = 480;
+            const ratio = img.width > maxW ? maxW / img.width : 1;
+            resolve({ w: Math.round(img.width * ratio), h: Math.round(img.height * ratio) });
+          };
+          img.onerror = () => resolve({ w: 420, h: 280 });
+          img.src = base64;
+        });
+
+        const imgId = wb.addImage({ base64, extension: ext });
+        const startRow = sheet.rowCount;
+        const neededRows = Math.ceil(dims.h / 20) + 1;
+        for (let i = 0; i < neededRows; i++) {
+          sheet.addRow([]);
+        }
+        sheet.addImage(imgId, {
+          tl: { col: 0, row: startRow },
+          ext: { width: dims.w, height: dims.h },
+        });
+      } catch (err) {
+        console.error("엑셀 이미지 삽입 오류:", err);
+      }
+    }
+  };
+
   async function downloadPermitExcel(item: PtwApplication) {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("안전작업허가서");
@@ -381,55 +429,6 @@ export default function PtwAdminPage() {
       }
     }
 
-const appendImagesToSheet = async (sheet: ExcelJS.Worksheet, paths: string[], label: string) => {
-      if (!paths || paths.length === 0) return;
-      sheet.addRow([]);
-      const titleRow = sheet.addRow([label]);
-      titleRow.font = { bold: true };
-
-      for (const p of paths) {
-        const url = await getSignedFileUrl(p);
-        if (!url) continue;
-        try {
-          const res = await fetch(url);
-          const blob = await res.blob();
-          const ext: "png" | "jpeg" | "gif" =
-            blob.type.includes("png") ? "png" : blob.type.includes("gif") ? "gif" : "jpeg";
-
-          const base64: string = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-
-          const dims: { w: number; h: number } = await new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => {
-              const maxW = 480;
-              const ratio = img.width > maxW ? maxW / img.width : 1;
-              resolve({ w: Math.round(img.width * ratio), h: Math.round(img.height * ratio) });
-            };
-            img.onerror = () => resolve({ w: 420, h: 280 });
-            img.src = base64;
-          });
-
-          const imgId = wb.addImage({ base64, extension: ext });
-          const startRow = sheet.rowCount;
-          const neededRows = Math.ceil(dims.h / 20) + 1;
-          for (let i = 0; i < neededRows; i++) {
-            sheet.addRow([]);
-          }
-          sheet.addImage(imgId, {
-            tl: { col: 0, row: startRow },
-            ext: { width: dims.w, height: dims.h },
-          });
-        } catch (err) {
-          console.error("엑셀 이미지 삽입 오류:", err);
-        }
-      }
-    };
-
     if (types.includes("화기작업") && item.fire_work_details) {
       const f = item.fire_work_details;
       const fSheet = wb.addWorksheet("화기취급작업 신청서");
@@ -452,7 +451,7 @@ const appendImagesToSheet = async (sheet: ExcelJS.Worksheet, paths: string[], la
         row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
       });
       const fPaths: string[] = f.attachmentPaths || (f.attachmentPath ? [f.attachmentPath] : []);
-      await appendImagesToSheet(fSheet, fPaths, "[화기작업 첨부자료]");
+      await appendImagesToSheet(wb, fSheet, fPaths, "[화기작업 첨부자료]");
     }
 
     if (types.includes("중량물취급작업") && item.heavy_lifting_details) {
@@ -490,14 +489,7 @@ const appendImagesToSheet = async (sheet: ExcelJS.Worksheet, paths: string[], la
         row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
       });
       const hPaths: string[] = h.drawingPaths || (h.drawingPath ? [h.drawingPath] : []);
-      await appendImagesToSheet(hSheet, hPaths, "[운반경로(작업도면) 및 기타 붙임자료]");
-    }
-      hRows.forEach(([k, v]) => {
-        const row = hSheet.addRow([k, v]);
-        row.getCell(1).font = { bold: true };
-        row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
-        row.eachCell(c => { c.border = thinBorder; c.alignment = { wrapText: true, vertical: "middle" }; });
-      });
+      await appendImagesToSheet(wb, hSheet, hPaths, "[운반경로(작업도면) 및 기타 붙임자료]");
     }
 
     const sigSheet = wb.addWorksheet("안전교육 및 준수서약서");
@@ -583,7 +575,7 @@ const appendImagesToSheet = async (sheet: ExcelJS.Worksheet, paths: string[], la
 
   return (
     <div>
-<style>{`
+      <style>{`
         @page {
           size: A4 portrait;
           margin: 0;
@@ -1101,46 +1093,6 @@ const appendImagesToSheet = async (sheet: ExcelJS.Worksheet, paths: string[], la
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 반려 사유 입력 팝업 모달 */}
-      {rejectTargetId && (
-        <div className="no-print" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div className="card" style={{ width: "100%", maxWidth: 440, background: "#fff" }}>
-            <h3 style={{ color: "#b91c1c", marginTop: 0 }}>안전작업허가서 반려 처리</h3>
-            <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-              입력하신 반려 사유는 근로자가 보는 <b>승인 현황</b> 화면의 반려 상태 옆에 그대로 표시됩니다.
-            </p>
-            <div className="field">
-              <label>반려 사유 입력</label>
-              <textarea
-                placeholder="예: 화재감시자 성명 누락 및 작업도면 첨부 보완 요망"
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                style={{ height: 90 }}
-                autoFocus
-              />
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <button
-                type="button"
-                className="btn secondary"
-                style={{ flex: 1 }}
-                onClick={() => { setRejectTargetId(null); setRejectReason(""); }}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="btn"
-                style={{ flex: 1, background: "#b91c1c", borderColor: "#b91c1c" }}
-                onClick={confirmReject}
-              >
-                확인 (반려 확정)
-              </button>
             </div>
           </div>
         </div>
