@@ -326,7 +326,7 @@ export default function PtwAdminPage() {
       ws.getCell(cell).font = { bold: true };
       ws.getCell(cell).border = thinBorder;
     });
-ws.getRow(2).height = 36;
+ws.getRow(2).height = 56;
     ["D2", "E2", "F2"].forEach(cell => {
       ws.getCell(cell).border = thinBorder;
       ws.getCell(cell).alignment = { horizontal: "center", vertical: "middle" };
@@ -772,10 +772,10 @@ ws.getRow(2).height = 36;
                       <td style={{ border: "1px solid #000", textAlign: "center", width: 60, fontWeight: "bold", padding: 4 }}>공장장</td>
                     </tr>
 <tr>
-                    <td style={{ border: "1px solid #000", height: 42 }}></td>
-                    <td style={{ border: "1px solid #000", height: 42 }}></td>
-                    <td style={{ border: "1px solid #000", height: 42 }}></td>
-                  </tr>                    <tr>
+                    <td style={{ border: "1px solid #000", height: 70 }}></td>
+                    <td style={{ border: "1px solid #000", height: 70 }}></td>
+                    <td style={{ border: "1px solid #000", height: 70 }}></td>
+                  </tr>               <tr>
                       <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "5px 6px", width: 100 }}>업체명</th>
                       <td style={{ border: "1px solid #000", padding: "5px 6px" }}>{getCompanyName(selectedItem)}</td>
                       <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "5px 6px", width: 105 }}>현장관리감독자</th>
