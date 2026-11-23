@@ -523,7 +523,7 @@ export default function PtwAdminPage() {
     const headerRow = sigSheet.addRow(["구분", "성명", "서명여부"]);
     headerRow.font = { bold: true };
     (item.ptw_signatures || []).forEach(s => {
-      sigSheet.addRow([s.worker_type, s.worker_name, "전자서명 완료"]);
+   sigSheet.addRow([s.worker_type, s.worker_name, "전자서명 완료"]);
     });
 
     const buffer = await wb.xlsx.writeBuffer();
@@ -536,7 +536,7 @@ export default function PtwAdminPage() {
     link.download = `안전작업허가서_${getCompanyName(item)}_${item.work_date}.xlsx`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  } // downloadPermitExcel 함수 종료 괄호
 
   if (checking) return <main className="shell"><div className="card">관리자 권한 확인 중...</div></main>;
 
@@ -1096,7 +1096,7 @@ export default function PtwAdminPage() {
             </div>
           </div>
         </div>
-      )}
+)}
     </div>
   );
 }
