@@ -55,10 +55,8 @@ export default function PtwApplyPage() {
     trainingContent: "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 보호구 착용 및 작업 전 안전교육 실시",
   });
 
-  // 기본 허가서 - 차량 및 중장비 현황
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
 
-  // 화기취급작업 신청서 상세 상태
   const [fireDetails, setFireDetails] = useState({
     fireWorkType: "용접 · 용단 작업",
     fireWatcher: "",
@@ -70,7 +68,6 @@ export default function PtwApplyPage() {
   ]);
   const [fireFiles, setFireFiles] = useState<File[]>([]);
 
-  // 중량물 취급 작업계획서 상세 상태
   const [heavyDetails, setHeavyDetails] = useState({
     signalMethod: "무전기 및 표준 수신호",
     speedLimit: "10km/h 이하",
@@ -203,7 +200,9 @@ export default function PtwApplyPage() {
     setIsDrawing(true);
   };
 
-  const stopDrawing = () => { setIsDrawing(false); };
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || !canvasRef.current) return;
@@ -354,10 +353,10 @@ export default function PtwApplyPage() {
         </div>
       </main>
     );
-}
+  }
 
-return (
-    <div className="ptw-apply-page">
+  return (
+    <div id="ptw-apply-root">
       <header className="topbar">
         <div className="brand">DOSCO PTW SYSTEM<small>안전작업허가서 신청</small></div>
         <nav className="nav">
@@ -598,7 +597,6 @@ return (
               </div>
             </div>
 
-            {/* 화기현황 표 */}
             <div style={{ marginTop: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <label style={{ fontWeight: "bold", margin: 0 }}>화기현황 (사용 화기 및 안전장치)</label>
@@ -674,7 +672,6 @@ return (
             <h3 style={{ color: "#1d4ed8", marginTop: 0 }}>🏗️ 중량물 취급 작업계획서</h3>
             <p className="muted" style={{ marginBottom: 14 }}>작업명·일시·장소·책임자는 상단 기본 정보와 자동 연동됩니다.</p>
 
-            {/* ① 작업개요 및 작업인원 */}
             <h4 style={{ marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>① 작업개요 및 직책별 배치 인원</h4>
             <div className="formgrid">
               <div className="field">
@@ -731,7 +728,6 @@ return (
               <textarea style={{ height: 90 }} value={heavyDetails.workSequence} onChange={e => setHeavyDetails({ ...heavyDetails, workSequence: e.target.value })} />
             </div>
 
-            {/* ② 중량물 제원 */}
             <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>② 중량물 제원</h4>
             <div className="formgrid">
               <div className="field">
@@ -759,7 +755,6 @@ return (
               </div>
             </div>
 
-            {/* ③ 기계제원 */}
             <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>③ 기계(장비) 제원</h4>
             <div className="formgrid">
               <div className="field">
@@ -808,7 +803,6 @@ return (
               </div>
             </div>
 
-            {/* ④ 재해예방대책 */}
             <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>④ 재해예방대책 (유해·위험요인 및 예방대책)</h4>
             <div className="formgrid">
               <div className="field">
@@ -837,7 +831,6 @@ return (
               </div>
             </div>
 
-            {/* ⑤ 운반경로 및 붙임자료 */}
             <h4 style={{ marginTop: 20, marginBottom: 8, borderBottom: "1px solid #bfdbfe", paddingBottom: 4 }}>⑤ 운반경로(작업도면) 및 기타 붙임자료</h4>
             <div className="field">
               <label>작업도면 / 장비 제원표 / 자격증·보험증 사진 첨부 (여러 장 선택 가능)</label>
@@ -879,4 +872,79 @@ return (
         <div className="card section">
           <h3>4. 안전관리 준수 서약 및 서명</h3>
           <div style={{ background: "#f8f9fa", padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.6, maxHeight: 160, overflowY: "auto", marginBottom: 16, border: "1px solid #ddd" }}>
-            <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히
+            <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.</b><br />
+            01. 도급공사 관련 작업허가신청서를 작성·제출하여 공장장의 승인을 득한 후 작업한다.<br />
+            02. 작업자에 필요한 안전보건교육을 실시 후 작업한다.<br />
+            03. 작업현장 내 작업 시 보호구(안전헬멧, 안전화) 착용하여 작업한다.<br />
+            04. 고소작업, 전기작업, 화기작업(용접, 절단 등)의 안전수칙 준수하여 작업한다.<br />
+            05. 작업 전에는 반드시 작업준비 상태를 점검 및 위험예지훈련(TBM)을 실시한다.<br />
+            06. 작업현장 내 모든 위험작업의 수행은 위험성평가를 실시한 후 작업한다.<br />
+            07. 사다리 작업 시 최상부에는 올라가서 작업하지 않는다.<br />
+            08. 작업현장에 대한 안전점검을 실시하고 안전점검표 작성·보관한다.<br />
+            09. 밀폐공간출입, 중량물 취급, 굴착작업은 안전수칙을 준수하여 작업한다.<br />
+            10. 중장비 사용 시 사용승인을 받고, 신호수 배치하여 작업한다.<br />
+            11. 작업현장 내 작업 시 안전장치나 안전시설물은 임의로 해체하지 않는다.<br />
+            12. 작업현장 정리정돈 철저, 흡연구역 이외의 흡연행위 금지한다.<br />
+            13. 작업 시 산업안전보건법, 중대재해처벌법 등 기타 관련법규를 준수하여 작업한다.<br />
+            14. 안전보건공단에서 Guide하는 안전수칙 준수한다.<br />
+            15. 귀사 안전·보건에 관한 요구사항 준수하여 이행한다.<br />
+            16. 상기 내용을 지키지 않을 경우 작업을 중지한다.
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            {signatures.map((sig, idx) => (
+              <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 8, textAlign: "center", width: 120 }}>
+                <img src={sig.data} alt="서명" style={{ width: "100%", height: 60, objectFit: "contain", background: "#f1f1f1", borderRadius: 4 }} />
+                <div style={{ marginTop: 4, fontSize: 12 }}><b>{sig.name}</b> ({sig.type})</div>
+              </div>
+            ))}
+
+            <button type="button" className="btn secondary" style={{ width: 120, height: 95 }} onClick={() => setShowSignModal(true)}>
+              + 서명 추가
+            </button>
+          </div>
+        </div>
+
+        <button type="button" className="btn" style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: 60 }} onClick={submitPtw} disabled={isSubmitting}>
+          {isSubmitting ? "전송 중..." : "안전작업허가서 제출 (승인 요청)"}
+        </button>
+
+        {msg && <p style={{ color: "#b33", textAlign: "center", marginBottom: 40 }}>{msg}</p>}
+
+        {showSignModal && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div className="card" style={{ width: "100%", maxWidth: 400 }}>
+              <h3>작업자 전자 서명</h3>
+
+              <div className="field" style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                <select className="input" value={signType} onChange={e => setSignType(e.target.value)} style={{ width: 100 }}>
+                  <option value="대표자">대표자</option>
+                  <option value="근로자">근로자</option>
+                </select>
+                <input className="input" placeholder="이름 입력" value={signName} onChange={e => setSignName(e.target.value)} style={{ flex: 1 }} />
+              </div>
+
+              <div style={{ border: "2px dashed #ccc", borderRadius: 8, background: "#fafafa", marginBottom: 16 }}>
+                <canvas
+                  ref={canvasRef} width={360} height={150}
+                  style={{ width: "100%", height: 150, touchAction: "none" }}
+                  onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 12px 8px" }}>
+                  <span style={{ fontSize: 12, color: "#888" }}>이곳에 손가락으로 서명하세요</span>
+                  <button type="button" className="btn secondary" style={{ padding: "4px 8px", fontSize: 12 }} onClick={clearCanvas}>지우기</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={() => setShowSignModal(false)}>취소</button>
+                <button type="button" className="btn" style={{ flex: 1 }} onClick={saveSignature}>서명 완료</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
