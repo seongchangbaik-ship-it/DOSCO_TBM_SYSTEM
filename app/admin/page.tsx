@@ -1,16 +1,10 @@
 "use client";
-"use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { supabase, configured } from "@/lib/supabase";
-import Link from "next/link";
-import QRCode from "qrcode";
-import * as XLSX from "xlsx";
-import ExcelJS from "exceljs";
-import {supabase,configured} from "@/lib/supabase";
 type Week={id:string;title:string;topic:string;content:string;week_label:string;starts_at:string;ends_at:string;is_published:boolean;photo_paths?:string[]};
 export default function Admin(){
  const [weeks,setWeeks]=useState<Week[]>([]),[acks,setAcks]=useState<any[]>([]),[photos,setPhotos]=useState<any[]>([]),[msg,setMsg]=useState("");
