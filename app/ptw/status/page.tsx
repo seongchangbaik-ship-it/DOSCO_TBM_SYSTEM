@@ -67,14 +67,14 @@ export default function PtwStatusPage() {
   const [heavyDrawingUrls, setHeavyDrawingUrls] = useState<string[]>([]);
 const [msg, setMsg] = useState("");
 
-  // 3. 교육일지 추가제출 모달 상태
+// 3. 교육일지 추가제출 모달 상태
   const [trainingModalItem, setTrainingModalItem] = useState<PtwApplication | null>(null);
-const [tType, setTType] = useState<"form" | "photo">("form");
+  const [tType, setTType] = useState<"form" | "photo">("form");
   const [tInstructor, setTInstructor] = useState("");
   const [tContent, setTContent] = useState(
     "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)"
   );
-  const [tAttendees, setTAttendees] = useState("");
+  const [tAttendees, setTAttendees] = useState<string[]>([""]);
   const [tPhoto, setTPhoto] = useState<File | null>(null);
   const [tSaving, setTSaving] = useState(false);
 
@@ -132,7 +132,7 @@ function openTrainingModal(item: PtwApplication) {
     setTrainingModalItem(item);
     setTType("form");
     setTInstructor(item.site_manager || "");
-    setTAttendees("");
+    setTAttendees([""]);
     setTPhoto(null);
   }
 
@@ -171,7 +171,9 @@ const prevDetails = trainingModalItem.fire_work_details || {};
       _common: {
         ...prevCommon,
         trainingPending: false,
-        trainingAttendees: tType === "form" ? tAttendees.trim() : "",
+        trainingAttendees: tType === "form"
+          ? tAttendees.map(s => s.trim()).filter(Boolean).join(", ")
+          : "",
       },
     };
 
@@ -1122,13 +1124,59 @@ return (
                   <textarea value={tContent} onChange={e => setTContent(e.target.value)} style={{ height: 200 }} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>안전교육 참석자</label>
-                  <input
-                    className="input"
-                    placeholder="예: 홍길동, 김철수, 이영희 (참석자 성명 기재)"
-                    value={tAttendees}
-                    onChange={e => setTAttendees(e.target.value)}
-                  />
+                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                    <label style={{ margin: 0 }}>안전교육 참석자</label>
+                    <span style={{ fontSize: 12.5, color: "#dc2626", fontWeight: 500 }}>
+                      ※ 교육에 참석한 작업자 성명을 모두 기재해 주세요.
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    {tAttendees.map((person, idx) => (
+                      <div key={idx} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                        <input
+                          className="input"
+                          style={{ width: 110, paddingRight: tAttendees.length > 1 ? 24 : 10 }}
+                          placeholder="성명"
+                          value={person}
+                          onChange={e => {
+                            const next = [...tAttendees];
+                            next[idx] = e.target.value;
+                            setTAttendees(next);
+                          }}
+                        />
+                        {tAttendees.length > 1 && (
+                          <button
+                            type="button"
+                            title="칸 삭제"
+                            onClick={() => setTAttendees(tAttendees.filter((_, i) => i !== idx))}
+                            style={{
+                              position: "absolute",
+                              right: 6,
+                              border: "none",
+                              background: "transparent",
+                              color: "#ef4444",
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                              fontSize: 12,
+                              padding: 0,
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      style={{ padding: "8px 12px", fontWeight: "bold", minWidth: 40 }}
+                      onClick={() => setTAttendees([...tAttendees, ""])}
+                      title="이름 칸 추가"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (

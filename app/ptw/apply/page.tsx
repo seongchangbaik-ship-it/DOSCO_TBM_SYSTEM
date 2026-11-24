@@ -63,9 +63,11 @@ specialEnv: "",
     pledgePending: false,
 trainingType: "form",
     trainingInstructor: "",
-    trainingContent:
+trainingContent:
       "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)",
-    trainingAttendees: "",
+  });
+
+  const [attendees, setAttendees] = useState<string[]>([""]);
   });
 
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
@@ -189,6 +191,13 @@ trainingType: data.training_type || "form",
             trainingContent: data.training_content || prev.trainingContent,
             trainingAttendees: common.trainingAttendees || "",
           }));
+          if (common.trainingAttendees) {
+            const parsed = String(common.trainingAttendees)
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter(Boolean);
+            setAttendees(parsed.length > 0 ? parsed : [""]);
+          }
 
           setVehicles(common.vehicles || []);
 
@@ -450,7 +459,11 @@ const firePayload = {
         specialSafety: form.specialSafety,
 trainingPending: form.trainingPending,
         pledgePending: form.pledgePending,
-        trainingAttendees: form.trainingPending ? "" : form.trainingAttendees,
+trainingPending: form.trainingPending,
+        pledgePending: form.pledgePending,
+        trainingAttendees: form.trainingPending
+          ? ""
+          : attendees.map(s => s.trim()).filter(Boolean).join(", "),
         extraDetails,
       },
     };
@@ -602,8 +615,61 @@ trainingPending: form.trainingPending,
               )}
             </div>
 
-            <div className="field" style={{ gridColumn: "1 / -1" }}>
-              <label>공사명 (또는 작업명)</label>
+<div className="field" style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                      <label style={{ margin: 0 }}>안전교육 참석자</label>
+                      <span style={{ fontSize: 12.5, color: "#dc2626", fontWeight: 500 }}>
+                        ※ 교육에 참석한 작업자 성명을 모두 기재해 주세요.
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      {attendees.map((person, idx) => (
+                        <div key={idx} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                          <input
+                            className="input"
+                            style={{ width: 110, paddingRight: attendees.length > 1 ? 24 : 10 }}
+                            placeholder="성명"
+                            value={person}
+                            onChange={e => {
+                              const next = [...attendees];
+                              next[idx] = e.target.value;
+                              setAttendees(next);
+                            }}
+                          />
+                          {attendees.length > 1 && (
+                            <button
+                              type="button"
+                              title="칸 삭제"
+                              onClick={() => setAttendees(attendees.filter((_, i) => i !== idx))}
+                              style={{
+                                position: "absolute",
+                                right: 6,
+                                border: "none",
+                                background: "transparent",
+                                color: "#ef4444",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                fontSize: 12,
+                                padding: 0,
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        style={{ padding: "8px 12px", fontWeight: "bold", minWidth: 40 }}
+                        onClick={() => setAttendees([...attendees, ""])}
+                        title="이름 칸 추가"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>              <label>공사명 (또는 작업명)</label>
               <input className="input" placeholder="예: 2공장 크레인 레일 보수작업" value={form.projectName} onChange={e => setForm({ ...form, projectName: e.target.value })} />
             </div>
 
