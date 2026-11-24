@@ -1012,7 +1012,9 @@ const mergedMap = new Map<string, any>();
         </table>
       )}
     </div>
-  </div>
-)}
-</>
+</div>
+      </div>
+    )}
+  </>
+  );
 }
