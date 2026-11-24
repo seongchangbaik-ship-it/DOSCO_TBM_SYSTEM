@@ -137,16 +137,19 @@ const [company, setCompany] = useState("");
       setMsg("사진 업로드 실패: " + up.error.message);
       return;
     }
-const { error } = await supabase.from("tbm_team_submissions").insert({
-      week_id: week,
-      company_id: company,
-      team_id: team,
-      leader_name: leader.trim(),
-      health_status: healthStatus,
-      daily_hazard: dailyHazard.trim() || "특이사항 없음",
-      photo_path: path,
-      submitted_at: new Date().toISOString(),
-    });
+const { error } = await supabase.from("tbm_team_submissions").upsert(
+      {
+        week_id: week,
+        company_id: company,
+        team_id: team,
+        leader_name: leader.trim(),
+        health_status: healthStatus,
+        daily_hazard: dailyHazard.trim() || "특이사항 없음",
+        photo_path: path,
+        submitted_at: new Date().toISOString(),
+      },
+      { onConflict: "week_id,team_id" }
+    );
     if (error) {
       setMsg("제출 기록 저장 실패: " + error.message);
       return;
