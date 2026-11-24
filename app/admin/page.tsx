@@ -140,10 +140,10 @@ async function sendResetEmail(){
 async function load() {
   if (!configured || !isAdmin) return;
 
-  const [w, a, p, s] = await Promise.all([
+const [w, a, p, s] = await Promise.all([
     supabase.from("tbm_weeks").select("*").order("starts_at", { ascending: false }),
-    supabase.from("tbm_acknowledgements").select("*,companies(name),teams(name),tbm_weeks(week_label,topic)").order("acknowledged_at", { ascending: false }).limit(1000),
-    supabase.from("tbm_team_submissions").select("*,companies(name),teams(name),tbm_weeks(week_label,topic)").order("submitted_at", { ascending: false }).limit(500),
+    supabase.from("tbm_acknowledgements").select("*,companies(name),teams(name),tbm_weeks(week_label,topic,content)").order("acknowledged_at", { ascending: false }).limit(1000),
+    supabase.from("tbm_team_submissions").select("*,companies(name),teams(name),tbm_weeks(week_label,topic,content)").order("submitted_at", { ascending: false }).limit(500),
     supabase.from("tbm_spot_logs").select("*,companies(name),teams(name),tbm_spot_signatures(*)").order("created_at", { ascending: false }).limit(300)
   ]);
 
@@ -719,7 +719,14 @@ if(!isAdmin)return (
       mergedMap.set(key, {
         key,
         weekLabel: p.tbm_weeks?.week_label || "-",
+const mergedMap = new Map<string, any>();
+    filteredPhotos.forEach((p: any) => {
+      const key = `${p.week_id}_${p.company_id}_${p.team_id}`;
+      mergedMap.set(key, {
+        key,
+        weekLabel: p.tbm_weeks?.week_label || "-",
         topic: p.tbm_weeks?.topic || "-",
+        content: p.tbm_weeks?.content || "-",
         companyName: p.companies?.name || "-",
         teamName: p.teams?.name || "-",
         leaderSubmission: p,
@@ -735,6 +742,7 @@ if(!isAdmin)return (
           key,
           weekLabel: a.tbm_weeks?.week_label || "-",
           topic: a.tbm_weeks?.topic || "-",
+          content: a.tbm_weeks?.content || "-",
           companyName: a.companies?.name || "-",
           teamName: a.teams?.name || "-",
           leaderSubmission: null,
@@ -934,9 +942,15 @@ if(!isAdmin)return (
               <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>소속 / 조</th>
               <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.companyName} / {detailModal.data.teamName}</td>
             </tr>
-            <tr>
+<tr>
               <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 주제</th>
               <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.topic}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 내용</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                {detailModal.data.content || "-"}
+              </td>
             </tr>
             <tr>
               <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>조장 확인</th>
@@ -949,6 +963,23 @@ if(!isAdmin)return (
             <tr>
               <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>금주 핵심 위험</th>
               <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.leaderSubmission?.daily_hazard || "-"}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>개인별 선택<br />안전수칙</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6, lineHeight: 1.6 }}>
+                {detailModal.data.workers.length > 0 ? (
+                  detailModal.data.workers.map((w: any) => (
+                    <div key={w.id} style={{ marginBottom: 4 }}>
+                      <b>{w.worker_name}</b> -{" "}
+                      {Array.isArray(w.selected_rules) && w.selected_rules.length > 0
+                        ? w.selected_rules.join(" / ")
+                        : "선택 항목 없음"}
+                    </div>
+                  ))
+                ) : (
+                  <span className="muted">등록된 개인별 확인 내역이 없습니다.</span>
+                )}
+              </td>
             </tr>
             {detailModal.photoUrl && (
               <tr>

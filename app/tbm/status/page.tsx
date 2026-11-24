@@ -8,6 +8,7 @@ type RegularMergedItem = {
   weekId: string;
   weekLabel: string;
   topic: string;
+  content: string;
   companyId: string;
   companyName: string;
   teamId: string;
@@ -23,6 +24,7 @@ type RegularMergedItem = {
   workers: {
     id: string;
     worker_name: string;
+    selected_rules?: string[];
     signature_data?: string;
     acknowledged_at: string;
   }[];
@@ -71,15 +73,15 @@ export default function TbmStatusPage() {
     }
     setLoading(true);
 
-    const [acksRes, subsRes, spotsRes] = await Promise.all([
+const [acksRes, subsRes, spotsRes] = await Promise.all([
       supabase
         .from("tbm_acknowledgements")
-        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic)")
+        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic, content)")
         .order("acknowledged_at", { ascending: false })
         .limit(1000),
       supabase
         .from("tbm_team_submissions")
-        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic)")
+        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic, content)")
         .order("submitted_at", { ascending: false })
         .limit(500),
       supabase
@@ -99,6 +101,7 @@ export default function TbmStatusPage() {
         weekId: s.week_id,
         weekLabel: s.tbm_weeks?.week_label || "-",
         topic: s.tbm_weeks?.topic || "-",
+        content: s.tbm_weeks?.content || "-",
         companyId: s.company_id,
         companyName: s.companies?.name || "-",
         teamId: s.team_id,
@@ -123,6 +126,7 @@ export default function TbmStatusPage() {
           weekId: a.week_id,
           weekLabel: a.tbm_weeks?.week_label || "-",
           topic: a.tbm_weeks?.topic || "-",
+          content: a.tbm_weeks?.content || "-",
           companyId: a.company_id,
           companyName: a.companies?.name || "-",
           teamId: a.team_id,
@@ -556,9 +560,15 @@ export default function TbmStatusPage() {
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>소속 / 조</th>
                   <td style={{ border: "1px solid #000", padding: 6 }}>{selectedRegular.companyName} / {selectedRegular.teamName}</td>
                 </tr>
-                <tr>
+<tr>
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 주제</th>
                   <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{selectedRegular.topic}</td>
+                </tr>
+                <tr>
+                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 내용</th>
+                  <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                    {selectedRegular.content || "-"}
+                  </td>
                 </tr>
                 <tr>
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>조장 확인</th>
@@ -574,6 +584,23 @@ export default function TbmStatusPage() {
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>금주 핵심 위험</th>
                   <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
                     {selectedRegular.leaderSubmission?.daily_hazard || "-"}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>개인별 선택<br />안전수칙</th>
+                  <td colSpan={3} style={{ border: "1px solid #000", padding: 6, lineHeight: 1.6 }}>
+                    {selectedRegular.workers.length > 0 ? (
+                      selectedRegular.workers.map(w => (
+                        <div key={w.id} style={{ marginBottom: 4 }}>
+                          <b>{w.worker_name}</b> -{" "}
+                          {Array.isArray(w.selected_rules) && w.selected_rules.length > 0
+                            ? w.selected_rules.join(" / ")
+                            : "선택 항목 없음"}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="muted">등록된 개인별 확인 내역이 없습니다.</span>
+                    )}
                   </td>
                 </tr>
                 {detailPhotoUrl && (
