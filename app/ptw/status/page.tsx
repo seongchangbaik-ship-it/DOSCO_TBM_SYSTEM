@@ -570,6 +570,7 @@ return (
 <td>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           <button className="btn secondary" onClick={() => openDetail(item)}>상세/출력</button>
+                          <Link href={`/ptw/apply?editId=${item.id}`} className="btn secondary">수정</Link>
                           {item.fire_work_details?._common?.trainingPending && (
                             <button
                               className="btn"
