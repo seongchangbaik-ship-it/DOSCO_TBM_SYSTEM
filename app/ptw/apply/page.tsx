@@ -48,8 +48,10 @@ export default function PtwApplyPage() {
     workContent: "",
     safetyGear: "안전모, 안전화, 안전대, 보안면",
     workTypes: [] as string[],
-    specialEnv: "",
+specialEnv: "",
     specialSafety: "",
+    trainingPending: false,
+    pledgePending: false,
     trainingType: "form",
     trainingInstructor: "",
     trainingContent:
@@ -304,14 +306,16 @@ async function compressImage(file: File): Promise<Blob | File> {
         return setMsg("기간작업은 시작일로부터 최대 일주일(7일) 이내로만 설정 가능합니다.");
       }
     }
-    if (form.workTypes.length === 0) return setMsg("작업 종류를 1개 이상 선택하세요.");
-    if (signatures.length === 0) return setMsg("최소 1명 이상의 서약 및 교육 서명이 필요합니다.");
+if (form.workTypes.length === 0) return setMsg("작업 종류를 1개 이상 선택하세요.");
+    if (!form.pledgePending && signatures.length === 0) {
+      return setMsg("서약 및 서명을 입력하거나, 당일 실시 시 '당일 실시 예정'을 체크해 주세요.");
+    }
 
     setIsSubmitting(true);
     setMsg("허가서와 첨부자료를 전송하고 있습니다...");
 
     let photoPath: string | null = null;
-    if (form.trainingType === "photo" && trainingPhoto) {
+    if (!form.trainingPending && form.trainingType === "photo" && trainingPhoto) {
       const uploaded = await uploadMultipleFiles([trainingPhoto], "ptw-training");
       photoPath = uploaded[0] || null;
     }
@@ -337,6 +341,8 @@ async function compressImage(file: File): Promise<Blob | File> {
         vehicles,
         specialEnv: form.specialEnv,
         specialSafety: form.specialSafety,
+        trainingPending: form.trainingPending,
+        pledgePending: form.pledgePending,
       },
     };
 
@@ -360,15 +366,15 @@ async function compressImage(file: File): Promise<Blob | File> {
       work_date: form.date,
       starts_at: form.startTime,
       ends_at: form.endTime,
-      worker_count: parseInt(form.workerCount) || signatures.length,
+      worker_count: parseInt(form.workerCount) || signatures.length || 1,
       work_content: form.workContent,
       safety_gear: form.safetyGear,
       work_types: form.workTypes,
       fire_work_details: firePayload,
       heavy_lifting_details: heavyPayload,
       training_type: form.trainingType,
-      training_instructor: form.trainingInstructor,
-      training_content: form.trainingContent,
+      training_instructor: form.trainingPending ? "" : form.trainingInstructor,
+      training_content: form.trainingPending ? "" : form.trainingContent,
       training_photo_path: photoPath
     }).select("id").single();
 
@@ -378,14 +384,15 @@ async function compressImage(file: File): Promise<Blob | File> {
       return;
     }
 
-    const sigInserts = signatures.map(sig => ({
-      ptw_id: ptwData.id,
-      worker_type: sig.type,
-      worker_name: sig.name,
-      signature_data: sig.data
-    }));
-
-    await supabase.from("ptw_signatures").insert(sigInserts);
+    if (!form.pledgePending && signatures.length > 0) {
+      const sigInserts = signatures.map(sig => ({
+        ptw_id: ptwData.id,
+        worker_type: sig.type,
+        worker_name: sig.name,
+        signature_data: sig.data
+      }));
+      await supabase.from("ptw_signatures").insert(sigInserts);
+    }
 
     setSubmitted(true);
     setIsSubmitting(false);
@@ -892,37 +899,101 @@ async function compressImage(file: File): Promise<Blob | File> {
           </div>
         )}
 
-        {/* 3. 안전교육일지 첨부 */}
+{/* 3. 안전교육일지 첨부 */}
         <div className="card section">
-          <h3>3. 안전교육일지 첨부</h3>
-
-          <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-            <label className="checkrow"><input type="radio" checked={form.trainingType === "form"} onChange={() => setForm({ ...form, trainingType: "form" })} /> 화면 직접 작성</label>
-            <label className="checkrow"><input type="radio" checked={form.trainingType === "photo"} onChange={() => setForm({ ...form, trainingType: "photo" })} /> 종이일지 사진 촬영</label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+            <h3 style={{ margin: 0 }}>3. 안전교육일지 첨부</h3>
+            <label
+              className="checkrow"
+              style={{
+                margin: 0,
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: form.trainingPending ? "1.5px solid #dc2626" : "1px solid #cbd5e1",
+                background: form.trainingPending ? "#fef2f2" : "#f8fafc",
+                color: form.trainingPending ? "#b91c1c" : "#1e293b",
+                fontWeight: "bold",
+                fontSize: 13,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={form.trainingPending}
+                onChange={e => setForm({ ...form, trainingPending: e.target.checked })}
+              />
+              <span>당일 실시 예정</span>
+            </label>
           </div>
+          <p style={{ fontSize: 12.5, color: "#dc2626", margin: "0 0 14px 0", fontWeight: 500 }}>
+            * 당일 실시 예정인 경우 체크 후 제출하시고, 작업 당일 TBM 실시 후 [승인 현황]에서 추가 제출해 주세요.
+          </p>
 
-          {form.trainingType === "form" ? (
-            <div className="formgrid">
-              <div className="field">
-                <label>교육 강사 (현장관리감독자)</label>
-                <input className="input" value={form.trainingInstructor} onChange={e => setForm({ ...form, trainingInstructor: e.target.value })} />
-              </div>
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label>안전 교육 내용</label>
-                <textarea value={form.trainingContent} onChange={e => setForm({ ...form, trainingContent: e.target.value })} style={{ height: 210 }} />
-              </div>
+          {form.trainingPending ? (
+            <div style={{ background: "#fef2f2", border: "1px dashed #fca5a5", color: "#991b1b", padding: "14px 16px", borderRadius: 8, fontSize: 13 }}>
+              <b>[당일 실시 예정 선택됨]</b> 허가서 먼저 제출 후, 작업 당일 <b>[승인 현황]</b> 페이지의 빨간색 <b>[교육일지 추가제출]</b> 버튼에서 등록할 수 있습니다.
             </div>
           ) : (
-            <div className="field">
-              <label>안전교육일지 사진 첨부</label>
-              <input type="file" accept="image/*" capture="environment" onChange={e => setTrainingPhoto(e.target.files?.[0] || null)} />
-            </div>
+            <>
+              <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+                <label className="checkrow"><input type="radio" checked={form.trainingType === "form"} onChange={() => setForm({ ...form, trainingType: "form" })} /> 화면 직접 작성</label>
+                <label className="checkrow"><input type="radio" checked={form.trainingType === "photo"} onChange={() => setForm({ ...form, trainingType: "photo" })} /> 종이일지 사진 촬영</label>
+              </div>
+
+              {form.trainingType === "form" ? (
+                <div className="formgrid">
+                  <div className="field">
+                    <label>교육 강사 (현장관리감독자)</label>
+                    <input className="input" value={form.trainingInstructor} onChange={e => setForm({ ...form, trainingInstructor: e.target.value })} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1 / -1" }}>
+                    <label>안전 교육 내용</label>
+                    <textarea value={form.trainingContent} onChange={e => setForm({ ...form, trainingContent: e.target.value })} style={{ height: 210 }} />
+                  </div>
+                </div>
+              ) : (
+                <div className="field">
+                  <label>안전교육일지 사진 첨부</label>
+                  <input type="file" accept="image/*" capture="environment" onChange={e => setTrainingPhoto(e.target.files?.[0] || null)} />
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* 4. 안전관리 준수 서약 및 서명 */}
         <div className="card section">
-          <h3>4. 안전관리 준수 서약 및 서명</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+            <h3 style={{ margin: 0 }}>4. 안전관리 준수 서약 및 서명</h3>
+            <label
+              className="checkrow"
+              style={{
+                margin: 0,
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: form.pledgePending ? "1.5px solid #dc2626" : "1px solid #cbd5e1",
+                background: form.pledgePending ? "#fef2f2" : "#f8fafc",
+                color: form.pledgePending ? "#b91c1c" : "#1e293b",
+                fontWeight: "bold",
+                fontSize: 13,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={form.pledgePending}
+                onChange={e => setForm({ ...form, pledgePending: e.target.checked })}
+              />
+              <span>당일 실시 예정</span>
+            </label>
+          </div>
+          <p style={{ fontSize: 12.5, color: "#dc2626", margin: "0 0 14px 0", fontWeight: 500 }}>
+            * 당일 실시 예정인 경우 체크 후 제출하시고, 작업 당일 TBM 실시 후 [승인 현황]에서 추가 제출해 주세요.
+          </p>
+
+          {form.pledgePending && (
+            <div style={{ background: "#fef2f2", border: "1px dashed #fca5a5", color: "#991b1b", padding: "12px 14px", borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
+              <b>[당일 실시 예정 선택됨]</b> 허가서 먼저 제출 후, 작업 당일 <b>[승인 현황]</b>의 빨간색 <b>[서약·서명 추가제출]</b> 버튼에서 <b>이 기기 연속 서명</b> 또는 <b>카톡방 링크 공유(각자 폰 서명)</b>로 진행할 수 있습니다.
+            </div>
+          )}
           <div style={{ background: "#f8f9fa", padding: 16, borderRadius: 8, fontSize: 13, lineHeight: 1.6, maxHeight: 160, overflowY: "auto", marginBottom: 16, border: "1px solid #ddd" }}>
             <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.</b><br />
             01. 도급공사 관련 작업허가신청서를 작성·제출하여 공장장의 승인을 득한 후 작업한다.<br />

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
 
@@ -65,7 +65,269 @@ export default function PtwStatusPage() {
   const [trainingPhotoUrl, setTrainingPhotoUrl] = useState<string>("");
   const [fireAttachUrls, setFireAttachUrls] = useState<string[]>([]);
   const [heavyDrawingUrls, setHeavyDrawingUrls] = useState<string[]>([]);
-  const [msg, setMsg] = useState("");
+const [msg, setMsg] = useState("");
+
+  // 3. 교육일지 추가제출 모달 상태
+  const [trainingModalItem, setTrainingModalItem] = useState<PtwApplication | null>(null);
+  const [tType, setTType] = useState<"form" | "photo">("form");
+  const [tInstructor, setTInstructor] = useState("");
+  const [tContent, setTContent] = useState(
+    "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)"
+  );
+  const [tPhoto, setTPhoto] = useState<File | null>(null);
+  const [tSaving, setTSaving] = useState(false);
+
+  // 4. 서약·서명 추가제출 모달 상태
+  const [pledgeModalItem, setPledgeModalItem] = useState<PtwApplication | null>(null);
+  const [pSignType, setPSignType] = useState("근로자");
+  const [pSignName, setPSignName] = useState("");
+  const [pHasDrawn, setPHasDrawn] = useState(false);
+  const [pSaving, setPSaving] = useState(false);
+  const [pCopyMsg, setPCopyMsg] = useState("");
+  const pCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [pIsDrawing, setPIsDrawing] = useState(false);
+
+  async function compressImage(file: File): Promise<Blob | File> {
+    if (!file.type.startsWith("image/")) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const maxSide = 1280;
+        let { width, height } = img;
+        if (width > maxSide || height > maxSide) {
+          if (width > height) {
+            height = Math.round((height * maxSide) / width);
+            width = maxSide;
+          } else {
+            width = Math.round((width * maxSide) / height);
+            height = maxSide;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(file); return; }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < file.size) resolve(blob);
+            else resolve(file);
+          },
+          "image/jpeg",
+          0.75
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
+    });
+  }
+
+  function openTrainingModal(item: PtwApplication) {
+    setTrainingModalItem(item);
+    setTType("form");
+    setTInstructor(item.site_manager || "");
+    setTPhoto(null);
+  }
+
+  async function submitLateTraining() {
+    if (!trainingModalItem) return;
+    if (tType === "form" && (!tInstructor.trim() || !tContent.trim())) {
+      alert("교육 강사와 교육 내용을 입력해 주세요.");
+      return;
+    }
+    if (tType === "photo" && !tPhoto) {
+      alert("안전교육일지 사진을 선택해 주세요.");
+      return;
+    }
+    setTSaving(true);
+    let photoPath: string | null = trainingModalItem.training_photo_path || null;
+    if (tType === "photo" && tPhoto) {
+      const compressed = await compressImage(tPhoto);
+      const isJpeg = compressed !== tPhoto;
+      const ext = isJpeg ? "jpg" : (tPhoto.name.split(".").pop() || "jpg");
+      const path = `ptw-training/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("tbm-photos").upload(path, compressed, {
+        contentType: isJpeg ? "image/jpeg" : tPhoto.type,
+      });
+      if (upErr) {
+        alert("사진 업로드 실패: " + upErr.message);
+        setTSaving(false);
+        return;
+      }
+      photoPath = path;
+    }
+
+    const prevDetails = trainingModalItem.fire_work_details || {};
+    const prevCommon = prevDetails._common || {};
+    const nextDetails = {
+      ...prevDetails,
+      _common: { ...prevCommon, trainingPending: false },
+    };
+
+    const { error } = await supabase
+      .from("ptw_applications")
+      .update({
+        training_type: tType,
+        training_instructor: tType === "form" ? tInstructor.trim() : "",
+        training_content: tType === "form" ? tContent : "",
+        training_photo_path: photoPath,
+        fire_work_details: nextDetails,
+      })
+      .eq("id", trainingModalItem.id);
+
+    setTSaving(false);
+    if (error) {
+      alert("저장 실패: " + error.message);
+      return;
+    }
+    setTrainingModalItem(null);
+    loadPtwList();
+  }
+
+  function openPledgeModal(item: PtwApplication) {
+    setPledgeModalItem(item);
+    setPSignType("근로자");
+    setPSignName("");
+    setPHasDrawn(false);
+    setPCopyMsg("");
+  }
+
+  async function refreshPledgeModalItem() {
+    if (!pledgeModalItem) return;
+    const { data } = await supabase
+      .from("ptw_applications")
+      .select("*, companies(name), ptw_signatures(*)")
+      .eq("id", pledgeModalItem.id)
+      .maybeSingle();
+    if (data) setPledgeModalItem(data as PtwApplication);
+    loadPtwList();
+  }
+
+  const getPCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startPDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = pCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const { x, y } = getPCoords(e, canvas);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setPIsDrawing(true);
+    setPHasDrawn(true);
+  };
+
+  const drawP = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!pIsDrawing || !pCanvasRef.current) return;
+    const canvas = pCanvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPCoords(e, canvas);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopPDrawing = () => setPIsDrawing(false);
+
+  const clearPCanvas = () => {
+    const canvas = pCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setPHasDrawn(false);
+  };
+
+  async function addDeviceSignature() {
+    if (!pledgeModalItem) return;
+    if (!pSignName.trim()) {
+      alert("서명할 작업자 성명을 입력해 주세요.");
+      return;
+    }
+    if (!pHasDrawn || !pCanvasRef.current) {
+      alert("서명란에 서명을 해 주세요.");
+      return;
+    }
+    setPSaving(true);
+    const dataUrl = pCanvasRef.current.toDataURL("image/png");
+    const { error } = await supabase.from("ptw_signatures").insert({
+      ptw_id: pledgeModalItem.id,
+      worker_type: pSignType,
+      worker_name: pSignName.trim(),
+      signature_data: dataUrl,
+    });
+    setPSaving(false);
+    if (error) {
+      alert("서명 추가 오류: " + error.message);
+      return;
+    }
+    setPSignName("");
+    setPSignType("근로자");
+    clearPCanvas();
+    await refreshPledgeModalItem();
+  }
+
+  async function copyWorkerSignLink() {
+    if (!pledgeModalItem) return;
+    const shareUrl = `${window.location.origin}/ptw/sign?id=${pledgeModalItem.id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setPCopyMsg("서명 링크가 복사되었습니다! 현장 카톡방에 붙여넣어 근로자들에게 공유해 주세요.");
+    } catch {
+      window.prompt("아래 링크를 복사하여 카톡방에 공유해 주세요:", shareUrl);
+    }
+  }
+
+  async function finalizePledgeSignatures() {
+    if (!pledgeModalItem) return;
+    const sigCount = (pledgeModalItem.ptw_signatures || []).length;
+    if (sigCount === 0) {
+      alert("최소 1명 이상 서명이 등록되어야 최종 제출할 수 있습니다.");
+      return;
+    }
+    setPSaving(true);
+    const prevDetails = pledgeModalItem.fire_work_details || {};
+    const prevCommon = prevDetails._common || {};
+    const nextDetails = {
+      ...prevDetails,
+      _common: { ...prevCommon, pledgePending: false },
+    };
+
+    const { error } = await supabase
+      .from("ptw_applications")
+      .update({
+        fire_work_details: nextDetails,
+        worker_count: Math.max(pledgeModalItem.worker_count || 0, sigCount),
+      })
+      .eq("id", pledgeModalItem.id);
+
+    setPSaving(false);
+    if (error) {
+      alert("완료 처리 오류: " + error.message);
+      return;
+    }
+    setPledgeModalItem(null);
+    loadPtwList();
+  }
 
   async function loadPtwList() {
     if (!configured) {
@@ -305,8 +567,28 @@ return (
                           </div>
                         )}
                       </td>
-                      <td>
-                        <button className="btn secondary" onClick={() => openDetail(item)}>상세/출력</button>
+<td>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <button className="btn secondary" onClick={() => openDetail(item)}>상세/출력</button>
+                          {item.fire_work_details?._common?.trainingPending && (
+                            <button
+                              className="btn"
+                              style={{ background: "#dc2626", borderColor: "#dc2626", color: "#fff" }}
+                              onClick={() => openTrainingModal(item)}
+                            >
+                              교육일지 추가제출
+                            </button>
+                          )}
+                          {item.fire_work_details?._common?.pledgePending && (
+                            <button
+                              className="btn"
+                              style={{ background: "#dc2626", borderColor: "#dc2626", color: "#fff" }}
+                              onClick={() => openPledgeModal(item)}
+                            >
+                              서약·서명 추가제출
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -634,53 +916,226 @@ return (
                 </div>
               )}
 
-              {/* ================= [3 PAGE] 안전교육일지 + 서약서 + 서명 (새 페이지) ================= */}
-              <div className="page-break" style={{ marginTop: 20, border: "2px solid #000", padding: 12 }}>
-                <div style={{ fontWeight: "bold", fontSize: 15, marginBottom: 8, borderBottom: "1px solid #000", paddingBottom: 6 }}>
-                  [안전교육일지 및 참여자 서약 서명]
-                </div>
-                {selectedItem.training_type === "form" ? (
-                  <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
-                    <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
-                    <b>교육내용:</b><br />{selectedItem.training_content}
+{/* ================= [3 PAGE] 안전교육일지 + 서약서 + 서명 (미제출 항목은 자동 제외) ================= */}
+              {(!commonExtra.trainingPending || !commonExtra.pledgePending) && (
+                <div className="page-break" style={{ marginTop: 20, border: "2px solid #000", padding: 12 }}>
+                  <div style={{ fontWeight: "bold", fontSize: 15, marginBottom: 8, borderBottom: "1px solid #000", paddingBottom: 6 }}>
+                    {!commonExtra.trainingPending && !commonExtra.pledgePending
+                      ? "[안전교육일지 및 참여자 서약 서명]"
+                      : !commonExtra.trainingPending
+                        ? "[안전교육일지]"
+                        : "[참여자 안전관리 준수 서약 및 서명]"}
                   </div>
-                ) : (
-                  <div style={{ marginBottom: 12 }}>
-                    {trainingPhotoUrl ? (
-                      <img src={trainingPhotoUrl} alt="교육일지" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+
+                  {!commonExtra.trainingPending && (
+                    selectedItem.training_type === "form" ? (
+                      <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                        <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
+                        <b>교육내용:</b><br />{selectedItem.training_content}
+                      </div>
                     ) : (
-                      <span className="muted">첨부된 교육일지 사진 없음</span>
-                    )}
-                  </div>
-                )}
+                      <div style={{ marginBottom: 12 }}>
+                        {trainingPhotoUrl ? (
+                          <img src={trainingPhotoUrl} alt="교육일지" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                        ) : (
+                          <span className="muted">첨부된 교육일지 사진 없음</span>
+                        )}
+                      </div>
+                    )
+                  )}
 
-                <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "10px 12px", marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
-                  <div style={{ fontWeight: "bold", fontSize: 13, textAlign: "center", marginBottom: 6 }}>
-                    [안전관리 준수 서약서]
-                  </div>
-                  <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
-                    상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
-                  </p>
-                  <div>
-                    {PLEDGE_ITEMS.map((line, i) => (
-                      <div key={i}>{line}</div>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
-                    서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
-                  </div>
+                  {!commonExtra.pledgePending && (
+                    <>
+                      <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "10px 12px", marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
+                        <div style={{ fontWeight: "bold", fontSize: 13, textAlign: "center", marginBottom: 6 }}>
+                          [안전관리 준수 서약서]
+                        </div>
+                        <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
+                          상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
+                        </p>
+                        <div>
+                          {PLEDGE_ITEMS.map((line, i) => (
+                            <div key={i}>{line}</div>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
+                          서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {(selectedItem.ptw_signatures || []).map(sig => (
+                          <div key={sig.id} style={{ border: "1px solid #999", padding: 6, textAlign: "center", width: 110 }}>
+                            <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 45, objectFit: "contain" }} />
+                            <div style={{ fontSize: 12 }}>{sig.worker_name} ({sig.worker_type})</div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
+              )}
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-<div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {(selectedItem.ptw_signatures || []).map(sig => (
-                    <div key={sig.id} style={{ border: "1px solid #999", padding: 6, textAlign: "center", width: 110 }}>
-                      <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 45, objectFit: "contain" }} />
-                      <div style={{ fontSize: 12 }}>{sig.worker_name} ({sig.worker_type})</div>
+      {/* ================= 3. 안전교육일지 추가제출 모달 ================= */}
+      {trainingModalItem && (
+        <div className="no-print" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, overflowY: "auto", padding: 16 }}>
+          <div className="card" style={{ maxWidth: 640, margin: "20px auto", background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}>
+              <h3 style={{ margin: 0 }}>안전교육일지 추가제출</h3>
+              <button className="btn secondary" onClick={() => setTrainingModalItem(null)}>닫기</button>
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              공사명: <b>{trainingModalItem.project_name}</b> ({getCompanyName(trainingModalItem)})
+            </p>
+
+            <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
+              <label className="checkrow">
+                <input type="radio" checked={tType === "form"} onChange={() => setTType("form")} />
+                <span>화면 직접 작성</span>
+              </label>
+              <label className="checkrow">
+                <input type="radio" checked={tType === "photo"} onChange={() => setTType("photo")} />
+                <span>종이일지 사진 촬영</span>
+              </label>
+            </div>
+
+            {tType === "form" ? (
+              <div className="formgrid">
+                <div className="field">
+                  <label>교육 강사 (현장관리감독자)</label>
+                  <input className="input" value={tInstructor} onChange={e => setTInstructor(e.target.value)} />
+                </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <label>안전 교육 내용</label>
+                  <textarea value={tContent} onChange={e => setTContent(e.target.value)} style={{ height: 200 }} />
+                </div>
+              </div>
+            ) : (
+              <div className="field">
+                <label>안전교육일지 사진 첨부</label>
+                <input type="file" accept="image/*" capture="environment" onChange={e => setTPhoto(e.target.files?.[0] || null)} />
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={() => setTrainingModalItem(null)}>취소</button>
+              <button type="button" className="btn" style={{ flex: 2 }} onClick={submitLateTraining} disabled={tSaving}>
+                {tSaving ? "저장 중..." : "안전교육일지 제출 완료"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 4. 안전관리 준수 서약 및 서명 추가제출 모달 ================= */}
+      {pledgeModalItem && (
+        <div className="no-print" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, overflowY: "auto", padding: 16 }}>
+          <div className="card" style={{ maxWidth: 680, margin: "10px auto", background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" }}>
+              <h3 style={{ margin: 0 }}>안전관리 준수 서약 및 서명 추가제출</h3>
+              <button className="btn secondary" onClick={() => setPledgeModalItem(null)}>닫기</button>
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+              공사명: <b>{pledgeModalItem.project_name}</b> ({getCompanyName(pledgeModalItem)})
+            </p>
+
+            <div style={{ background: "#f8f9fa", padding: 12, borderRadius: 8, fontSize: 12.5, lineHeight: 1.55, maxHeight: 140, overflowY: "auto", marginBottom: 14, border: "1px solid #ddd" }}>
+              <b>상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.</b>
+              <br />
+              {PLEDGE_ITEMS.map((line, i) => <div key={i}>{line}</div>)}
+            </div>
+
+            {/* 방법 1: 각자 스마트폰으로 서명 (링크 공유) */}
+            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+              <div style={{ fontWeight: "bold", fontSize: 13.5, color: "#1d4ed8", marginBottom: 6 }}>
+                방법 ① 근로자 각자 스마트폰으로 서명 (링크 공유)
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" className="btn" style={{ fontSize: 13 }} onClick={copyWorkerSignLink}>
+                  서명 링크 복사 (카톡방 공유)
+                </button>
+                <button type="button" className="btn secondary" style={{ fontSize: 13 }} onClick={refreshPledgeModalItem}>
+                  서명 현황 새로고침
+                </button>
+              </div>
+              {pCopyMsg && <div style={{ fontSize: 12, color: "#15803d", fontWeight: 600, marginTop: 6 }}>{pCopyMsg}</div>}
+            </div>
+
+            {/* 방법 2: 이 기기에서 연속 서명 */}
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+              <div style={{ fontWeight: "bold", fontSize: 13.5, marginBottom: 8 }}>
+                방법 ② 이 기기에서 바로 연속 서명
+              </div>
+              <div className="field" style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <select className="input" value={pSignType} onChange={e => setPSignType(e.target.value)} style={{ width: 100 }}>
+                  <option value="대표자">대표자</option>
+                  <option value="근로자">근로자</option>
+                </select>
+                <input
+                  className="input"
+                  placeholder="작업자 성명 입력"
+                  value={pSignName}
+                  onChange={e => setPSignName(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+              </div>
+
+              <div style={{ border: "2px dashed #cbd5e1", borderRadius: 8, background: "#fafafa", marginBottom: 10 }}>
+                <canvas
+                  ref={pCanvasRef}
+                  width={360}
+                  height={130}
+                  style={{ width: "100%", height: 130, touchAction: "none", display: "block" }}
+                  onMouseDown={startPDrawing}
+                  onMouseMove={drawP}
+                  onMouseUp={stopPDrawing}
+                  onMouseLeave={stopPDrawing}
+                  onTouchStart={startPDrawing}
+                  onTouchMove={drawP}
+                  onTouchEnd={stopPDrawing}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 10px", borderTop: "1px solid #e5e7eb" }}>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>손가락으로 서명 후 [이 작업자 서명 등록] 클릭</span>
+                  <button type="button" className="btn secondary" style={{ padding: "3px 8px", fontSize: 12 }} onClick={clearPCanvas}>지우기</button>
+                </div>
+              </div>
+
+              <button type="button" className="btn secondary" style={{ width: "100%" }} onClick={addDeviceSignature} disabled={pSaving}>
+                + 이 작업자 서명 등록 (다음 사람 계속 서명 가능)
+              </button>
+            </div>
+
+            {/* 현재 등록된 서명 목록 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: "bold", fontSize: 13, marginBottom: 8 }}>
+                현재 서명 완료 인원 ({(pledgeModalItem.ptw_signatures || []).length}명)
+              </div>
+              {(pledgeModalItem.ptw_signatures || []).length > 0 ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {(pledgeModalItem.ptw_signatures || []).map(sig => (
+                    <div key={sig.id} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: 6, textAlign: "center", width: 105 }}>
+                      <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 42, objectFit: "contain" }} />
+                      <div style={{ fontSize: 11.5 }}><b>{sig.worker_name}</b> ({sig.worker_type})</div>
                     </div>
                   ))}
                 </div>
-              </div>
+              ) : (
+                <div className="muted" style={{ fontSize: 12.5 }}>아직 등록된 서명이 없습니다.</div>
+              )}
             </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={() => setPledgeModalItem(null)}>
+                닫기 (나중에 계속 받기)
+              </button>
+              <button type="button" className="btn" style={{ flex: 2 }} onClick={finalizePledgeSignatures} disabled={pSaving}>
+                {pSaving ? "처리 중..." : "서약·서명 최종 제출 완료"}
+              </button>
             </div>
           </div>
         </div>

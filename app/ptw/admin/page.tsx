@@ -1040,52 +1040,65 @@ ws.getRow(2).height = 56;
                 </div>
               )}
 
-              {/* ================= [3 PAGE] 안전교육일지 + 서약서 + 서명 (새 페이지) ================= */}
-              <div className="page-break" style={{ marginTop: 20, border: "2px solid #000", padding: 12 }}>
-                <div style={{ fontWeight: "bold", fontSize: 15, marginBottom: 8, borderBottom: "1px solid #000", paddingBottom: 6 }}>
-                  [안전교육일지 및 참여자 서약 서명]
-                </div>
-                {selectedItem.training_type === "form" ? (
-                  <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
-                    <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
-                    <b>교육내용:</b><br />{selectedItem.training_content}
+{/* ================= [3 PAGE] 안전교육일지 + 서약서 + 서명 (미제출 항목 자동 제외) ================= */}
+              {(!commonExtra.trainingPending || !commonExtra.pledgePending) && (
+                <div className="page-break" style={{ marginTop: 20, border: "2px solid #000", padding: 12 }}>
+                  <div style={{ fontWeight: "bold", fontSize: 15, marginBottom: 8, borderBottom: "1px solid #000", paddingBottom: 6 }}>
+                    {!commonExtra.trainingPending && !commonExtra.pledgePending
+                      ? "[안전교육일지 및 참여자 서약 서명]"
+                      : !commonExtra.trainingPending
+                        ? "[안전교육일지]"
+                        : "[참여자 안전관리 준수 서약 및 서명]"}
                   </div>
-                ) : (
-                  <div style={{ marginBottom: 12 }}>
-                    {trainingPhotoUrl ? (
-                      <img src={trainingPhotoUrl} alt="교육일지" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+
+                  {!commonExtra.trainingPending && (
+                    selectedItem.training_type === "form" ? (
+                      <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                        <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
+                        <b>교육내용:</b><br />{selectedItem.training_content}
+                      </div>
                     ) : (
-                      <span className="muted">첨부된 교육일지 사진 없음</span>
-                    )}
-                  </div>
-                )}
+                      <div style={{ marginBottom: 12 }}>
+                        {trainingPhotoUrl ? (
+                          <img src={trainingPhotoUrl} alt="교육일지" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                        ) : (
+                          <span className="muted">첨부된 교육일지 사진 없음</span>
+                        )}
+                      </div>
+                    )
+                  )}
 
-                <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "10px 12px", marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
-                  <div style={{ fontWeight: "bold", fontSize: 13, textAlign: "center", marginBottom: 6 }}>
-                    [안전관리 준수 서약서]
-                  </div>
-                  <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
-                    상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
-                  </p>
-                  <div>
-                    {PLEDGE_ITEMS.map((line, i) => (
-                      <div key={i}>{line}</div>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
-                    서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
-                  </div>
-                </div>
+                  {!commonExtra.pledgePending && (
+                    <>
+                      <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "10px 12px", marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
+                        <div style={{ fontWeight: "bold", fontSize: 13, textAlign: "center", marginBottom: 6 }}>
+                          [안전관리 준수 서약서]
+                        </div>
+                        <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
+                          상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
+                        </p>
+                        <div>
+                          {PLEDGE_ITEMS.map((line, i) => (
+                            <div key={i}>{line}</div>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
+                          서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
+                        </div>
+                      </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {(selectedItem.ptw_signatures || []).map(sig => (
-                    <div key={sig.id} style={{ border: "1px solid #999", padding: 6, textAlign: "center", width: 110 }}>
-                      <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 45, objectFit: "contain" }} />
-                      <div style={{ fontSize: 12 }}>{sig.worker_name} ({sig.worker_type})</div>
-                    </div>
-                  ))}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {(selectedItem.ptw_signatures || []).map(sig => (
+                          <div key={sig.id} style={{ border: "1px solid #999", padding: 6, textAlign: "center", width: 110 }}>
+                            <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 45, objectFit: "contain" }} />
+                            <div style={{ fontSize: 12 }}>{sig.worker_name} ({sig.worker_type})</div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
