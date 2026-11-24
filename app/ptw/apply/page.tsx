@@ -170,8 +170,15 @@ const [extraDetails, setExtraDetails] = useState({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const GENERAL_WORK_TYPES = ["일반작업", "화기작업", "고소작업", "전기작업"];
-  const HAZARD_WORK_TYPES = ["밀폐작업", "중량물취급작업", "환경", "유틸리티작업"];
+const WORK_TYPES = [
+    "일반작업",
+    "화기작업",
+    "고소작업",
+    "전기작업",
+    "밀폐작업",
+    "중량물취급작업",
+    "유틸리티작업",
+  ];
   const FIRE_SUPPLEMENTARY_TYPES = [
     "밀폐공간출입",
     "정전작업",
@@ -959,54 +966,18 @@ setFireDetails((prev) => ({
           </div>
         </div>
 
-        {/* 2. 작업 종류 선택 */}
+{/* 2. 작업 종류 선택 */}
         <div className="card section">
-          <h3>2. 작업 종류 및 위험작업 선택 (다중 선택 가능)</h3>
-          <div style={{ fontSize: 13, fontWeight: "bold", marginTop: 10, marginBottom: 6 }}>
-            [작업종류]
-          </div>
+          <h3>2. 작업 종류 선택 (다중 선택 가능)</h3>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
               gap: 10,
+              marginTop: 12,
             }}
           >
-            {GENERAL_WORK_TYPES.map((type) => (
-              <label
-                key={type}
-                className="checkrow"
-                style={{
-                  padding: "8px 10px",
-                  border: "1px solid #ddd",
-                  borderRadius: 8,
-                  margin: 0,
-                  background: form.workTypes.includes(type) ? "#eff6ff" : "#fff",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={form.workTypes.includes(type)}
-                  onChange={(e) => toggleWorkType(type, e.target.checked)}
-                />
-                <span>
-                  <b>{type}</b>
-                </span>
-              </label>
-            ))}
-          </div>
-
-          <div style={{ fontSize: 13, fontWeight: "bold", marginTop: 14, marginBottom: 6 }}>
-            [위험작업 구분]
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
-              gap: 10,
-            }}
-          >
-            {HAZARD_WORK_TYPES.map((type) => (
+            {WORK_TYPES.map((type) => (
               <label
                 key={type}
                 className="checkrow"
