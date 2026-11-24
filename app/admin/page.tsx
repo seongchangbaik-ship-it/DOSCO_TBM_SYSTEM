@@ -7,8 +7,8 @@ import ExcelJS from "exceljs";
 import { supabase, configured } from "@/lib/supabase";
 type Week={id:string;title:string;topic:string;content:string;week_label:string;starts_at:string;ends_at:string;is_published:boolean;photo_paths?:string[]};
 export default function Admin(){
- const [weeks,setWeeks]=useState<Week[]>([]),[acks,setAcks]=useState<any[]>([]),[photos,setPhotos]=useState<any[]>([]),[msg,setMsg]=useState("");
- const [selectedWeekId, setSelectedWeekId] = useState<string>("all");
+ const [weeks,setWeeks]=useState<Week[]>([]),[acks,setAcks]=useState<any[]>([]),[photos,setPhotos]=useState<any[]>([]),[spotLogs,setSpotLogs]=useState<any[]>([]),[msg,setMsg]=useState("");
+ const [detailModal,setDetailModal]=useState<{type:"regular"|"spot";data:any;photoUrl:string}|null>(null); const [selectedWeekId, setSelectedWeekId] = useState<string>("all");
  const filteredAcks = selectedWeekId === "all"
   ? acks
   : acks.filter(a => a.week_id === selectedWeekId);
@@ -140,14 +140,16 @@ async function sendResetEmail(){
 async function load() {
   if (!configured || !isAdmin) return;
 
-  const [w, a, p] = await Promise.all([
+  const [w, a, p, s] = await Promise.all([
     supabase.from("tbm_weeks").select("*").order("starts_at", { ascending: false }),
     supabase.from("tbm_acknowledgements").select("*,companies(name),teams(name),tbm_weeks(week_label,topic)").order("acknowledged_at", { ascending: false }).limit(1000),
-    supabase.from("tbm_team_submissions").select("*,companies(name),teams(name),tbm_weeks(week_label)").order("submitted_at", { ascending: false }).limit(500)
+    supabase.from("tbm_team_submissions").select("*,companies(name),teams(name),tbm_weeks(week_label,topic)").order("submitted_at", { ascending: false }).limit(500),
+    supabase.from("tbm_spot_logs").select("*,companies(name),teams(name),tbm_spot_signatures(*)").order("created_at", { ascending: false }).limit(300)
   ]);
 
   setWeeks(w.data || []);
   setAcks(a.data || []);
+  setSpotLogs(s.data || []);
 
   const submissionPhotos = await Promise.all(
     (p.data || []).map(async (item) => {
@@ -165,6 +167,27 @@ async function load() {
   );
 
   setPhotos(submissionPhotos);
+}
+
+async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
+  let url = "";
+  const path = type === "regular" ? data.leaderSubmission?.photo_path : data.photo_path;
+  if (type === "regular" && data.leaderSubmission?.photo_url) {
+    url = data.leaderSubmission.photo_url;
+  } else if (path) {
+    const { data: signed } = await supabase.storage.from("tbm-photos").createSignedUrl(path, 3600);
+    url = signed?.signedUrl || "";
+  }
+  setDetailModal({ type, data, photoUrl: url });
+}
+
+async function deleteSpotLog(id: string) {
+  if (!window.confirm("이 수시 작업 TBM 기록을 삭제하시겠습니까?")) return;
+  await supabase.from("tbm_spot_signatures").delete().eq("spot_id", id);
+  const { error } = await supabase.from("tbm_spot_logs").delete().eq("id", id);
+  if (error) { setMsg("삭제 실패: " + error.message); return; }
+  setMsg("수시 작업 TBM 기록이 삭제되었습니다.");
+  load();
 }
  useEffect(()=>{if(isAdmin)load()},[isAdmin]);
 
@@ -688,60 +711,277 @@ if(!isAdmin)return (
     </table>
   </div>
 </div>{msg&&<p className="muted">{msg}</p>}</div>
- <div className="section"><h2>개인별 교육 확인 기록</h2><div className="tablewrap"><table><thead><tr><th>교육 회차</th><th>회사</th><th>조</th><th>이름</th><th>확인 일시</th></tr></thead><tbody>{filteredAcks.slice(0,30).map(a=><tr key={a.id}><td>{a.tbm_weeks?.week_label}</td><td>{a.companies?.name}</td><td>{a.teams?.name}</td><td>{a.worker_name}</td><td>{new Date(a.acknowledged_at).toLocaleString("ko-KR")}</td></tr>)}{!acks.length&&<tr><td colSpan={5} className="empty">교육 확인 기록이 없습니다.</td></tr>}</tbody></table></div></div>
-<div className="section">
-  <h2>조별 TBM 사진 제출 기록</h2>
-  <div className="tablewrap">
-    <table>
-      <thead>
-        <tr>
-          <th>교육 회차</th>
-          <th>회사</th>
-          <th>조</th>
-          <th>제출자</th>
-          <th>제출 일시</th>
-          <th>제출 사진</th>
-        </tr>
-      </thead>
-      <tbody>
-        {filteredPhotos.map(p => (
-          <tr key={p.id}>
-            <td>{p.tbm_weeks?.week_label}</td>
-            <td>{p.companies?.name}</td>
-            <td>{p.teams?.name}</td>
-            <td>{p.leader_name}</td>
-            <td>{new Date(p.submitted_at).toLocaleString("ko-KR")}</td>
-            <td>
-              {p.photo_url ? (
-                <a href={p.photo_url} target="_blank" rel="noreferrer">
-                  <img
-                    src={p.photo_url}
-                    alt="조별 TBM 제출 사진"
-                    style={{
-                      width: 100,
-                      height: 75,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                      cursor: "pointer"
-                    }}
-                  />
-                </a>
-              ) : (
-                "사진을 불러올 수 없습니다."
-              )}
-            </td>
-          </tr>
-        ))}
-        {!photos.length && (
-          <tr>
-            <td colSpan={6} className="empty">
-              사진 제출 기록이 없습니다.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+{/* 정기 안전교육 조별 통합 데이터 계산 */}
+  {(() => {
+    const mergedMap = new Map<string, any>();
+    filteredPhotos.forEach((p: any) => {
+      const key = `${p.week_id}_${p.company_id}_${p.team_id}`;
+      mergedMap.set(key, {
+        key,
+        weekLabel: p.tbm_weeks?.week_label || "-",
+        topic: p.tbm_weeks?.topic || "-",
+        companyName: p.companies?.name || "-",
+        teamName: p.teams?.name || "-",
+        leaderSubmission: p,
+        workers: [],
+      });
+    });
+    filteredAcks.forEach((a: any) => {
+      const key = `${a.week_id}_${a.company_id}_${a.team_id}`;
+      if (mergedMap.has(key)) {
+        mergedMap.get(key).workers.push(a);
+      } else {
+        mergedMap.set(key, {
+          key,
+          weekLabel: a.tbm_weeks?.week_label || "-",
+          topic: a.tbm_weeks?.topic || "-",
+          companyName: a.companies?.name || "-",
+          teamName: a.teams?.name || "-",
+          leaderSubmission: null,
+          workers: [a],
+        });
+      }
+    });
+    const mergedRegular = Array.from(mergedMap.values());
+
+    return (
+      <>
+        <style>{`
+          @page { size: A4 portrait; margin: 0; }
+          @media print {
+            .no-print { display: none !important; }
+            .admin-print-wrapper { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; }
+            .admin-print-card { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm !important; }
+          }
+        `}</style>
+
+        {/* 1. 수시 작업 TBM 현황 */}
+        <div className="section card">
+          <h2>🛠️ 수시 작업 TBM 실시 현황 (R/C · 정비 · 돌발작업)</h2>
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>작업일자</th>
+                  <th>작업구분</th>
+                  <th>소속 / 조</th>
+                  <th>작업명</th>
+                  <th>책임자</th>
+                  <th>서명인원</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                {spotLogs.map((s: any) => (
+                  <tr key={s.id}>
+                    <td>{s.work_date}</td>
+                    <td><span className="pill" style={{ background: "#ccfbf1", color: "#0f766e" }}>{s.work_category}</span></td>
+                    <td><b>{s.companies?.name || "-"}</b> / {s.teams?.name || "-"}</td>
+                    <td>{s.work_title}</td>
+                    <td>{s.leader_name}</td>
+                    <td><span className="pill ok">{(s.tbm_spot_signatures || []).length}명 서명</span></td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn secondary" onClick={() => openAdminTbmDetail("spot", s)}>상세/출력</button>
+                        <button
+                          className="btn secondary"
+                          style={{ color: "#ef4444", background: "#fee2e2", borderColor: "#fca5a5" }}
+                          onClick={() => deleteSpotLog(s.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!spotLogs.length && (
+                  <tr><td colSpan={7} className="empty">등록된 수시 작업 TBM이 없습니다.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 2. 정기 안전교육 조별 통합 현황 */}
+        <div className="section card">
+          <h2>📘 정기 안전교육 조별 통합 현황 (조장 사진·일지 + 근로자 서명)</h2>
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>교육 회차</th>
+                  <th>소속 회사</th>
+                  <th>소속 조</th>
+                  <th>조장 사진·일지</th>
+                  <th>근로자 서명 인원</th>
+                  <th>상세 / 일지출력</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mergedRegular.map((m: any) => (
+                  <tr key={m.key}>
+                    <td>{m.weekLabel}</td>
+                    <td><b>{m.companyName}</b></td>
+                    <td>{m.teamName}</td>
+                    <td>
+                      {m.leaderSubmission ? (
+                        <span className="pill ok">제출완료 ({m.leaderSubmission.leader_name})</span>
+                      ) : (
+                        <span className="pill wait">조장 미제출</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="pill" style={{ background: "#eff6ff", color: "#1d4ed8" }}>
+                        {m.workers.length}명 서명완료
+                      </span>
+                    </td>
+                    <td>
+                      <button className="btn secondary" onClick={() => openAdminTbmDetail("regular", m)}>
+                        상세 / 일지출력
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!mergedRegular.length && (
+                  <tr><td colSpan={6} className="empty">정기 안전교육 기록이 없습니다.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  })()}
+</main>
+
+{/* 관리자용 통합 TBM 일지 상세 및 A4 출력 모달 */}
+{detailModal && (
+  <div className="admin-print-wrapper" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, overflowY: "auto", padding: 20 }}>
+    <div className="card admin-print-card" style={{ maxWidth: 800, margin: "0 auto", background: "#fff" }}>
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #ddd" }}>
+        <button className="btn" onClick={() => window.print()}>A4 인쇄 / PDF 저장</button>
+        <button className="btn secondary" onClick={() => setDetailModal(null)}>닫기</button>
+      </div>
+
+      {detailModal.type === "spot" ? (
+        <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 12 }}>
+          <tbody>
+            <tr>
+              <th colSpan={4} style={{ border: "1px solid #000", padding: 10, fontSize: 18, background: "#f3f4f6" }}>
+                수 시 작 업 T B M 일 지 ({detailModal.data.work_category})
+              </th>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>작업일자</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.work_date}</td>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>소속 / 조</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.companies?.name} / {detailModal.data.teams?.name}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>작업명</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.work_title}</td>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>작업책임자</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.leader_name}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>건강·보호구</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.health_status || "-"}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>유해·위험요인</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{detailModal.data.hazard_factors || "-"}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>안전대책</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{detailModal.data.safety_measures || "-"}</td>
+            </tr>
+            {detailModal.photoUrl && (
+              <tr>
+                <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>현장 실시 사진</th>
+                <td colSpan={3} style={{ border: "1px solid #000", padding: 8, textAlign: "center" }}>
+                  <img src={detailModal.photoUrl} alt="현장 사진" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                </td>
+              </tr>
+            )}
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
+                참여자 서명<br />({(detailModal.data.tbm_spot_signatures || []).length}명)
+              </th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {(detailModal.data.tbm_spot_signatures || []).map((sig: any) => (
+                    <div key={sig.id} style={{ border: "1px solid #999", padding: 4, textAlign: "center", width: 95 }}>
+                      <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 40, objectFit: "contain" }} />
+                      <div style={{ fontSize: 11.5, fontWeight: "bold" }}>{sig.worker_name}</div>
+                    </div>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 12 }}>
+          <tbody>
+            <tr>
+              <th colSpan={4} style={{ border: "1px solid #000", padding: 10, fontSize: 18, background: "#f3f4f6" }}>
+                정 기 안 전 교 육 및 T B M 일 지
+              </th>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>교육 회차</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.weekLabel}</td>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>소속 / 조</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.companyName} / {detailModal.data.teamName}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 주제</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.topic}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>조장 확인</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>
+                {detailModal.data.leaderSubmission ? `${detailModal.data.leaderSubmission.leader_name} (제출완료)` : "미제출"}
+              </td>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>건강·보호구</th>
+              <td style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.leaderSubmission?.health_status || "-"}</td>
+            </tr>
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>금주 핵심 위험</th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{detailModal.data.leaderSubmission?.daily_hazard || "-"}</td>
+            </tr>
+            {detailModal.photoUrl && (
+              <tr>
+                <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>TBM 실시 사진</th>
+                <td colSpan={3} style={{ border: "1px solid #000", padding: 8, textAlign: "center" }}>
+                  <img src={detailModal.photoUrl} alt="조별 사진" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                </td>
+              </tr>
+            )}
+            <tr>
+              <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
+                근로자 서명<br />({detailModal.data.workers.length}명)
+              </th>
+              <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {detailModal.data.workers.map((w: any) => (
+                    <div key={w.id} style={{ border: "1px solid #999", padding: 4, textAlign: "center", width: 95 }}>
+                      {w.signature_data ? (
+                        <img src={w.signature_data} alt="서명" style={{ width: "100%", height: 40, objectFit: "contain" }} />
+                      ) : (
+                        <div style={{ height: 40, lineHeight: "40px", fontSize: 11, color: "#666" }}>서명완료</div>
+                      )}
+                      <div style={{ fontSize: 11.5, fontWeight: "bold" }}>{w.worker_name}</div>
+                    </div>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
   </div>
-</div>
-</main></>
+)}
+</>
 }
