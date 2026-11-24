@@ -375,7 +375,10 @@ async function compressImage(file: File): Promise<Blob | File> {
     return paths;
   }
 
-  async function submitPtw() {
+async function submitPtw() {
+    if (editId && existingStatus === "approved") {
+      return setMsg("이미 허가완료된 안전작업허가서는 수정할 수 없습니다.");
+    }
     if (form.companyType === "internal" && !form.companyId) return setMsg("협력사를 선택하세요.");
     if (form.companyType === "external" && !form.companyName.trim()) return setMsg("외부업체명을 입력하세요.");
     if (!form.projectName.trim() || !form.siteManager.trim() || !form.workContent.trim()) {
@@ -1187,9 +1190,15 @@ title="서명 삭제"
           </div>
         </div>
 
-        <button type="button" className="btn" style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: 60 }} onClick={submitPtw} disabled={isSubmitting}>
-          {isSubmitting ? "전송 중..." : editId ? "안전작업허가서 수정 완료" : "안전작업허가서 제출 (승인 요청)"}
-        </button>
+{editId && existingStatus === "approved" ? (
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: 16, borderRadius: 8, textAlign: "center", fontWeight: "bold", marginBottom: 60 }}>
+            이미 허가완료된 안전작업허가서는 수정할 수 없습니다.
+          </div>
+        ) : (
+          <button type="button" className="btn" style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: 60 }} onClick={submitPtw} disabled={isSubmitting}>
+            {isSubmitting ? "전송 중..." : editId ? "안전작업허가서 수정 완료" : "안전작업허가서 제출 (승인 요청)"}
+          </button>
+        )}
 
         {msg && <p style={{ color: "#b33", textAlign: "center", marginBottom: 40 }}>{msg}</p>}
 
