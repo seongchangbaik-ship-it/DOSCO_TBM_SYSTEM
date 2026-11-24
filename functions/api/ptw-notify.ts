@@ -1,17 +1,38 @@
-import { NextResponse } from "next/server";
+export async function onRequestGet(context: {
+  env: Record<string, string | undefined>;
+}) {
+  const hasApiKey = Boolean(context.env.RESEND_API_KEY);
+  const toEmail = context.env.PTW_NOTIFY_EMAIL || "미설정";
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      message: "PTW 메일 알림 API 정상 작동 중",
+      hasApiKey,
+      toEmail,
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    }
+  );
+}
 
-export const runtime = "edge";
-
-export async function POST(req: Request) {
+export async function onRequestPost(context: {
+  request: Request;
+  env: Record<string, string | undefined>;
+}) {
   try {
-    const apiKey = process.env.RESEND_API_KEY;
-    const toEmail = process.env.PTW_NOTIFY_EMAIL;
+    const apiKey = context.env.RESEND_API_KEY;
+    const toEmail = context.env.PTW_NOTIFY_EMAIL;
 
     if (!apiKey || !toEmail) {
-      return NextResponse.json({ ok: false, reason: "Email env not configured" });
+      return new Response(
+        JSON.stringify({ ok: false, reason: "Email env not configured" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    const body = await req.json();
+    const body: any = await context.request.json();
     const {
       isEdit,
       companyName,
@@ -82,11 +103,20 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const errText = await res.text();
-      return NextResponse.json({ ok: false, error: errText }, { status: 500 });
+      return new Response(JSON.stringify({ ok: false, error: errText }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    return NextResponse.json({ ok: true });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });
+    return new Response(
+      JSON.stringify({ ok: false, error: err?.message || "Unknown error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
