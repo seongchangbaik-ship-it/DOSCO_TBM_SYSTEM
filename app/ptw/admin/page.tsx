@@ -201,8 +201,24 @@ export default function PtwAdminPage() {
     if (selectedItem && selectedItem.id === rejectTargetId) {
       setSelectedItem({ ...selectedItem, status: "rejected", rejection_reason: trimmedReason });
     }
-    setRejectTargetId(null);
+setRejectTargetId(null);
     setRejectReason("");
+    loadPtwList();
+  }
+
+  async function deletePtw(id: string) {
+    if (!window.confirm("이 안전작업허가서를 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며, 포함된 서명 데이터도 함께 삭제됩니다.")) return;
+    
+    // 외래 키(Cascade) 설정이 안 되어 있을 수 있으므로 먼저 서명을 삭제
+    await supabase.from("ptw_signatures").delete().eq("ptw_id", id);
+    
+    const { error } = await supabase.from("ptw_applications").delete().eq("id", id);
+    if (error) {
+      setMsg("삭제 실패: " + error.message);
+      return;
+    }
+    
+    setMsg("작업허가서가 성공적으로 삭제되었습니다.");
     loadPtwList();
   }
 
@@ -672,7 +688,7 @@ ws.getRow(2).height = 56;
                   <th>작업종류</th>
                   <th>책임자</th>
                   <th>상태</th>
-                  <th>승인 / 반려 / 출력</th>
+<th>승인 / 관리 / 출력</th>
                 </tr>
               </thead>
               <tbody>
@@ -696,7 +712,7 @@ ws.getRow(2).height = 56;
                       )}
                     </td>
                     <td>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <button className="btn secondary" onClick={() => openDetail(item)}>상세/출력</button>
                         <button className="btn secondary" onClick={() => downloadPermitExcel(item)}>엑셀</button>
                         {item.status !== "approved" && (
@@ -708,6 +724,13 @@ ws.getRow(2).height = 56;
                           onClick={() => openRejectModal(item.id, item.rejection_reason)}
                         >
                           반려
+                        </button>
+                        <button
+                          className="btn secondary"
+                          style={{ color: "#ef4444", background: "#fee2e2", borderColor: "#fca5a5", fontSize: 12, padding: "4px 8px" }}
+                          onClick={() => deletePtw(item.id)}
+                        >
+                          삭제
                         </button>
                       </div>
                     </td>
