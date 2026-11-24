@@ -1,5 +1,11 @@
 "use client";
-import {useEffect,useState} from "react";
+"use client";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import QRCode from "qrcode";
+import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { supabase, configured } from "@/lib/supabase";
 import Link from "next/link";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
@@ -327,119 +333,169 @@ async function removeWeek(id: string) {
   setMsg("교육자료가 삭제되었습니다.");
   load();
 }
- async function qr(){const url=`${window.location.origin}/tbm`;const data=await QRCode.toDataURL(url,{width:500,margin:2});const a=document.createElement("a");a.href=data;a.download="DOSCO_TBM_QR.png";a.click()}
+async function qr() {
+    const { data: companiesData } = await supabase.from("companies").select("id, name").eq("active", true).order("name");
+    const { data: teamsData } = await supabase.from("teams").select("id, name, company_id").eq("active", true).order("name");
+    
+    if (!companiesData || !teamsData) {
+      alert("회사 또는 조 정보를 불러오지 못했습니다.");
+      return;
+    }
 
+    const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
+    companiesData.sort((a, b) => companyOrder.indexOf(a.name) - companyOrder.indexOf(b.name));
+    
+    const teamOrder: Record<string, string[]> = {
+      "동아스틸": ["전기파트", "품질파트", "기타부서"],
+      "다인스틸": ["P5", "P9", "P10"],
+      "나로스틸": ["C1", "P1", "P7", "P8"],
+      "세현스틸": ["SL2", "SL5", "SCP1", "SCP2", "1공무", "2공무", "1품질", "2품질"],
+      "에스로지스": ["1출하", "2출하"]
+    };
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("라인별 TBM QR코드");
+    ws.columns = [
+      { width: 25 }, { width: 35 }, { width: 25 }, { width: 35 }
+    ];
+
+    let row = 1;
+    let col = 1;
+
+    for (const company of companiesData) {
+      const order = teamOrder[company.name] || [];
+      const companyTeams = teamsData
+        .filter((t) => t.company_id === company.id)
+        .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+
+      for (const team of companyTeams) {
+        const url = `${window.location.origin}/tbm?c=${company.id}&t=${team.id}`;
+        const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 2 });
+        const base64 = dataUrl.split(",")[1];
+        const imageId = wb.addImage({ base64, extension: "png" });
+
+        if (col > 3) { row += 10; col = 1; }
+        
+        ws.getCell(row, col).value = `${company.name} - ${team.name}`;
+        ws.getCell(row, col).font = { bold: true, size: 14 };
+        ws.getCell(row, col).alignment = { horizontal: "center" };
+        
+        ws.addImage(imageId, {
+          tl: { col: col - 1, row: row },
+          ext: { width: 160, height: 160 }
+        });
+        
+        col += 2;
+      }
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = "DOSCO_라인별_TBM_QR코드.xlsx";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  }
 async function excel() {
   const wb = new ExcelJS.Workbook();
+  const dateStr = new Date().toISOString().slice(0,10);
 
-  // 개인별 교육 확인 기록
-  const ackSheet = wb.addWorksheet("개인별 확인");
-
+  // 1. 개인별 교육 확인 (서명 이미지 포함)
+  const ackSheet = wb.addWorksheet("개인별 서명 현황");
   ackSheet.columns = [
-    { header: "교육 회차", key: "week", width: 20 },
-    { header: "회사", key: "company", width: 18 },
-    { header: "조", key: "team", width: 18 },
-    { header: "이름", key: "name", width: 15 },
-    { header: "확인 일시", key: "date", width: 25 },
+    { header: "교육 회차", key: "week", width: 16 },
+    { header: "소속 회사", key: "company", width: 16 },
+    { header: "소속 조", key: "team", width: 16 },
+    { header: "이름", key: "name", width: 12 },
+    { header: "확인 일시", key: "date", width: 22 },
+    { header: "작업자 서명", key: "sig", width: 22 },
   ];
 
-  ackSheet.addRows(
-    acks.map(a => ({
+  for (const a of acks) {
+    const row = ackSheet.addRow({
       week: a.tbm_weeks?.week_label || "",
       company: a.companies?.name || "",
       team: a.teams?.name || "",
       name: a.worker_name || "",
       date: new Date(a.acknowledged_at).toLocaleString("ko-KR"),
-    }))
-  );
+      sig: ""
+    });
+    
+    if (a.signature_data) {
+      row.height = 40;
+      try {
+        const base64 = a.signature_data.split(",")[1];
+        const imageId = wb.addImage({ base64, extension: "png" });
+        ackSheet.addImage(imageId, {
+          tl: { col: 5, row: row.number - 1 },
+          ext: { width: 90, height: 40 },
+        });
+      } catch (err) {
+        row.getCell(6).value = "서명오류";
+      }
+    } else {
+      row.getCell(6).value = "서명없음";
+    }
+  }
 
-  // 조별 사진 제출 기록
-  const photoSheet = wb.addWorksheet("조별 사진");
-
+  // 2. 조별 TBM 일지 (사진 + 일지 내용)
+  const photoSheet = wb.addWorksheet("조별 TBM 일지");
   photoSheet.columns = [
-    { header: "교육 회차", key: "week", width: 20 },
-    { header: "회사", key: "company", width: 18 },
-    { header: "조", key: "team", width: 18 },
-    { header: "제출자", key: "leader", width: 15 },
-    { header: "제출 일시", key: "date", width: 25 },
-    { header: "사진 경로", key: "path", width: 35 },
-    { header: "제출 사진", key: "image", width: 20 },
+    { header: "교육 회차", key: "week", width: 16 },
+    { header: "회사 / 조", key: "team", width: 22 },
+    { header: "조장 (제출자)", key: "leader", width: 15 },
+    { header: "제출 일시", key: "date", width: 22 },
+    { header: "작업자 건강상태", key: "health", width: 18 },
+    { header: "금일 핵심 위험요인", key: "hazard", width: 35 },
+    { header: "현장 실시 사진", key: "image", width: 25 },
   ];
 
   for (const p of photos) {
     const row = photoSheet.addRow({
       week: p.tbm_weeks?.week_label || "",
-      company: p.companies?.name || "",
-      team: p.teams?.name || "",
+      team: `${p.companies?.name || ""} - ${p.teams?.name || ""}`,
       leader: p.leader_name || "",
       date: new Date(p.submitted_at).toLocaleString("ko-KR"),
-      path: p.photo_path || "",
+      health: p.health_status || "이상없음",
+      hazard: p.daily_hazard || "해당없음",
       image: "",
     });
 
-    row.height = 65;
+    row.height = 85;
 
     if (!p.photo_url) {
-      row.getCell(7).value = "사진 URL 없음";
+      row.getCell(7).value = "사진 없음";
       continue;
     }
 
     try {
-      const response = await fetch(p.photo_url);
-
-      if (!response.ok) {
-        row.getCell(7).value = "사진 불러오기 실패";
-        continue;
-      }
-
-      const blob = await response.blob();
-      const bitmap = await createImageBitmap(blob);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-
-      const context = canvas.getContext("2d");
-
-      if (!context) {
-        bitmap.close();
-        continue;
-      }
-
-      context.drawImage(bitmap, 0, 0);
-      bitmap.close();
-
-      const base64 = canvas.toDataURL("image/png").split(",")[1];
-
-      const imageId = wb.addImage({
-        base64,
-        extension: "png",
+      const res = await fetch(p.photo_url);
+      const blob = await res.blob();
+      const base64: string = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
       });
-
-      photoSheet.addImage(imageId, {
+      const imgId = wb.addImage({ base64: base64.split(",")[1], extension: "jpeg" });
+      photoSheet.addImage(imgId, {
         tl: { col: 6, row: row.number - 1 },
-        ext: { width: 110, height: 65 },
+        ext: { width: 130, height: 90 },
       });
-    } catch (error) {
-      console.error("엑셀 사진 삽입 실패:", error);
+    } catch (err) {
       row.getCell(7).value = "사진 삽입 실패";
     }
   }
 
-  // 엑셀 파일 다운로드
   const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer as BlobPart], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-
+  const blob = new Blob([buffer as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-
   link.href = url;
-  link.download = "DOSCO_TBM_교육실적.xlsx";
+  link.download = `DOSCO_TBM_교육실적_${dateStr}.xlsx`;
   link.click();
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
  const latest=weeks.find(w=>w.is_published);const count=acks.filter(a=>a.tbm_weeks?.week_label===latest?.week_label).length;
  if(!configured)return <main className="shell"><div className="card"><h1>Supabase 연결 필요</h1><p className="muted">프로젝트 루트의 .env.local 설정을 확인하고 개발 서버를 다시 시작해 주세요.</p></div></main>;
@@ -500,7 +556,7 @@ if(!isAdmin)return (
   </main>
 );
 
- return <><header className="topbar"><div className="brand">DOSCO TBM SYSTEM<small>관리자 대시보드</small></div><nav className="nav"><Link href="/">홈</Link><Link href="/tbm">근로자 화면</Link><Link href="/leader">조장 화면</Link><button className="btn secondary" onClick={logout}>로그아웃</button></nav></header><main className="shell"><div className="pagehead"><div><h1>관리자 대시보드</h1><div className="muted">교육자료 게시 및 교육 실시 현황 관리</div></div><div className="row"><button className="btn secondary" onClick={qr}>고정 QR 다운로드</button><button className="btn" onClick={excel}>엑셀 다운로드</button></div></div>
+ return <><header className="topbar"><div className="brand">DOSCO TBM SYSTEM<small>관리자 대시보드</small></div><nav className="nav"><Link href="/">홈</Link><Link href="/tbm">근로자 화면</Link><Link href="/leader">조장 화면</Link><button className="btn secondary" onClick={logout}>로그아웃</button></nav></header><main className="shell"><div className="pagehead"><div><h1>관리자 대시보드</h1><div className="muted">교육자료 게시 및 교육 실시 현황 관리</div></div><div className="row"><button className="btn secondary" onClick={qr}>라인별 맞춤 QR 엑셀 다운로드</button><button className="btn" onClick={excel}>교육실적 엑셀 다운로드 (서명/일지)</button></div></div>
  {!configured&&<div className="notice">Supabase 환경변수가 아직 설정되지 않았습니다. 아래 README의 클라우드 연결 절차를 완료하면 실제 저장 기능이 작동합니다.</div>}
  <div className="grid section"><div className="card"><div className="muted">게시된 교육 회차</div><div className="metric">{weeks.length}</div></div><div className="card"><div className="muted">개인 확인 기록</div><div className="metric green">{acks.length}</div></div><div className="card"><div className="muted">조별 사진 제출</div><div className="metric">{photos.length}</div></div><div className="card"><div className="muted">최근 회차 확인 인원</div><div className="metric">{count}</div></div></div>
  <div className="section card"><h2>새 TBM 교육자료 등록</h2><div className="formgrid"><div className="field"><label>교육 회차</label><input className="input" value={label} onChange={e=>setLabel(e.target.value)}/></div><div className="field"><label>자료 제목</label><input className="input" value={title} onChange={e=>setTitle(e.target.value)}/></div><div className="field"><label>교육 시작일</label><input className="input" type="date" value={start} onChange={e=>setStart(e.target.value)}/></div><div className="field"><label>교육 종료일</label><input className="input" type="date" value={end} onChange={e=>setEnd(e.target.value)}/></div></div><div className="field"><label>교육 주제</label><input className="input" value={topic} onChange={e=>setTopic(e.target.value)} placeholder="예: 겨울철 전기화재 예방"/></div><div className="field"><label>교육 내용</label><textarea value={content} onChange={e=>setContent(e.target.value)} placeholder={"1. 주요 위험요인\n2. 안전수칙\n3. 작업 전 확인사항"}/></div><div className="field">

@@ -1,35 +1,45 @@
 
 "use client";
-import { useEffect,useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase,configured } from "@/lib/supabase";
+import { supabase, configured } from "@/lib/supabase";
 
-type Company={id:string;name:string};
-type Team={id:string;name:string;company_id:string};
-type Week={
-  id:string;
-  title:string;
-  topic:string;
-  content:string;
-  week_label:string;
-  starts_at:string;
-  ends_at:string;
-  is_published:boolean;
-  photo_paths?:string[];
+type Company = { id: string; name: string };
+type Team = { id: string; name: string; company_id: string };
+type Week = {
+  id: string;
+  title: string;
+  topic: string;
+  content: string;
+  week_label: string;
+  starts_at: string;
+  ends_at: string;
+  is_published: boolean;
+  photo_paths?: string[];
 };
 
-export default function TBMPage(){
- const [companies,setCompanies]=useState<Company[]>([]);
- const [teams,setTeams]=useState<Team[]>([]);
- const [company,setCompany]=useState("");
- const [team,setTeam]=useState("");
- const [name,setName]=useState("");
- const [week,setWeek]=useState<Week|null>(null);
- const [weeks,setWeeks]=useState<Week[]>([]);
- const [photoUrls,setPhotoUrls]=useState<string[]>([]);
- const [ack,setAck]=useState([false,false,false]);
- const [done,setDone]=useState(false);
- const [msg,setMsg]=useState("");
+function TBMForm() {
+  const searchParams = useSearchParams();
+  const qrCompanyId = searchParams.get("c") || "";
+  const qrTeamId = searchParams.get("t") || "";
+
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [company, setCompany] = useState("");
+  const [team, setTeam] = useState("");
+  const [qrApplied, setQrApplied] = useState(false);
+  const [name, setName] = useState("");
+  const [week, setWeek] = useState<Week | null>(null);
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [ack, setAck] = useState([false, false, false]);
+  const [done, setDone] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
 
  useEffect(()=>{
   if(!configured){
@@ -46,12 +56,27 @@ export default function TBMPage(){
 
 const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
 
-setCompanies(
-  (c.data || []).sort(
-    (a, b) => companyOrder.indexOf(a.name) - companyOrder.indexOf(b.name)
-  )
-);
-    setTeams(t.data||[]);
+const sortedCompanies = (c.data || []).sort(
+      (a, b) => companyOrder.indexOf(a.name) - companyOrder.indexOf(b.name)
+    );
+    const loadedTeams = t.data || [];
+    setCompanies(sortedCompanies);
+    setTeams(loadedTeams);
+
+    if (qrCompanyId && sortedCompanies.some(item => item.id === qrCompanyId)) {
+      setCompany(qrCompanyId);
+      if (qrTeamId && loadedTeams.some(item => item.id === qrTeamId && item.company_id === qrCompanyId)) {
+        setTeam(qrTeamId);
+        setQrApplied(true);
+      }
+    } else if (qrTeamId) {
+      const matchedTeam = loadedTeams.find(item => item.id === qrTeamId);
+      if (matchedTeam) {
+        setCompany(matchedTeam.company_id);
+        setTeam(matchedTeam.id);
+        setQrApplied(true);
+      }
+    }
 
 if(w.data && w.data.length > 0){
       setWeeks(w.data as Week[]);
@@ -93,34 +118,91 @@ const orderedTeams=[...filtered].sort((a,b)=>{
   return order.indexOf(a.name)-order.indexOf(b.name);
 });
 
- async function submit(){
-  setMsg("");
+const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
 
-  if(!company||!team||!name.trim()||!ack.every(Boolean)){
-    setMsg("회사, 조, 이름을 입력하고 모든 교육 확인 항목을 체크해 주세요.");
-    return;
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const { x, y } = getCoords(e, canvas);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+    setHasDrawn(true);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getCoords(e, canvas);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => setIsDrawing(false);
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
+  };
+
+  async function submit() {
+    setMsg("");
+
+    if (!company || !team || !name.trim() || !ack.every(Boolean)) {
+      setMsg("회사, 조, 이름을 입력하고 모든 교육 확인 항목을 체크해 주세요.");
+      return;
+    }
+
+    if (!hasDrawn || !canvasRef.current) {
+      setMsg("본인 서명란에 손가락으로 정자 서명을 해 주세요.");
+      return;
+    }
+
+    if (!week) {
+      setMsg("현재 게시된 TBM 교육자료가 없습니다.");
+      return;
+    }
+
+    const signatureData = canvasRef.current.toDataURL("image/png");
+
+    const { error } = await supabase.from("tbm_acknowledgements").insert({
+      week_id: week.id,
+      company_id: company,
+      team_id: team,
+      worker_name: name.trim(),
+      signature_data: signatureData,
+      acknowledged_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error("교육 확인 제출 오류:", error);
+      setMsg("제출 오류: " + error.message + " (코드: " + error.code + ")");
+      return;
+    }
+    setDone(true);
   }
-
-  if(!week){
-    setMsg("현재 게시된 TBM 교육자료가 없습니다.");
-    return;
-  }
-
-  const {error}=await supabase.from("tbm_acknowledgements").insert({
-    week_id:week.id,
-    company_id:company,
-    team_id:team,
-    worker_name:name.trim(),
-    acknowledged_at:new Date().toISOString()
-  });
-
-if(error){
-  console.error("교육 확인 제출 오류:", error);
-  setMsg("제출 오류: " + error.message + " (코드: " + error.code + ")");
-  return;
-}
-  setDone(true);
- }
 
  return (
   <main className="mobile">
@@ -190,28 +272,58 @@ if(error){
     </div>
 
     {!done?<>
-      <div className="card section">
-        <h3 style={{marginTop:0}}>교육 참여자 정보</h3>
+<div className="card section">
+        <div className="row between" style={{ marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>교육 참여자 정보</h3>
+          {qrApplied && (
+            <span className="pill ok" style={{ fontSize: 11.5 }}>QR 자동선택 완료</span>
+          )}
+        </div>
 
         <div className="field">
           <label>소속 회사</label>
-          <select value={company} onChange={e=>{setCompany(e.target.value);setTeam("")}}>
+          <select value={company} onChange={e => { setCompany(e.target.value); setTeam(""); setQrApplied(false); }}>
             <option value="">회사 선택</option>
-            {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 
         <div className="field">
           <label>소속 조</label>
-          <select value={team} onChange={e=>setTeam(e.target.value)}>
+          <select value={team} onChange={e => { setTeam(e.target.value); setQrApplied(false); }}>
             <option value="">조 선택</option>
-           {orderedTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+            {orderedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
 
         <div className="field">
           <label>이름</label>
-          <input className="input" value={name} onChange={e=>setName(e.target.value)} placeholder="본인 이름 입력"/>
+          <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="본인 이름 입력" />
+        </div>
+
+        <div className="field">
+          <label>본인 서명</label>
+          <div style={{ border: "2px dashed #cbd5e1", borderRadius: 8, background: "#fafafa" }}>
+            <canvas
+              ref={canvasRef}
+              width={360}
+              height={140}
+              style={{ width: "100%", height: 140, touchAction: "none", display: "block" }}
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+              onTouchStart={startDrawing}
+              onTouchMove={draw}
+              onTouchEnd={stopDrawing}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 12px", borderTop: "1px solid #e5e7eb" }}>
+              <span style={{ fontSize: 12, color: "#64748b" }}>위 칸에 손가락으로 정자 서명해 주세요</span>
+              <button type="button" className="btn secondary" style={{ padding: "4px 10px", fontSize: 12 }} onClick={clearCanvas}>
+                지우기
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -251,7 +363,15 @@ if(error){
       <Link className="btn secondary" href="/leader">조장 페이지 이동</Link>
     </div>
 
-    <div className="footer">동아스틸(주) 안전보건 관리</div>
+<div className="footer">동아스틸(주) 안전보건 관리</div>
   </main>
  );
+}
+
+export default function TBMPage() {
+  return (
+    <Suspense fallback={<main className="mobile"><div className="card">TBM 교육자료를 불러오는 중...</div></main>}>
+      <TBMForm />
+    </Suspense>
+  );
 }

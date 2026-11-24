@@ -5,8 +5,38 @@ import {supabase,configured} from "@/lib/supabase";
 type Company={id:string;name:string};type Team={id:string;name:string;company_id:string};type Week={id:string;week_label:string;topic:string};
 export default function LeaderPage(){
  const [companies,setCompanies]=useState<Company[]>([]),[teams,setTeams]=useState<Team[]>([]),[weeks,setWeeks]=useState<Week[]>([]);
- const [company,setCompany]=useState(""),[team,setTeam]=useState(""),[week,setWeek]=useState(""),[leader,setLeader]=useState(""),[file,setFile]=useState<File|null>(null),[msg,setMsg]=useState("");
-useEffect(() => {
+const [company, setCompany] = useState("");
+  const [team, setTeam] = useState("");
+  const [week, setWeek] = useState("");
+  const [leader, setLeader] = useState("");
+  const [healthStatus, setHealthStatus] = useState("이상없음");
+  const [dailyHazard, setDailyHazard] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [msg, setMsg] = useState("");
+
+  const [submittedWorkers, setSubmittedWorkers] = useState<{ id: string; worker_name: string; acknowledged_at: string }[]>([]);
+  const [loadingWorkers, setLoadingWorkers] = useState(false);
+
+  async function loadSubmittedWorkers(targetWeek: string, targetCompany: string, targetTeam: string) {
+    if (!configured || !targetWeek || !targetCompany || !targetTeam) {
+      setSubmittedWorkers([]);
+      return;
+    }
+    setLoadingWorkers(true);
+    const { data } = await supabase
+      .from("tbm_acknowledgements")
+      .select("id, worker_name, acknowledged_at")
+      .eq("week_id", targetWeek)
+      .eq("company_id", targetCompany)
+      .eq("team_id", targetTeam)
+      .order("acknowledged_at", { ascending: true });
+    setSubmittedWorkers(data || []);
+    setLoadingWorkers(false);
+  }
+
+  useEffect(() => {
+    loadSubmittedWorkers(week, company, team);
+  }, [week, company, team]);useEffect(() => {
     if (!configured) return;
     (async () => {
       const [c, t, w] = await Promise.all([
@@ -107,11 +137,13 @@ useEffect(() => {
       setMsg("사진 업로드 실패: " + up.error.message);
       return;
     }
-    const { error } = await supabase.from("tbm_team_submissions").insert({
+const { error } = await supabase.from("tbm_team_submissions").insert({
       week_id: week,
       company_id: company,
       team_id: team,
       leader_name: leader.trim(),
+      health_status: healthStatus,
+      daily_hazard: dailyHazard.trim() || "특이사항 없음",
       photo_path: path,
       submitted_at: new Date().toISOString(),
     });
@@ -119,7 +151,7 @@ useEffect(() => {
       setMsg("제출 기록 저장 실패: " + error.message);
       return;
     }
-    setMsg("조별 TBM 사진이 제출되었습니다.");
+    setMsg("조별 TBM 일지 및 현장 사진이 제출되었습니다.");
   }
  return <main className="mobile">
  <div style={{marginBottom:10}}>
@@ -131,8 +163,70 @@ useEffect(() => {
  {!configured&&<p className="muted">Supabase 연결 후 사용할 수 있습니다.</p>}
  <div className="field"><label>교육 회차</label><select value={week} onChange={e=>setWeek(e.target.value)}><option value="">회차 선택</option>{weeks.map(w=><option key={w.id} value={w.id}>{w.week_label} · {w.topic}</option>)}</select></div>
  <div className="field"><label>소속 회사</label><select value={company} onChange={e=>{setCompany(e.target.value);setTeam("")}}><option value="">회사 선택</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-<div className="field"><label>소속 조</label><select value={team} onChange={e=>setTeam(e.target.value)}><option value="">조 선택</option>{orderedTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></div> <div className="field"><label>제출자(조장) 이름</label><input className="input" value={leader} onChange={e=>setLeader(e.target.value)} placeholder="이름 입력"/></div>
- <div className="field"><label>TBM 실시 사진</label><div className="upload"><input type="file" accept="image/*" capture="environment" onChange={e=>setFile(e.target.files?.[0]||null)}/><p className="muted">{file?file.name:"현장에서 사진을 촬영하거나 선택해 주세요."}</p></div></div>
+<div className="field"><label>소속 조</label><select value={team} onChange={e=>setTeam(e.target.value)}><option value="">조 선택</option>{orderedTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></div> {week && company && team && (
+    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 12, marginTop: 12, marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <b style={{ fontSize: 13.5, color: "#166534" }}>
+          우리 조 실시간 서명 완료 현황 ({submittedWorkers.length}명)
+        </b>
+        <button
+          type="button"
+          className="btn secondary"
+          style={{ padding: "4px 10px", fontSize: 12 }}
+          onClick={() => loadSubmittedWorkers(week, company, team)}
+        >
+          {loadingWorkers ? "조회중..." : "새로고침"}
+        </button>
+      </div>
+      {submittedWorkers.length > 0 ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {submittedWorkers.map((w, idx) => (
+            <span
+              key={w.id}
+              style={{
+                background: "#fff",
+                border: "1px solid #86efac",
+                color: "#15803d",
+                borderRadius: 999,
+                padding: "3px 10px",
+                fontSize: 12.5,
+                fontWeight: 600,
+              }}
+            >
+              {idx + 1}. {w.worker_name} ✓
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12.5, color: "#4b5563" }}>
+          아직 서명을 완료한 조원이 없습니다. 조원들이 QR로 서명을 마치면 위 [새로고침]으로 바로 확인할 수 있습니다.
+        </div>
+      )}
+    </div>
+  )}
+
+  <div className="field"><label>제출자(조장) 이름</label><input className="input" value={leader} onChange={e => setLeader(e.target.value)} placeholder="이름 입력" /></div>
+
+  <div className="field">
+    <label>작업자 건강 및 보호구 상태 점검</label>
+    <select value={healthStatus} onChange={e => setHealthStatus(e.target.value)}>
+      <option value="이상없음">전원 이상없음 (보호구 착용 및 건강 양호)</option>
+      <option value="보호구 보완 조치 완료">보호구 미비자 보완 조치 후 작업 투입</option>
+      <option value="건강 이상자 작업 조정">건강 이상자(음주·피로 등) 작업 제외/조정</option>
+    </select>
+  </div>
+
+  <div className="field">
+    <label>금주 중점 위험요인 및 안전대책 (한 줄 요약)</label>
+    <input
+      className="input"
+      value={dailyHazard}
+      onChange={e => setDailyHazard(e.target.value)}
+      placeholder="예: 크레인 인양 하부 출입 통제 및 전선 피복 점검"
+    />
+  </div>
+
+  <div className="field"><label>TBM 실시 사진</label><div className="upload"><input type="file" accept="image/*" capture="environment" onChange={e => setFile(e.target.files?.[0] || null)} /><p className="muted">{file ? file.name : "현장에서 사진을 촬영하거나 선택해 주세요."}</p></div></div>
  <button className="btn" style={{width:"100%"}} onClick={upload}>사진 제출</button>{msg&&<p className="muted">{msg}</p>}
  </div><div className="footer">사진에는 교육 참여 현장이 확인되도록 촬영해 주세요.</div></main>
 }
