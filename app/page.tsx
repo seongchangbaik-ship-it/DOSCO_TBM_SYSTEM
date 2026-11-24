@@ -22,8 +22,8 @@ export default function Home() {
           <div className="card" style={{ padding: 28, display: "flex", flexDirection: "column" }}>
             <ClipboardList size={32} />
             <h2 style={{ marginTop: 14, marginBottom: 8 }}>TBM 통합관리시스템</h2>
-            <p className="muted" style={{ marginBottom: 24 }}>
-              주간 안전교육자료 게시, 근로자 교육 확인 및 조별 TBM 사진 제출 관리
+<p className="muted" style={{ marginBottom: 24 }}>
+              정기 안전교육 확인, 수시 작업 TBM(R/C·정비) 작성 및 실시 현황 관리
             </p>
             <Link
               className="btn"

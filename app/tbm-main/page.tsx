@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, Users, Camera, BarChart3, QrCode } from "lucide-react";
+import { ClipboardList, Users, Camera, Wrench, ClipboardCheck, QrCode } from "lucide-react";
 
 export default function TbmMain() {
   return (
@@ -11,8 +11,10 @@ export default function TbmMain() {
         </div>
         <nav className="nav">
           <Link href="/">전체 홈</Link>
+          <Link href="/tbm">정기 TBM</Link>
+          <Link href="/tbm/spot">수시 TBM</Link>
+          <Link href="/tbm/status">실시 현황</Link>
           <Link href="/admin">관리자</Link>
-          <Link href="/tbm">근로자 TBM</Link>
         </nav>
       </header>
       <main className="shell">
@@ -20,57 +22,72 @@ export default function TbmMain() {
           <div>
             <h1>TBM 통합 관리 시스템</h1>
             <div className="muted">
-              주간 교육자료 등록부터 개인별 확인, 조별 실시 사진까지 한 곳에서 관리합니다.
+              정기 안전교육 확인, 수시 작업 TBM(R/C·정비) 작성 및 조별 실시 현황을 한 곳에서 관리합니다.
             </div>
           </div>
-          <span className="pill ok">1차 버전</span>
         </div>
+
         <div className="grid">
-          <div className="card">
-            <ClipboardList />
-            <h3>교육자료 등록</h3>
-            <p className="muted">주차별 TBM 주제와 교육내용 게시</p>
-            <Link className="btn" href="/admin">
-              관리자 페이지
-            </Link>
-          </div>
-          <div className="card">
+          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
             <Users />
-            <h3>개인별 교육 확인</h3>
-            <p className="muted">QR 접속 후 소속·이름 선택 및 확인</p>
-            <Link className="btn secondary" href="/tbm">
+            <h3>정기 안전교육 확인</h3>
+            <p className="muted">주간 교육자료 숙지 및 근로자 본인 전자서명</p>
+            <Link className="btn" href="/tbm" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}>
               근로자 페이지
             </Link>
           </div>
-          <div className="card">
+
+          <div className="card" style={{ display: "flex", flexDirection: "column", borderColor: "#99f6e4", background: "#f0fdfa" }}>
+            <Wrench color="#0f766e" />
+            <h3 style={{ color: "#0f766e" }}>수시 작업 TBM 작성</h3>
+            <p className="muted">R/C(롤 교체)·설비 정비·돌발작업 전 현장 TBM 일지 및 서명</p>
+            <Link
+              className="btn"
+              href="/tbm/spot"
+              style={{ marginTop: "auto", textAlign: "center", textDecoration: "none", background: "#0f766e", borderColor: "#0f766e" }}
+            >
+              수시 TBM 작성
+            </Link>
+          </div>
+
+          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
             <Camera />
-            <h3>조별 사진 제출</h3>
-            <p className="muted">조장이 교육 실시 사진 업로드</p>
-            <Link className="btn secondary" href="/leader">
+            <h3>조별 사진·일지 제출</h3>
+            <p className="muted">우리 조 실시간 서명 확인 및 정기 TBM 사진·일지 등록</p>
+            <Link className="btn secondary" href="/leader" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}>
               조장 페이지
             </Link>
           </div>
-          <div className="card">
-            <BarChart3 />
-            <h3>교육 실적 관리</h3>
-            <p className="muted">참여현황과 미확인자 확인</p>
-            <Link className="btn secondary" href="/admin">
-              실적 대시보드
+
+          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+            <ClipboardCheck />
+            <h3>TBM 실시 현황</h3>
+            <p className="muted">정기·수시 TBM 통합 현황 조회 및 A4 일지 출력</p>
+            <Link className="btn secondary" href="/tbm/status" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}>
+              실시 현황 보기
+            </Link>
+          </div>
+
+          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+            <ClipboardList />
+            <h3>교육자료 및 실적 관리</h3>
+            <p className="muted">주간 교육자료 게시, 라인별 QR 엑셀 및 교육실적 출력</p>
+            <Link className="btn secondary" href="/admin" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}>
+              관리자 대시보드
             </Link>
           </div>
         </div>
+
         <div className="section card">
           <h2>
             <QrCode size={18} style={{ verticalAlign: "middle", marginRight: 8 }} />
-            현장 QR코드 운영
+            현장 라인별 QR코드 운영 안내
           </h2>
-          <p className="muted">
-            배포 후 /tbm 주소로 연결되는 고정 QR코드를 출력해 현장 게시판에 부착합니다. 매주 교육자료만 변경하면 동일한 QR코드를 계속 사용할 수 있습니다.
+          <p className="muted" style={{ marginBottom: 0 }}>
+            관리자 대시보드의 <b>[라인별 맞춤 QR 엑셀 다운로드]</b>로 출력한 QR코드를 각 라인 게시판에 부착하면, 근로자가 스캔 즉시 소속 회사와 조가 자동 선택된 화면에서 간편하게 서명할 수 있습니다.
           </p>
         </div>
-        <div className="notice section">
-          주의: 현재 프로젝트는 실제 회사 계정 연결 전 개발용 초기 버전입니다. 운영 전 관리자 인증, 개인정보 처리 안내, 본인 확인 방식, 데이터 접근정책을 회사 기준에 맞게 확정해야 합니다.
-        </div>
+
         <div className="footer">DOSCO TBM SYSTEM · 동아스틸(주)</div>
       </main>
     </>
