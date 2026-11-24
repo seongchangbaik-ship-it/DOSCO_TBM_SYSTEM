@@ -65,10 +65,9 @@ trainingType: "form",
     trainingInstructor: "",
 trainingContent:
       "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)",
-  });
+});
 
   const [attendees, setAttendees] = useState<string[]>([""]);
-  });
 
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
 
