@@ -77,10 +77,11 @@ function PtwApplyForm() {
   const [attendees, setAttendees] = useState<string[]>([""]);
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
 
-  const [fireDetails, setFireDetails] = useState({
+const [fireDetails, setFireDetails] = useState({
     fireWorkType: "용접 · 용단 작업",
     fireWatcher: "",
-    procedure:
+    procedure: "",
+    safetyMeasures:
       "1. 작업 반경 10m 이내 가연물·인화물 제거 및 불티비산방지포 설치\n2. 소화기 및 화재감시자 배치 후 화기작업 실시\n3. 작업 종료 후 30분 이상 잔불 확인",
     supplementaryWorks: [] as string[],
   });
@@ -135,21 +136,28 @@ function PtwApplyForm() {
   ]);
   const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
 
-  const [extraDetails, setExtraDetails] = useState({
+const [extraDetails, setExtraDetails] = useState({
     highHeight: "",
     highEquip: "비계 / 고소작업대(렌탈) / 이동식 사다리",
+    highProcedure: "",
     highMeasure: "안전대·안전고리 체결 설비 확보, 하부 출입통제 및 감시인 배치",
     elecTarget: "",
     elecVolt: "저압 / 고압",
+    elecProcedure: "",
     elecMeasure: "메인 차단기 OFF·잠금장치(LOTO)·표지판 부착, 검전기 무전압 확인, 절연보호구 착용",
     confineWatcher: "",
+    confineEmg: "비상연락망(119 및 안전관리자) 확보 및 긴급 구조 대기",
+    confineLocation: "",
+    confineContent: "",
     confineGas: "산소 20.9%, 유해가스 없음 (환기팬 가동)",
     confineLeak: "연결 배관 차단 및 맹판(블라인드) 설치 완료",
     confinePpe: "송기마스크, 복합가스측정기, 구명줄, 무전기",
-    confineEmg: "비상연락망(119 및 안전관리자) 확보 및 긴급 구조 대기",
+    confineProcedure: "",
+    confineMeasure: "작업 전·중 강제 환기팬 가동, 산소·유해가스 연속 측정 및 외부 감시인 상시 배치",
     envMaterial: "도료·신나 / 폐유 / 폐수·약품 / 분진",
     envMeasure: "MSDS 비치, 방독마스크·내화학장갑 착용, 누출 방지 조치(흡착포) 및 지정 용기 보관",
     utilLine: "유압·공압 / 냉각수·스팀 / 질소·산소·LNG 배관",
+    utilProcedure: "",
     utilMeasure: "메인 밸브 차단(LOTO), 배관 내 잔압·잔류유체 완전 제거(드레인·퍼지), 오조작 방지 표찰 부착",
   });
 
@@ -236,11 +244,12 @@ function PtwApplyForm() {
 
           if (data.fire_work_details) {
             const f = data.fire_work_details;
-            setFireDetails((prev) => ({
+setFireDetails((prev) => ({
               ...prev,
               fireWorkType: f.fireWorkType || prev.fireWorkType,
               fireWatcher: f.fireWatcher || "",
               procedure: f.procedure || prev.procedure,
+              safetyMeasures: f.safetyMeasures || prev.safetyMeasures,
               supplementaryWorks: f.supplementaryWorks || [],
             }));
             if (f.fireItems && f.fireItems.length > 0) setFireItems(f.fireItems);
@@ -1155,12 +1164,22 @@ function PtwApplyForm() {
               ))}
             </div>
 
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>작업절차 및 안전조치 내용</label>
+<div className="field" style={{ marginTop: 12 }}>
+              <label>작업절차</label>
               <textarea
-                style={{ height: 85 }}
+                style={{ height: 75 }}
+                placeholder="예: 1. 작업 전 화기 및 소화기 점검 → 2. 용접·절단 작업 실시 → 3. 주변 정리 및 잔불 감시"
                 value={fireDetails.procedure}
                 onChange={(e) => setFireDetails({ ...fireDetails, procedure: e.target.value })}
+              />
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>안전조치 내용</label>
+              <textarea
+                style={{ height: 85 }}
+                value={fireDetails.safetyMeasures}
+                onChange={(e) => setFireDetails({ ...fireDetails, safetyMeasures: e.target.value })}
               />
             </div>
 
@@ -1719,7 +1738,7 @@ function PtwApplyForm() {
           </div>
         )}
 
-        {/* 고소작업 추가 양식 */}
+{/* 고소작업 추가 양식 */}
         {form.workTypes.includes("고소작업") && (
           <div className="card section" style={{ border: "2px solid #0ea5e9", background: "#f0f9ff" }}>
             <h3 style={{ color: "#0369a1", marginTop: 0 }}>🪜 고소작업 계획</h3>
@@ -1739,6 +1758,17 @@ function PtwApplyForm() {
                   className="input"
                   value={extraDetails.highEquip}
                   onChange={(e) => setExtraDetails({ ...extraDetails, highEquip: e.target.value })}
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>작업 절차</label>
+                <textarea
+                  style={{ height: 70 }}
+                  placeholder="고소작업 진행 순서를 입력하세요"
+                  value={extraDetails.highProcedure}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, highProcedure: e.target.value })
+                  }
                 />
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
@@ -1773,6 +1803,17 @@ function PtwApplyForm() {
                   className="input"
                   value={extraDetails.elecVolt}
                   onChange={(e) => setExtraDetails({ ...extraDetails, elecVolt: e.target.value })}
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>작업 절차</label>
+                <textarea
+                  style={{ height: 70 }}
+                  placeholder="전기작업 진행 순서를 입력하세요"
+                  value={extraDetails.elecProcedure}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, elecProcedure: e.target.value })
+                  }
                 />
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
@@ -1811,6 +1852,28 @@ function PtwApplyForm() {
                   onChange={(e) => setExtraDetails({ ...extraDetails, confineEmg: e.target.value })}
                 />
               </div>
+              <div className="field">
+                <label>작업위치</label>
+                <input
+                  className="input"
+                  placeholder="예: 1공장 슬리터 루프 피트(Pit) 내부"
+                  value={extraDetails.confineLocation}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, confineLocation: e.target.value })
+                  }
+                />
+              </div>
+              <div className="field">
+                <label>작업 내용(상세)</label>
+                <input
+                  className="input"
+                  placeholder="밀폐공간 내부 상세 작업 내용 입력"
+                  value={extraDetails.confineContent}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, confineContent: e.target.value })
+                  }
+                />
+              </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>산소·유해가스 측정 결과 및 후속조치</label>
                 <input
@@ -1835,6 +1898,27 @@ function PtwApplyForm() {
                   className="input"
                   value={extraDetails.confinePpe}
                   onChange={(e) => setExtraDetails({ ...extraDetails, confinePpe: e.target.value })}
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>작업 절차</label>
+                <textarea
+                  style={{ height: 70 }}
+                  placeholder="밀폐공간 출입 및 작업 진행 순서를 입력하세요"
+                  value={extraDetails.confineProcedure}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, confineProcedure: e.target.value })
+                  }
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>안전조치 점검</label>
+                <input
+                  className="input"
+                  value={extraDetails.confineMeasure}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, confineMeasure: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -1873,7 +1957,7 @@ function PtwApplyForm() {
           <div className="card section" style={{ border: "2px solid #64748b", background: "#f8fafc" }}>
             <h3 style={{ color: "#334155", marginTop: 0 }}>⚙️ 유틸리티(배관/밸브) 작업 계획</h3>
             <div className="formgrid">
-              <div className="field">
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>대상 라인 종류</label>
                 <input
                   className="input"
@@ -1881,7 +1965,18 @@ function PtwApplyForm() {
                   onChange={(e) => setExtraDetails({ ...extraDetails, utilLine: e.target.value })}
                 />
               </div>
-              <div className="field">
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>작업 절차</label>
+                <textarea
+                  style={{ height: 70 }}
+                  placeholder="유틸리티(배관/밸브) 작업 진행 순서를 입력하세요"
+                  value={extraDetails.utilProcedure}
+                  onChange={(e) =>
+                    setExtraDetails({ ...extraDetails, utilProcedure: e.target.value })
+                  }
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>안전조치 점검</label>
                 <input
                   className="input"
