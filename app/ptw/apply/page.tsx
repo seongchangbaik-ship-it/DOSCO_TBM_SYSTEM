@@ -593,7 +593,7 @@ setFireDetails((prev) => ({
       await supabase.from("ptw_signatures").delete().in("id", deletedSigIds);
     }
 
-    const newSigs = signatures.filter((s) => !s.id);
+const newSigs = signatures.filter((s) => !s.id);
     if (!form.pledgePending && newSigs.length > 0) {
       const sigInserts = newSigs.map((sig) => ({
         ptw_id: targetPtwId,
@@ -602,6 +602,36 @@ setFireDetails((prev) => ({
         signature_data: sig.data,
       }));
       await supabase.from("ptw_signatures").insert(sigInserts);
+    }
+
+    try {
+      const resolvedCompanyName =
+        form.companyType === "internal"
+          ? companies.find((c) => c.id === form.companyId)?.name || "협력사"
+          : form.companyName;
+      const resolvedDate =
+        form.workPeriodType === "period" && form.endDate !== form.date
+          ? `${form.date} ~ ${form.endDate}`
+          : form.date;
+
+      await fetch("/api/ptw-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isEdit: Boolean(editId),
+          companyName: resolvedCompanyName,
+          projectName: form.projectName,
+          workDate: resolvedDate,
+          workTime: `${form.startTime} ~ ${form.endTime}`,
+          workLocation: form.location,
+          workTypes: form.workTypes,
+          siteManager: form.siteManager,
+          contact: form.contact,
+          adminUrl: `${window.location.origin}/ptw/admin`,
+        }),
+      });
+    } catch {
+      // 메일 발송 실패 시에도 허가서 제출 완료 처리는 정상 유지
     }
 
     setSubmitted(true);
