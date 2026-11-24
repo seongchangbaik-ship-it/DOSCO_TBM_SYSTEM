@@ -922,22 +922,24 @@ return (
                         <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "5px 6px" }}>직책별 작업인원</th>
                         <td colSpan={3} style={{ border: "1px solid #000", padding: 0 }}>
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5 }}>
-                            <thead>
+<thead>
                               <tr style={{ background: "#f9fafb" }}>
                                 <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>직책</th>
-                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>성명 및 연락처</th>
-                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>작업위치</th>
-                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>보호구</th>
-                                <th style={{ borderBottom: "1px solid #000", padding: 3 }}>필요자격</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>성명</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>연락처</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>작업구간</th>
+                                <th style={{ borderRight: "1px solid #000", borderBottom: "1px solid #000", padding: 3 }}>보호구 지급유무</th>
+                                <th style={{ borderBottom: "1px solid #000", padding: 3 }}>비고</th>
                               </tr>
                             </thead>
                             <tbody>
                               {selectedHeavyPersonnel.map((p, i) => (
                                 <tr key={i}>
                                   <td style={{ borderRight: "1px solid #000", padding: 3 }}>{p.role}</td>
-                                  <td style={{ borderRight: "1px solid #000", padding: 3 }}>{p.nameContact}</td>
+                                  <td style={{ borderRight: "1px solid #000", padding: 3 }}>{p.name || p.nameContact || "-"}</td>
+                                  <td style={{ borderRight: "1px solid #000", padding: 3 }}>{p.contact || "-"}</td>
                                   <td style={{ borderRight: "1px solid #000", padding: 3 }}>{p.location}</td>
-                                  <td style={{ borderRight: "1px solid #000", padding: 3 }}>{p.ppe}</td>
+                                  <td style={{ borderRight: "1px solid #000", padding: 3, textAlign: "center" }}>{p.ppe}</td>
                                   <td style={{ padding: 3 }}>{p.license}</td>
                                 </tr>
                               ))}

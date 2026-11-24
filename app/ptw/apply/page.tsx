@@ -6,7 +6,7 @@ import { supabase, configured } from "@/lib/supabase";
 
 type VehicleRow = { name: string; count: string; safetyDevice: string; etc: string };
 type FireItemRow = { name: string; count: string; safetyDevice: string; working: string; note: string };
-type HeavyPersonnelRow = { role: string; nameContact: string; location: string; ppe: string; license: string };
+type HeavyPersonnelRow = { role: string; name: string; contact: string; location: string; ppe: string; license: string };
 
 function addDaysToYmd(ymd: string, days: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -110,10 +110,10 @@ specialEnv: "",
     landingMeasure: "받침목(고임목) 사전 설치, 완전히 안착된 후 줄걸이 해체",
   });
 const [heavyPersonnel, setHeavyPersonnel] = useState<HeavyPersonnelRow[]>([
-    { role: "작업지휘자", nameContact: "", location: "작업현장 전반", ppe: "지급완료", license: "-" },
-    { role: "유도자(신호수)", nameContact: "", location: "인양구간 전방", ppe: "지급완료", license: "-" },
-    { role: "조종(운전)자", nameContact: "", location: "장비 운전석", ppe: "지급완료", license: "기중기/지게차" },
-    { role: "작업자", nameContact: "", location: "줄걸이 및 안착위치", ppe: "지급완료", license: "-" },
+    { role: "작업지휘자", name: "", contact: "", location: "작업현장 전반", ppe: "지급완료", license: "-" },
+    { role: "유도자(신호수)", name: "", contact: "", location: "인양구간 전방", ppe: "지급완료", license: "-" },
+    { role: "조종(운전)자", name: "", contact: "", location: "장비 운전석", ppe: "지급완료", license: "기중기/지게차" },
+    { role: "작업자", name: "", contact: "", location: "줄걸이 및 안착위치", ppe: "지급완료", license: "-" },
   ]);
   const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
 
@@ -204,10 +204,21 @@ const [heavyPersonnel, setHeavyPersonnel] = useState<HeavyPersonnelRow[]>([
             setExistingFirePaths(fPaths);
           }
 
-          if (data.heavy_lifting_details && Object.keys(data.heavy_lifting_details).length > 0) {
+if (data.heavy_lifting_details && Object.keys(data.heavy_lifting_details).length > 0) {
             const h = data.heavy_lifting_details;
             setHeavyDetails(prev => ({ ...prev, ...h }));
-            if (h.personnel && h.personnel.length > 0) setHeavyPersonnel(h.personnel);
+            if (h.personnel && h.personnel.length > 0) {
+              setHeavyPersonnel(
+                h.personnel.map((p: any) => ({
+                  role: p.role || "작업자",
+                  name: p.name ?? p.nameContact ?? "",
+                  contact: p.contact || "",
+                  location: p.location || "",
+                  ppe: p.ppe || "지급완료",
+                  license: p.license || "-",
+                }))
+              );
+            }
             const hPaths: string[] = h.drawingPaths || (h.drawingPath ? [h.drawingPath] : []);
             setExistingHeavyPaths(hPaths);
           }
@@ -875,43 +886,77 @@ const firePayload = {
               </div>
             </div>
 
-            <div style={{ marginTop: 12 }}>
+<div style={{ marginTop: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <label style={{ fontWeight: "bold", margin: 0 }}>직책별 작업인원 배치</label>
                 <button
                   type="button"
                   className="btn secondary"
                   style={{ padding: "5px 10px", fontSize: 12 }}
-                  onClick={() => setHeavyPersonnel([...heavyPersonnel, { role: "작업자", nameContact: "", location: "", ppe: "지급완료", license: "-" }])}
+                  onClick={() => setHeavyPersonnel([...heavyPersonnel, { role: "작업자", name: "", contact: "", location: "", ppe: "지급완료", license: "-" }])}
                 >
                   + 인원 추가
                 </button>
               </div>
-              {heavyPersonnel.map((p, idx) => (
-                <div key={idx} style={{ display: "grid", gridTemplateColumns: "1.3fr 2fr 1.5fr 1fr 1.2fr auto", gap: 6, marginBottom: 6 }}>
-                  <select className="input" value={p.role} onChange={e => {
-                    const next = [...heavyPersonnel]; next[idx].role = e.target.value; setHeavyPersonnel(next);
-                  }}>
-                    <option value="작업지휘자">작업지휘자</option>
-                    <option value="유도자(신호수)">유도자(신호수)</option>
-                    <option value="조종(운전)자">조종(운전)자</option>
-                    <option value="작업자">작업자</option>
-                  </select>
-                  <input className="input" placeholder="성명 및 연락처" value={p.nameContact} onChange={e => {
-                    const next = [...heavyPersonnel]; next[idx].nameContact = e.target.value; setHeavyPersonnel(next);
-                  }} />
-                  <input className="input" placeholder="작업위치" value={p.location} onChange={e => {
-                    const next = [...heavyPersonnel]; next[idx].location = e.target.value; setHeavyPersonnel(next);
-                  }} />
-                  <input className="input" placeholder="보호구" value={p.ppe} onChange={e => {
-                    const next = [...heavyPersonnel]; next[idx].ppe = e.target.value; setHeavyPersonnel(next);
-                  }} />
-                  <input className="input" placeholder="필요자격" value={p.license} onChange={e => {
-                    const next = [...heavyPersonnel]; next[idx].license = e.target.value; setHeavyPersonnel(next);
-                  }} />
-                  <button type="button" className="btn secondary" style={{ padding: "0 8px" }} onClick={() => setHeavyPersonnel(heavyPersonnel.filter((_, i) => i !== idx))}>삭제</button>
+              <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+                <div style={{ minWidth: 660 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.3fr 1fr 1.4fr 1.4fr 1.1fr 1.1fr 48px",
+                      gap: 6,
+                      padding: "6px 4px",
+                      background: "#dbeafe",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: "bold",
+                      color: "#1e3a8a",
+                      textAlign: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <div>직책</div>
+                    <div>성명</div>
+                    <div>연락처</div>
+                    <div>작업구간</div>
+                    <div>보호구 지급유무</div>
+                    <div>비고 (필요자격)</div>
+                    <div>관리</div>
+                  </div>
+                  {heavyPersonnel.map((p, idx) => (
+                    <div key={idx} style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1.4fr 1.4fr 1.1fr 1.1fr 48px", gap: 6, marginBottom: 6 }}>
+                      <select className="input" value={p.role} onChange={e => {
+                        const next = [...heavyPersonnel]; next[idx].role = e.target.value; setHeavyPersonnel(next);
+                      }}>
+                        <option value="작업지휘자">작업지휘자</option>
+                        <option value="유도자(신호수)">유도자(신호수)</option>
+                        <option value="조종(운전)자">조종(운전)자</option>
+                        <option value="작업자">작업자</option>
+                      </select>
+                      <input className="input" placeholder="성명" value={p.name} onChange={e => {
+                        const next = [...heavyPersonnel]; next[idx].name = e.target.value; setHeavyPersonnel(next);
+                      }} />
+                      <input className="input" type="tel" placeholder="010-0000-0000" value={p.contact} onChange={e => {
+                        const next = [...heavyPersonnel]; next[idx].contact = e.target.value; setHeavyPersonnel(next);
+                      }} />
+                      <input className="input" placeholder="예: 인양구간 전방" value={p.location} onChange={e => {
+                        const next = [...heavyPersonnel]; next[idx].location = e.target.value; setHeavyPersonnel(next);
+                      }} />
+                      <select className="input" value={p.ppe} onChange={e => {
+                        const next = [...heavyPersonnel]; next[idx].ppe = e.target.value; setHeavyPersonnel(next);
+                      }}>
+                        <option value="지급완료">지급완료</option>
+                        <option value="미지급">미지급</option>
+                        <option value="해당없음">해당없음</option>
+                      </select>
+                      <input className="input" placeholder="비고/자격" value={p.license} onChange={e => {
+                        const next = [...heavyPersonnel]; next[idx].license = e.target.value; setHeavyPersonnel(next);
+                      }} />
+                      <button type="button" className="btn secondary" style={{ padding: "0 6px", fontSize: 12 }} onClick={() => setHeavyPersonnel(heavyPersonnel.filter((_, i) => i !== idx))}>삭제</button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
 
             <div className="field" style={{ marginTop: 12 }}>
