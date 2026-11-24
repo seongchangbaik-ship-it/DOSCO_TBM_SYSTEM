@@ -1075,10 +1075,11 @@ ws.getRow(2).height = 56;
                   </div>
 
                   {!commonExtra.trainingPending && (
-                    selectedItem.training_type === "form" ? (
+selectedItem.training_type === "form" ? (
                       <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
                         <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
-                        <b>교육내용:</b><br />{selectedItem.training_content}
+                        <b>교육내용:</b><br />{selectedItem.training_content}<br /><br />
+                        <b>안전교육 참석자:</b> {selectedItem.fire_work_details?._common?.trainingAttendees || "-"}
                       </div>
                     ) : (
                       <div style={{ marginBottom: 12 }}>
