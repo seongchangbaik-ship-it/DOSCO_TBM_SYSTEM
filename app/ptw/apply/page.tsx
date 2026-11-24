@@ -109,7 +109,7 @@ specialEnv: "",
     landingHazard: "안착 시 전도 및 손·발 협착",
     landingMeasure: "받침목(고임목) 사전 설치, 완전히 안착된 후 줄걸이 해체",
   });
-  const [heavyPersonnel, setHeavyPersonnel] = useState<HeavyPersonnelRow[]>([
+const [heavyPersonnel, setHeavyPersonnel] = useState<HeavyPersonnelRow[]>([
     { role: "작업지휘자", nameContact: "", location: "작업현장 전반", ppe: "지급완료", license: "-" },
     { role: "유도자(신호수)", nameContact: "", location: "인양구간 전방", ppe: "지급완료", license: "-" },
     { role: "조종(운전)자", nameContact: "", location: "장비 운전석", ppe: "지급완료", license: "기중기/지게차" },
@@ -117,7 +117,16 @@ specialEnv: "",
   ]);
   const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
 
-const [trainingPhoto, setTrainingPhoto] = useState<File | null>(null);
+  // 신규 추가 위험작업 세부 상태
+  const [extraDetails, setExtraDetails] = useState({
+    highHeight: "", highEquip: "비계 / 고소작업대(렌탈) / 이동식 사다리", highMeasure: "안전대·안전고리 체결 설비 확보, 하부 출입통제 및 감시인 배치",
+    elecTarget: "", elecVolt: "저압 / 고압", elecMeasure: "메인 차단기 OFF·잠금장치(LOTO)·표지판 부착, 검전기 무전압 확인, 절연보호구 착용",
+    confineWatcher: "", confineGas: "산소 20.9%, 유해가스 없음 (환기팬 가동)", confineLeak: "연결 배관 차단 및 맹판(블라인드) 설치 완료", confinePpe: "송기마스크, 복합가스측정기, 구명줄, 무전기", confineEmg: "비상연락망(119 및 안전관리자) 확보 및 긴급 구조 대기",
+    envMaterial: "도료·신나 / 폐유 / 폐수·약품 / 분진", envMeasure: "MSDS 비치, 방독마스크·내화학장갑 착용, 누출 방지 조치(흡착포) 및 지정 용기 보관",
+    utilLine: "유압·공압 / 냉각수·스팀 / 질소·산소·LNG 배관", utilMeasure: "메인 밸브 차단(LOTO), 배관 내 잔압·잔류유체 완전 제거(드레인·퍼지), 오조작 방지 표찰 부착",
+  });
+
+  const [trainingPhoto, setTrainingPhoto] = useState<File | null>(null);
   const [signatures, setSignatures] = useState<{ id?: string; name: string; type: string; data: string }[]>([]);
 
   const [showSignModal, setShowSignModal] = useState(false);
@@ -126,12 +135,8 @@ const [trainingPhoto, setTrainingPhoto] = useState<File | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const GENERAL_WORK_TYPES = [
-    "일반작업", "화기작업", "페인트작업", "고소작업", "굴착작업", "전기작업"
-  ];
-  const HAZARD_WORK_TYPES = [
-    "제한공간(밀폐)작업", "중량물취급작업", "방사능작업", "환경", "Utility 작업", "석면작업"
-  ];
+  const GENERAL_WORK_TYPES = ["일반작업", "화기작업", "고소작업", "전기작업"];
+  const HAZARD_WORK_TYPES = ["밀폐작업", "중량물취급작업", "환경", "유틸리티작업"];
   const FIRE_SUPPLEMENTARY_TYPES = [
     "밀폐공간출입", "정전작업", "굴착작업", "방사선 사용", "고소작업", "중장비 작업"
   ];
@@ -149,10 +154,13 @@ const [trainingPhoto, setTrainingPhoto] = useState<File | null>(null);
         .select("*, ptw_signatures(*)")
         .eq("id", editId)
         .maybeSingle()
-        .then(({ data }) => {
+.then(({ data }) => {
           if (!data) return;
           const common = data.fire_work_details?._common || {};
           setExistingStatus(data.status || "pending");
+          if (common.extraDetails) {
+            setExtraDetails(prev => ({ ...prev, ...common.extraDetails }));
+          }
           setForm(prev => ({
             ...prev,
             companyType: data.company_type || "internal",
@@ -414,7 +422,7 @@ let photoPath: string | null = form.trainingPending ? null : existingTrainingPho
       : [];
     const mergedHeavyPaths = [...existingHeavyPaths, ...heavyDrawPaths];
 
-    const firePayload = {
+const firePayload = {
       ...(form.workTypes.includes("화기작업") ? {
         ...fireDetails,
         fireItems,
@@ -429,6 +437,7 @@ let photoPath: string | null = form.trainingPending ? null : existingTrainingPho
         specialSafety: form.specialSafety,
         trainingPending: form.trainingPending,
         pledgePending: form.pledgePending,
+        extraDetails,
       },
     };
 
@@ -1018,6 +1027,111 @@ let photoPath: string | null = form.trainingPending ? null : existingTrainingPho
               <label>작업도면 / 장비 제원표 / 자격증·보험증 사진 첨부 (여러 장 선택 가능)</label>
               <input type="file" accept="image/*" multiple onChange={e => setHeavyFiles(Array.from(e.target.files || []))} />
               {heavyFiles.length > 0 && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 4 }}>선택된 파일: {heavyFiles.length}개</div>}
+</div>
+          </div>
+        )}
+
+        {/* 고소작업 추가 양식 */}
+        {form.workTypes.includes("고소작업") && (
+          <div className="card section" style={{ border: "2px solid #0ea5e9", background: "#f0f9ff" }}>
+            <h3 style={{ color: "#0369a1", marginTop: 0 }}>🪜 고소작업 계획</h3>
+            <div className="formgrid">
+              <div className="field">
+                <label>작업 높이 (m)</label>
+                <input className="input" placeholder="예: 5m" value={extraDetails.highHeight} onChange={e => setExtraDetails({...extraDetails, highHeight: e.target.value})} />
+              </div>
+              <div className="field">
+                <label>사용 장비</label>
+                <input className="input" value={extraDetails.highEquip} onChange={e => setExtraDetails({...extraDetails, highEquip: e.target.value})} />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>안전조치 점검</label>
+                <input className="input" value={extraDetails.highMeasure} onChange={e => setExtraDetails({...extraDetails, highMeasure: e.target.value})} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 전기작업 추가 양식 */}
+        {form.workTypes.includes("전기작업") && (
+          <div className="card section" style={{ border: "2px solid #8b5cf6", background: "#f5f3ff" }}>
+            <h3 style={{ color: "#6d28d9", marginTop: 0 }}>⚡ 전기작업 계획</h3>
+            <div className="formgrid">
+              <div className="field">
+                <label>대상 설비명</label>
+                <input className="input" placeholder="예: 메인 변압기, 분전반" value={extraDetails.elecTarget} onChange={e => setExtraDetails({...extraDetails, elecTarget: e.target.value})} />
+              </div>
+              <div className="field">
+                <label>전압 구분</label>
+                <input className="input" value={extraDetails.elecVolt} onChange={e => setExtraDetails({...extraDetails, elecVolt: e.target.value})} />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>안전조치 점검</label>
+                <input className="input" value={extraDetails.elecMeasure} onChange={e => setExtraDetails({...extraDetails, elecMeasure: e.target.value})} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 밀폐작업 추가 양식 */}
+        {form.workTypes.includes("밀폐작업") && (
+          <div className="card section" style={{ border: "2px solid #f97316", background: "#fff7ed" }}>
+            <h3 style={{ color: "#c2410c", marginTop: 0 }}>🕳️ 밀폐공간 출입작업 계획</h3>
+            <div className="formgrid">
+              <div className="field">
+                <label>외부 감시인 (성명/연락처)</label>
+                <input className="input" placeholder="감시인 정보 입력" value={extraDetails.confineWatcher} onChange={e => setExtraDetails({...extraDetails, confineWatcher: e.target.value})} />
+              </div>
+              <div className="field">
+                <label>비상연락체계</label>
+                <input className="input" value={extraDetails.confineEmg} onChange={e => setExtraDetails({...extraDetails, confineEmg: e.target.value})} />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>산소·유해가스 측정 결과 및 후속조치</label>
+                <input className="input" value={extraDetails.confineGas} onChange={e => setExtraDetails({...extraDetails, confineGas: e.target.value})} />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>가스 누출·유입 가능성 검토 및 조치</label>
+                <input className="input" value={extraDetails.confineLeak} onChange={e => setExtraDetails({...extraDetails, confineLeak: e.target.value})} />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>밀폐전용 보호구 및 장비</label>
+                <input className="input" value={extraDetails.confinePpe} onChange={e => setExtraDetails({...extraDetails, confinePpe: e.target.value})} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 환경 추가 양식 */}
+        {form.workTypes.includes("환경") && (
+          <div className="card section" style={{ border: "2px solid #10b981", background: "#ecfdf5" }}>
+            <h3 style={{ color: "#047857", marginTop: 0 }}>🌱 환경(화학/폐기물) 취급 계획</h3>
+            <div className="formgrid">
+              <div className="field">
+                <label>취급 물질·폐기물 종류</label>
+                <input className="input" value={extraDetails.envMaterial} onChange={e => setExtraDetails({...extraDetails, envMaterial: e.target.value})} />
+              </div>
+              <div className="field">
+                <label>안전조치 점검</label>
+                <input className="input" value={extraDetails.envMeasure} onChange={e => setExtraDetails({...extraDetails, envMeasure: e.target.value})} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 유틸리티작업 추가 양식 */}
+        {form.workTypes.includes("유틸리티작업") && (
+          <div className="card section" style={{ border: "2px solid #64748b", background: "#f8fafc" }}>
+            <h3 style={{ color: "#334155", marginTop: 0 }}>⚙️ 유틸리티(배관/밸브) 작업 계획</h3>
+            <div className="formgrid">
+              <div className="field">
+                <label>대상 라인 종류</label>
+                <input className="input" value={extraDetails.utilLine} onChange={e => setExtraDetails({...extraDetails, utilLine: e.target.value})} />
+              </div>
+              <div className="field">
+                <label>안전조치 점검</label>
+                <input className="input" value={extraDetails.utilMeasure} onChange={e => setExtraDetails({...extraDetails, utilMeasure: e.target.value})} />
+              </div>
             </div>
           </div>
         )}

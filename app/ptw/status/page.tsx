@@ -745,6 +745,101 @@ return (
                         </table>
                       </td>
                     </tr>
+{/* --- 추가 위험작업 출력 양식 --- */}
+                    {(selectedItem.work_types || []).includes("고소작업") && (
+                      <>
+                        <tr>
+                          <th colSpan={7} style={{ border: "1px solid #000", background: "#f0f9ff", padding: "4px 6px", fontWeight: "bold", textAlign: "left" }}>■ 고소작업 계획</th>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>작업높이/장비</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>
+                            [높이] {commonExtra.extraDetails?.highHeight || "-"}m &nbsp;/&nbsp; [사용 장비] {commonExtra.extraDetails?.highEquip || "-"}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>안전조치 점검</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.highMeasure || "-"}</td>
+                        </tr>
+                      </>
+                    )}
+
+                    {(selectedItem.work_types || []).includes("전기작업") && (
+                      <>
+                        <tr>
+                          <th colSpan={7} style={{ border: "1px solid #000", background: "#f5f3ff", padding: "4px 6px", fontWeight: "bold", textAlign: "left" }}>■ 전기작업 계획</th>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>대상설비/전압</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>
+                            [대상 설비] {commonExtra.extraDetails?.elecTarget || "-"} &nbsp;/&nbsp; [전압] {commonExtra.extraDetails?.elecVolt || "-"}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>안전조치 점검</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.elecMeasure || "-"}</td>
+                        </tr>
+                      </>
+                    )}
+
+                    {(selectedItem.work_types || []).includes("밀폐작업") && (
+                      <>
+                        <tr>
+                          <th colSpan={7} style={{ border: "1px solid #000", background: "#fff7ed", padding: "4px 6px", fontWeight: "bold", textAlign: "left" }}>■ 밀폐공간 출입작업 계획</th>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>외부 감시인</th>
+                          <td colSpan={2} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.confineWatcher || "-"}</td>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>비상연락체계</th>
+                          <td colSpan={3} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.confineEmg || "-"}</td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>가스측정/조치</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.confineGas || "-"}</td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>누출·유입 차단</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.confineLeak || "-"}</td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>전용 보호구</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.confinePpe || "-"}</td>
+                        </tr>
+                      </>
+                    )}
+
+                    {(selectedItem.work_types || []).includes("환경") && (
+                      <>
+                        <tr>
+                          <th colSpan={7} style={{ border: "1px solid #000", background: "#ecfdf5", padding: "4px 6px", fontWeight: "bold", textAlign: "left" }}>■ 환경(화학/폐기물) 취급 계획</th>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>물질/폐기물</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.envMaterial || "-"}</td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>안전조치 점검</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.envMeasure || "-"}</td>
+                        </tr>
+                      </>
+                    )}
+
+                    {(selectedItem.work_types || []).includes("유틸리티작업") && (
+                      <>
+                        <tr>
+                          <th colSpan={7} style={{ border: "1px solid #000", background: "#f8fafc", padding: "4px 6px", fontWeight: "bold", textAlign: "left" }}>■ 유틸리티(배관/밸브) 작업 계획</th>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>대상 라인 종류</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.utilLine || "-"}</td>
+                        </tr>
+                        <tr>
+                          <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>안전조치 점검</th>
+                          <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.extraDetails?.utilMeasure || "-"}</td>
+                        </tr>
+                      </>
+                    )}
+
                     <tr>
                       <th style={{ border: "1px solid #000", background: "#f3f4f6", padding: "4px 6px" }}>특별요구(환경)</th>
                       <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 6px" }}>{commonExtra.specialEnv || "-"}</td>
