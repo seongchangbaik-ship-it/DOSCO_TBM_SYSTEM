@@ -61,10 +61,11 @@ specialEnv: "",
     specialSafety: "",
     trainingPending: false,
     pledgePending: false,
-    trainingType: "form",
+trainingType: "form",
     trainingInstructor: "",
     trainingContent:
       "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)",
+    trainingAttendees: "",
   });
 
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
@@ -183,9 +184,10 @@ const [heavyPersonnel, setHeavyPersonnel] = useState<HeavyPersonnelRow[]>([
             specialSafety: common.specialSafety || "",
             trainingPending: Boolean(common.trainingPending),
             pledgePending: Boolean(common.pledgePending),
-            trainingType: data.training_type || "form",
+trainingType: data.training_type || "form",
             trainingInstructor: data.training_instructor || "",
             trainingContent: data.training_content || prev.trainingContent,
+            trainingAttendees: common.trainingAttendees || "",
           }));
 
           setVehicles(common.vehicles || []);
@@ -446,8 +448,9 @@ const firePayload = {
         vehicles,
         specialEnv: form.specialEnv,
         specialSafety: form.specialSafety,
-        trainingPending: form.trainingPending,
+trainingPending: form.trainingPending,
         pledgePending: form.pledgePending,
+        trainingAttendees: form.trainingPending ? "" : form.trainingAttendees,
         extraDetails,
       },
     };
@@ -1221,7 +1224,7 @@ const firePayload = {
                 <label className="checkrow"><input type="radio" checked={form.trainingType === "photo"} onChange={() => setForm({ ...form, trainingType: "photo" })} /> 종이일지 사진 촬영</label>
               </div>
 
-              {form.trainingType === "form" ? (
+{form.trainingType === "form" ? (
                 <div className="formgrid">
                   <div className="field">
                     <label>교육 강사 (현장관리감독자)</label>
@@ -1230,6 +1233,15 @@ const firePayload = {
                   <div className="field" style={{ gridColumn: "1 / -1" }}>
                     <label>안전 교육 내용</label>
                     <textarea value={form.trainingContent} onChange={e => setForm({ ...form, trainingContent: e.target.value })} style={{ height: 210 }} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1 / -1" }}>
+                    <label>안전교육 참석자</label>
+                    <input
+                      className="input"
+                      placeholder="예: 홍길동, 김철수, 이영희 (교육에 참석한 작업자 성명을 모두 기재해 주세요)"
+                      value={form.trainingAttendees}
+                      onChange={e => setForm({ ...form, trainingAttendees: e.target.value })}
+                    />
                   </div>
                 </div>
               ) : (

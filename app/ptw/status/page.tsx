@@ -69,11 +69,12 @@ const [msg, setMsg] = useState("");
 
   // 3. 교육일지 추가제출 모달 상태
   const [trainingModalItem, setTrainingModalItem] = useState<PtwApplication | null>(null);
-  const [tType, setTType] = useState<"form" | "photo">("form");
+const [tType, setTType] = useState<"form" | "photo">("form");
   const [tInstructor, setTInstructor] = useState("");
   const [tContent, setTContent] = useState(
     "1. 작업장 주변 인화물질 제거\n2. 소화기 비치\n3. 안전관리자 입회, 작업지휘\n4. 보호구 착용\n5. 작업전 안전교육 실시\n6. 작업감독자 작업절차 순서 지정\n7. 마스크 착용\n8. 상차 작업 시 안전거리(5m) 확보\n9. 작업인원 외 접근 금지\n10. 작업구역 접근금지 표시 (주차콘)"
   );
+  const [tAttendees, setTAttendees] = useState("");
   const [tPhoto, setTPhoto] = useState<File | null>(null);
   const [tSaving, setTSaving] = useState(false);
 
@@ -127,10 +128,11 @@ const [msg, setMsg] = useState("");
     });
   }
 
-  function openTrainingModal(item: PtwApplication) {
+function openTrainingModal(item: PtwApplication) {
     setTrainingModalItem(item);
     setTType("form");
     setTInstructor(item.site_manager || "");
+    setTAttendees("");
     setTPhoto(null);
   }
 
@@ -162,11 +164,15 @@ const [msg, setMsg] = useState("");
       photoPath = path;
     }
 
-    const prevDetails = trainingModalItem.fire_work_details || {};
+const prevDetails = trainingModalItem.fire_work_details || {};
     const prevCommon = prevDetails._common || {};
     const nextDetails = {
       ...prevDetails,
-      _common: { ...prevCommon, trainingPending: false },
+      _common: {
+        ...prevCommon,
+        trainingPending: false,
+        trainingAttendees: tType === "form" ? tAttendees.trim() : "",
+      },
     };
 
     const { error } = await supabase
@@ -1027,11 +1033,12 @@ return (
                         : "[참여자 안전관리 준수 서약 및 서명]"}
                   </div>
 
-                  {!commonExtra.trainingPending && (
+{!commonExtra.trainingPending && (
                     selectedItem.training_type === "form" ? (
                       <div style={{ fontSize: 12, marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
                         <b>강사:</b> {selectedItem.training_instructor || "-"}<br />
-                        <b>교육내용:</b><br />{selectedItem.training_content}
+                        <b>교육내용:</b><br />{selectedItem.training_content}<br /><br />
+                        <b>안전교육 참석자:</b> {commonExtra.trainingAttendees || "-"}
                       </div>
                     ) : (
                       <div style={{ marginBottom: 12 }}>
@@ -1104,7 +1111,7 @@ return (
               </label>
             </div>
 
-            {tType === "form" ? (
+{tType === "form" ? (
               <div className="formgrid">
                 <div className="field">
                   <label>교육 강사 (현장관리감독자)</label>
@@ -1113,6 +1120,15 @@ return (
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <label>안전 교육 내용</label>
                   <textarea value={tContent} onChange={e => setTContent(e.target.value)} style={{ height: 200 }} />
+                </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <label>안전교육 참석자</label>
+                  <input
+                    className="input"
+                    placeholder="예: 홍길동, 김철수, 이영희 (참석자 성명 기재)"
+                    value={tAttendees}
+                    onChange={e => setTAttendees(e.target.value)}
+                  />
                 </div>
               </div>
             ) : (
