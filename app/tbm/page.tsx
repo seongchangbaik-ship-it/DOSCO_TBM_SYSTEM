@@ -18,6 +18,21 @@ type Week = {
   is_published: boolean;
   photo_paths?: string[];
 };
+type ProcessRule = {
+  id: string;
+  process_name: string;
+  rule_text: string;
+};
+
+function getProcessByTeamName(teamName: string): string {
+  if (["P5", "P9", "P10", "C1", "P1", "P7", "P8"].includes(teamName)) return "조관";
+  if (["SL2", "SL5"].includes(teamName)) return "슬리터";
+  if (["SCP1", "SCP2"].includes(teamName)) return "도장";
+  if (["1출하", "2출하"].includes(teamName)) return "출하";
+  if (["1공무", "2공무", "전기파트"].includes(teamName)) return "공무";
+  if (["1품질", "2품질", "품질파트"].includes(teamName)) return "품질";
+  return "전사공통";
+}
 
 function TBMForm() {
   const searchParams = useSearchParams();
@@ -26,6 +41,8 @@ function TBMForm() {
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [processRules, setProcessRules] = useState<ProcessRule[]>([]);
+  const [selectedRules, setSelectedRules] = useState<string[]>([]);
   const [company, setCompany] = useState("");
   const [team, setTeam] = useState("");
   const [qrApplied, setQrApplied] = useState(false);
@@ -48,11 +65,13 @@ function TBMForm() {
   }
 
   (async()=>{
-    const [c,t,w]=await Promise.all([
+    const [c,t,w,r]=await Promise.all([
       supabase.from("companies").select("id,name").eq("active",true).order("name"),
       supabase.from("teams").select("id,name,company_id").eq("active",true).order("name"),
-      supabase.from("tbm_weeks").select("*").eq("is_published",true).order("starts_at",{ascending:false})
+      supabase.from("tbm_weeks").select("*").eq("is_published",true).order("starts_at",{ascending:false}),
+      supabase.from("tbm_process_rules").select("id,process_name,rule_text").eq("active",true).order("sort_order",{ascending:true}).order("created_at",{ascending:true})
     ]);
+    setProcessRules((r.data as ProcessRule[]) || []);
 
 const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
 
@@ -167,11 +186,41 @@ const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasEle
     setHasDrawn(false);
   };
 
+const selectedTeamObj = teams.find(t => t.id === team);
+  const currentProcess = selectedTeamObj ? getProcessByTeamName(selectedTeamObj.name) : "";
+  const applicableRules = currentProcess
+    ? [
+        ...processRules.filter(r => r.process_name === currentProcess),
+        ...(currentProcess !== "전사공통"
+          ? processRules.filter(r => r.process_name === "전사공통")
+          : []),
+      ]
+    : [];
+
+  function toggleRule(ruleText: string, checked: boolean) {
+    if (checked) {
+      setSelectedRules(prev => [...prev, ruleText]);
+    } else {
+      setSelectedRules(prev => prev.filter(item => item !== ruleText));
+    }
+  }
+
   async function submit() {
     setMsg("");
 
-    if (!company || !team || !name.trim() || !ack.every(Boolean)) {
-      setMsg("회사, 조, 이름을 입력하고 모든 교육 확인 항목을 체크해 주세요.");
+    if (!company || !team || !name.trim()) {
+      setMsg("소속 회사, 조, 본인 이름을 입력해 주세요.");
+      return;
+    }
+
+    const minRequired = Math.min(2, applicableRules.length);
+    if (minRequired > 0 && selectedRules.length < minRequired) {
+      setMsg(`[${currentProcess}] 공정 중점 안전수칙을 ${minRequired}개 이상 선택해 주세요.`);
+      return;
+    }
+
+    if (!ack.every(Boolean)) {
+      setMsg("하단 교육 확인 항목 3가지를 모두 체크해 주세요.");
       return;
     }
 
@@ -192,6 +241,7 @@ const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasEle
       company_id: company,
       team_id: team,
       worker_name: name.trim(),
+      selected_rules: selectedRules,
       signature_data: signatureData,
       acknowledged_at: new Date().toISOString(),
     });
@@ -280,9 +330,9 @@ const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasEle
           )}
         </div>
 
-        <div className="field">
+<div className="field">
           <label>소속 회사</label>
-          <select value={company} onChange={e => { setCompany(e.target.value); setTeam(""); setQrApplied(false); }}>
+          <select value={company} onChange={e => { setCompany(e.target.value); setTeam(""); setSelectedRules([]); setQrApplied(false); }}>
             <option value="">회사 선택</option>
             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -290,11 +340,68 @@ const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasEle
 
         <div className="field">
           <label>소속 조</label>
-          <select value={team} onChange={e => { setTeam(e.target.value); setQrApplied(false); }}>
+          <select value={team} onChange={e => { setTeam(e.target.value); setSelectedRules([]); setQrApplied(false); }}>
             <option value="">조 선택</option>
             {orderedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
+
+        {team && applicableRules.length > 0 && (
+          <div
+            style={{
+              background: "#eff6ff",
+              border: "1.5px solid #93c5fd",
+              borderRadius: 10,
+              padding: 12,
+              marginTop: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <b style={{ fontSize: 13.5, color: "#1e3a8a" }}>
+                [{currentProcess} 공정] 중점 안전수칙 선택
+              </b>
+              <span
+                className={`pill ${selectedRules.length >= Math.min(2, applicableRules.length) ? "ok" : "wait"}`}
+                style={{ fontSize: 11.5 }}
+              >
+                {selectedRules.length}개 선택됨 (최소 {Math.min(2, applicableRules.length)}개)
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: "#1d4ed8", margin: "0 0 10px 0" }}>
+              오늘 본인 작업에 해당하는 핵심 안전수칙을 직접 <b>{Math.min(2, applicableRules.length)}개 이상</b> 선택해 주세요.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {applicableRules.map(rule => {
+                const checked = selectedRules.includes(rule.rule_text);
+                return (
+                  <label
+                    key={rule.id}
+                    className="checkrow"
+                    style={{
+                      margin: 0,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: checked ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                      background: checked ? "#dbeafe" : "#fff",
+                      fontSize: 13,
+                      lineHeight: 1.45,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={e => toggleRule(rule.rule_text, e.target.checked)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <span>{rule.rule_text}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="field">
           <label>이름</label>
