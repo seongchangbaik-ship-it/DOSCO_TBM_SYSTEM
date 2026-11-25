@@ -9,6 +9,7 @@ type RegularMergedItem = {
   weekLabel: string;
   topic: string;
   content: string;
+  photoPaths?: string[];
   companyId: string;
   companyName: string;
   teamId: string;
@@ -53,10 +54,11 @@ export default function TbmStatusPage() {
   const [regularItems, setRegularItems] = useState<RegularMergedItem[]>([]);
   const [spotItems, setSpotItems] = useState<SpotLogItem[]>([]);
 
-  // 상세 모달 상태
+ // 상세 모달 상태
   const [selectedRegular, setSelectedRegular] = useState<RegularMergedItem | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<SpotLogItem | null>(null);
   const [detailPhotoUrl, setDetailPhotoUrl] = useState("");
+  const [detailEduPhotoUrls, setDetailEduPhotoUrls] = useState<string[]>([]);
   const [copyMsg, setCopyMsg] = useState("");
 
   // 수시 TBM 상세창 내 즉시 추가 서명 상태
@@ -73,15 +75,15 @@ export default function TbmStatusPage() {
     }
     setLoading(true);
 
-const [acksRes, subsRes, spotsRes] = await Promise.all([
+    const [acksRes, subsRes, spotsRes] = await Promise.all([
       supabase
         .from("tbm_acknowledgements")
-        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic, content)")
+        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic, content, photo_paths)")
         .order("acknowledged_at", { ascending: false })
         .limit(1000),
       supabase
         .from("tbm_team_submissions")
-        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic, content)")
+        .select("*, companies(name), teams(name), tbm_weeks(week_label, topic, content, photo_paths)")
         .order("submitted_at", { ascending: false })
         .limit(500),
       supabase
@@ -102,6 +104,7 @@ const [acksRes, subsRes, spotsRes] = await Promise.all([
         weekLabel: s.tbm_weeks?.week_label || "-",
         topic: s.tbm_weeks?.topic || "-",
         content: s.tbm_weeks?.content || "-",
+        photoPaths: s.tbm_weeks?.photo_paths || [],
         companyId: s.company_id,
         companyName: s.companies?.name || "-",
         teamId: s.team_id,
@@ -117,6 +120,9 @@ const [acksRes, subsRes, spotsRes] = await Promise.all([
       const existing = map.get(key);
       if (existing) {
         existing.workers.push(a);
+        if (!existing.photoPaths?.length && a.tbm_weeks?.photo_paths?.length) {
+          existing.photoPaths = a.tbm_weeks.photo_paths;
+        }
         if (a.acknowledged_at > existing.latestTime) {
           existing.latestTime = a.acknowledged_at;
         }
@@ -127,6 +133,7 @@ const [acksRes, subsRes, spotsRes] = await Promise.all([
           weekLabel: a.tbm_weeks?.week_label || "-",
           topic: a.tbm_weeks?.topic || "-",
           content: a.tbm_weeks?.content || "-",
+          photoPaths: a.tbm_weeks?.photo_paths || [],
           companyId: a.company_id,
           companyName: a.companies?.name || "-",
           teamId: a.team_id,
@@ -155,12 +162,27 @@ const [acksRes, subsRes, spotsRes] = await Promise.all([
     return data?.signedUrl || "";
   }
 
-  async function openRegularModal(item: RegularMergedItem) {
+async function openRegularModal(item: RegularMergedItem) {
     setSelectedSpot(null);
     setSelectedRegular(item);
     setDetailPhotoUrl("");
+    setDetailEduPhotoUrls([]);
+
     if (item.leaderSubmission?.photo_path) {
       setDetailPhotoUrl(await getPhotoUrl(item.leaderSubmission.photo_path));
+    }
+
+    if (item.photoPaths && item.photoPaths.length > 0) {
+      const eduUrls: string[] = [];
+      for (const eduPath of item.photoPaths) {
+        const { data: signedEdu, error: eduErr } = await supabase.storage
+          .from("tbm-education-photos")
+          .createSignedUrl(eduPath, 3600);
+        if (!eduErr && signedEdu?.signedUrl) {
+          eduUrls.push(signedEdu.signedUrl);
+        }
+      }
+      setDetailEduPhotoUrls(eduUrls);
     }
   }
 
@@ -168,6 +190,7 @@ const [acksRes, subsRes, spotsRes] = await Promise.all([
     setSelectedRegular(null);
     setSelectedSpot(item);
     setDetailPhotoUrl("");
+    setDetailEduPhotoUrls([]);
     setCopyMsg("");
     setAddSignName("");
     setAddHasDrawn(false);
@@ -564,12 +587,29 @@ const [acksRes, subsRes, spotsRes] = await Promise.all([
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 주제</th>
                   <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{selectedRegular.topic}</td>
                 </tr>
-                <tr>
+<tr>
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 내용</th>
                   <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
                     {selectedRegular.content || "-"}
                   </td>
                 </tr>
+                {detailEduPhotoUrls.length > 0 && (
+                  <tr>
+                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육자료 사진</th>
+                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                        {detailEduPhotoUrls.map((eduUrl, idx) => (
+                          <img
+                            key={idx}
+                            src={eduUrl}
+                            alt={`교육자료 사진 ${idx + 1}`}
+                            style={{ maxHeight: 180, maxWidth: "48%", objectFit: "contain", border: "1px solid #ccc" }}
+                          />
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 <tr>
                   <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>조장 확인</th>
                   <td style={{ border: "1px solid #000", padding: 6 }}>
