@@ -52,6 +52,8 @@ function TBMForm() {
   const [ack, setAck] = useState([false, false, false]);
   const [done, setDone] = useState(false);
   const [msg, setMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [canRetry, setCanRetry] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -62,6 +64,7 @@ function TBMForm() {
     setPhotoUrls([]);
     setDone(false);
     setMsg("");
+    setCanRetry(false);
 
     const paths = targetWeek.photo_paths || [];
     const urls: string[] = [];
@@ -214,7 +217,9 @@ function TBMForm() {
   }
 
   async function submit() {
+    if (submitting) return;
     setMsg("");
+    setCanRetry(false);
 
     if (!company || !team || !name.trim()) {
       setMsg("소속 회사, 조, 본인 이름을 입력해 주세요.");
@@ -242,24 +247,35 @@ function TBMForm() {
       return;
     }
 
-    const signatureData = canvasRef.current.toDataURL("image/png");
+    setSubmitting(true);
+    try {
+      const signatureData = canvasRef.current.toDataURL("image/png");
 
-    const { error } = await supabase.from("tbm_acknowledgements").insert({
-      week_id: week.id,
-      company_id: company,
-      team_id: team,
-      worker_name: name.trim(),
-      selected_rules: selectedRules,
-      signature_data: signatureData,
-      acknowledged_at: new Date().toISOString(),
-    });
+      const { error } = await supabase.from("tbm_acknowledgements").insert({
+        week_id: week.id,
+        company_id: company,
+        team_id: team,
+        worker_name: name.trim(),
+        selected_rules: selectedRules,
+        signature_data: signatureData,
+        acknowledged_at: new Date().toISOString(),
+      });
 
-    if (error) {
-      console.error("교육 확인 제출 오류:", error);
-      setMsg("제출 오류: " + error.message + " (코드: " + error.code + ")");
-      return;
+      if (error) {
+        console.error("교육 확인 제출 오류:", error);
+        throw new Error("제출 오류: " + error.message + " (코드: " + error.code + ")");
+      }
+
+      setDone(true);
+    } catch (err: any) {
+      setMsg(
+        (err?.message || "제출 중 통신 오류가 발생했습니다.") +
+          " 입력하신 내용은 그대로 유지되니 [다시 시도]를 눌러 주세요."
+      );
+      setCanRetry(true);
+    } finally {
+      setSubmitting(false);
     }
-    setDone(true);
   }
 
   return (
@@ -534,11 +550,31 @@ function TBMForm() {
               </label>
             ))}
 
-            <button className="btn" style={{ width: "100%", marginTop: 16 }} onClick={submit}>
-              교육 확인 제출
+            <button
+              className="btn"
+              style={{ width: "100%", marginTop: 16 }}
+              onClick={submit}
+              disabled={submitting}
+            >
+              {submitting ? "제출 중..." : "교육 확인 제출"}
             </button>
 
-            {msg && <p style={{ color: "#b33", fontSize: 13 }}>{msg}</p>}
+            {msg && (
+              <div style={{ marginTop: 10, textAlign: "center" }}>
+                <p style={{ color: "#b33", fontSize: 13, marginBottom: canRetry ? 8 : 0 }}>{msg}</p>
+                {canRetry && (
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ background: "#dc2626", borderColor: "#dc2626", padding: "8px 16px" }}
+                    onClick={submit}
+                    disabled={submitting}
+                  >
+                    {submitting ? "재전송 중..." : "다시 시도"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </>
       ) : (

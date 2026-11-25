@@ -37,6 +37,7 @@ function PtwApplyForm() {
 
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [msg, setMsg] = useState("");
+  const [canRetry, setCanRetry] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [existingStatus, setExistingStatus] = useState("pending");
@@ -77,7 +78,7 @@ function PtwApplyForm() {
   const [attendees, setAttendees] = useState<string[]>([""]);
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
 
-const [fireDetails, setFireDetails] = useState({
+  const [fireDetails, setFireDetails] = useState({
     fireWorkType: "용접 · 용단 작업",
     fireWatcher: "",
     procedure: "",
@@ -136,7 +137,7 @@ const [fireDetails, setFireDetails] = useState({
   ]);
   const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
 
-const [extraDetails, setExtraDetails] = useState({
+  const [extraDetails, setExtraDetails] = useState({
     highHeight: "",
     highEquip: "비계 / 고소작업대(렌탈) / 이동식 사다리",
     highProcedure: "",
@@ -170,7 +171,7 @@ const [extraDetails, setExtraDetails] = useState({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-const WORK_TYPES = [
+  const WORK_TYPES = [
     "일반작업",
     "화기작업",
     "고소작업",
@@ -251,7 +252,7 @@ const WORK_TYPES = [
 
           if (data.fire_work_details) {
             const f = data.fire_work_details;
-setFireDetails((prev) => ({
+            setFireDetails((prev) => ({
               ...prev,
               fireWorkType: f.fireWorkType || prev.fireWorkType,
               fireWatcher: f.fireWatcher || "",
@@ -452,190 +453,222 @@ setFireDetails((prev) => ({
       const { error } = await supabase.storage.from("tbm-photos").upload(path, compressed, {
         contentType: isJpeg ? "image/jpeg" : file.type,
       });
-      if (!error) paths.push(path);
+      if (error) {
+        throw new Error("첨부파일 업로드 실패: " + error.message);
+      }
+      paths.push(path);
     }
     return paths;
   }
 
   async function submitPtw() {
+    if (isSubmitting) return;
+    setMsg("");
+    setCanRetry(false);
+
     if (editId && existingStatus === "approved") {
-      return setMsg("이미 허가완료된 안전작업허가서는 수정할 수 없습니다.");
+      setMsg("이미 허가완료된 안전작업허가서는 수정할 수 없습니다.");
+      return;
     }
-    if (form.companyType === "internal" && !form.companyId) return setMsg("협력사를 선택하세요.");
+    if (form.companyType === "internal" && !form.companyId) {
+      setMsg("협력사를 선택하세요.");
+      return;
+    }
     if (form.companyType === "external" && !form.companyName.trim()) {
-      return setMsg("외부업체명을 입력하세요.");
+      setMsg("외부업체명을 입력하세요.");
+      return;
     }
     if (!form.projectName.trim() || !form.siteManager.trim() || !form.workContent.trim()) {
-      return setMsg("필수 항목(공사명, 현장관리감독자, 작업내용)을 입력하세요.");
+      setMsg("필수 항목(공사명, 현장관리감독자, 작업내용)을 입력하세요.");
+      return;
     }
     if (form.workPeriodType === "period") {
       const days = diffDaysYmd(form.date, form.endDate);
       if (days < 0 || days > 6) {
-        return setMsg("기간작업은 시작일로부터 최대 일주일(7일) 이내로만 설정 가능합니다.");
+        setMsg("기간작업은 시작일로부터 최대 일주일(7일) 이내로만 설정 가능합니다.");
+        return;
       }
     }
-    if (form.workTypes.length === 0) return setMsg("작업 종류를 1개 이상 선택하세요.");
+    if (form.workTypes.length === 0) {
+      setMsg("작업 종류를 1개 이상 선택하세요.");
+      return;
+    }
     if (!form.pledgePending && signatures.length === 0) {
-      return setMsg("서약 및 서명을 입력하거나, 당일 실시 시 '당일 실시 예정'을 체크해 주세요.");
+      setMsg("서약 및 서명을 입력하거나, 당일 실시 시 '당일 실시 예정'을 체크해 주세요.");
+      return;
     }
 
     setIsSubmitting(true);
     setMsg("허가서와 첨부자료를 전송하고 있습니다...");
 
-    let photoPath: string | null = form.trainingPending ? null : existingTrainingPhotoPath;
-    if (!form.trainingPending && form.trainingType === "photo" && trainingPhoto) {
-      const uploaded = await uploadMultipleFiles([trainingPhoto], "ptw-training");
-      photoPath = uploaded[0] || photoPath;
-    }
-
-    const fireAttachPaths = form.workTypes.includes("화기작업")
-      ? await uploadMultipleFiles(fireFiles, "ptw-fire")
-      : [];
-    const mergedFirePaths = [...existingFirePaths, ...fireAttachPaths];
-
-    const heavyDrawPaths = form.workTypes.includes("중량물취급작업")
-      ? await uploadMultipleFiles(heavyFiles, "ptw-heavy")
-      : [];
-    const mergedHeavyPaths = [...existingHeavyPaths, ...heavyDrawPaths];
-
-    const firePayload = {
-      ...(form.workTypes.includes("화기작업")
-        ? {
-            ...fireDetails,
-            fireItems,
-            attachmentPaths: mergedFirePaths,
-            attachmentPath: mergedFirePaths[0] || "",
-          }
-        : {}),
-      _common: {
-        workPeriodType: form.workPeriodType,
-        endDate: form.workPeriodType === "period" ? form.endDate : form.date,
-        vehicles,
-        specialEnv: form.specialEnv,
-        specialSafety: form.specialSafety,
-        trainingPending: form.trainingPending,
-        pledgePending: form.pledgePending,
-        trainingAttendees: form.trainingPending
-          ? ""
-          : attendees
-              .map((s) => s.trim())
-              .filter(Boolean)
-              .join(", "),
-        extraDetails,
-      },
-    };
-
-    const heavyPayload = form.workTypes.includes("중량물취급작업")
-      ? {
-          ...heavyDetails,
-          personnel: heavyPersonnel,
-          drawingPaths: mergedHeavyPaths,
-          drawingPath: mergedHeavyPaths[0] || "",
-        }
-      : {};
-
-    const payload: Record<string, any> = {
-      company_type: form.companyType,
-      company_id: form.companyType === "internal" ? form.companyId : null,
-      company_name: form.companyType === "external" ? form.companyName : null,
-      project_name: form.projectName,
-      site_manager: form.siteManager,
-      contact_number: form.contact,
-      work_location: form.location,
-      work_date: form.date,
-      starts_at: form.startTime,
-      ends_at: form.endTime,
-      worker_count: parseInt(form.workerCount) || signatures.length || 1,
-      work_content: form.workContent,
-      safety_gear: form.safetyGear,
-      work_types: form.workTypes,
-      fire_work_details: firePayload,
-      heavy_lifting_details: heavyPayload,
-      training_type: form.trainingType,
-      training_instructor: form.trainingPending ? "" : form.trainingInstructor,
-      training_content: form.trainingPending ? "" : form.trainingContent,
-      training_photo_path: photoPath,
-    };
-
-    let targetPtwId = editId;
-
-    if (editId) {
-      if (existingStatus === "rejected") {
-        payload.status = "pending";
-        payload.rejection_reason = null;
-      }
-      const { error: updateError } = await supabase
-        .from("ptw_applications")
-        .update(payload)
-        .eq("id", editId);
-
-      if (updateError) {
-        setMsg("수정 오류: " + updateError.message);
-        setIsSubmitting(false);
-        return;
-      }
-    } else {
-      const { data: ptwData, error: ptwError } = await supabase
-        .from("ptw_applications")
-        .insert(payload)
-        .select("id")
-        .single();
-
-      if (ptwError || !ptwData) {
-        setMsg("오류 발생: " + (ptwError?.message || "저장 실패"));
-        setIsSubmitting(false);
-        return;
-      }
-      targetPtwId = ptwData.id;
-    }
-
-    if (deletedSigIds.length > 0) {
-      await supabase.from("ptw_signatures").delete().in("id", deletedSigIds);
-    }
-
-const newSigs = signatures.filter((s) => !s.id);
-    if (!form.pledgePending && newSigs.length > 0) {
-      const sigInserts = newSigs.map((sig) => ({
-        ptw_id: targetPtwId,
-        worker_type: sig.type,
-        worker_name: sig.name,
-        signature_data: sig.data,
-      }));
-      await supabase.from("ptw_signatures").insert(sigInserts);
-    }
-
     try {
-      const resolvedCompanyName =
-        form.companyType === "internal"
-          ? companies.find((c) => c.id === form.companyId)?.name || "협력사"
-          : form.companyName;
-      const resolvedDate =
-        form.workPeriodType === "period" && form.endDate !== form.date
-          ? `${form.date} ~ ${form.endDate}`
-          : form.date;
+      let photoPath: string | null = form.trainingPending ? null : existingTrainingPhotoPath;
+      if (!form.trainingPending && form.trainingType === "photo" && trainingPhoto) {
+        const uploaded = await uploadMultipleFiles([trainingPhoto], "ptw-training");
+        photoPath = uploaded[0] || photoPath;
+      }
 
-      await fetch("/api/ptw-notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          isEdit: Boolean(editId),
-          companyName: resolvedCompanyName,
-          projectName: form.projectName,
-          workDate: resolvedDate,
-          workTime: `${form.startTime} ~ ${form.endTime}`,
-          workLocation: form.location,
-          workTypes: form.workTypes,
-          siteManager: form.siteManager,
-          contact: form.contact,
-          adminUrl: `${window.location.origin}/ptw/admin`,
-        }),
-      });
-    } catch {
-      // 메일 발송 실패 시에도 허가서 제출 완료 처리는 정상 유지
+      const fireAttachPaths = form.workTypes.includes("화기작업")
+        ? await uploadMultipleFiles(fireFiles, "ptw-fire")
+        : [];
+      const mergedFirePaths = [...existingFirePaths, ...fireAttachPaths];
+
+      const heavyDrawPaths = form.workTypes.includes("중량물취급작업")
+        ? await uploadMultipleFiles(heavyFiles, "ptw-heavy")
+        : [];
+      const mergedHeavyPaths = [...existingHeavyPaths, ...heavyDrawPaths];
+
+      const firePayload = {
+        ...(form.workTypes.includes("화기작업")
+          ? {
+              ...fireDetails,
+              fireItems,
+              attachmentPaths: mergedFirePaths,
+              attachmentPath: mergedFirePaths[0] || "",
+            }
+          : {}),
+        _common: {
+          workPeriodType: form.workPeriodType,
+          endDate: form.workPeriodType === "period" ? form.endDate : form.date,
+          vehicles,
+          specialEnv: form.specialEnv,
+          specialSafety: form.specialSafety,
+          trainingPending: form.trainingPending,
+          pledgePending: form.pledgePending,
+          trainingAttendees: form.trainingPending
+            ? ""
+            : attendees
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .join(", "),
+          extraDetails,
+        },
+      };
+
+      const heavyPayload = form.workTypes.includes("중량물취급작업")
+        ? {
+            ...heavyDetails,
+            personnel: heavyPersonnel,
+            drawingPaths: mergedHeavyPaths,
+            drawingPath: mergedHeavyPaths[0] || "",
+          }
+        : {};
+
+      const payload: Record<string, any> = {
+        company_type: form.companyType,
+        company_id: form.companyType === "internal" ? form.companyId : null,
+        company_name: form.companyType === "external" ? form.companyName : null,
+        project_name: form.projectName,
+        site_manager: form.siteManager,
+        contact_number: form.contact,
+        work_location: form.location,
+        work_date: form.date,
+        starts_at: form.startTime,
+        ends_at: form.endTime,
+        worker_count: parseInt(form.workerCount) || signatures.length || 1,
+        work_content: form.workContent,
+        safety_gear: form.safetyGear,
+        work_types: form.workTypes,
+        fire_work_details: firePayload,
+        heavy_lifting_details: heavyPayload,
+        training_type: form.trainingType,
+        training_instructor: form.trainingPending ? "" : form.trainingInstructor,
+        training_content: form.trainingPending ? "" : form.trainingContent,
+        training_photo_path: photoPath,
+      };
+
+      let targetPtwId = editId;
+
+      if (editId) {
+        if (existingStatus === "rejected") {
+          payload.status = "pending";
+          payload.rejection_reason = null;
+        }
+        const { error: updateError } = await supabase
+          .from("ptw_applications")
+          .update(payload)
+          .eq("id", editId);
+
+        if (updateError) {
+          throw new Error("수정 오류: " + updateError.message);
+        }
+      } else {
+        const { data: ptwData, error: ptwError } = await supabase
+          .from("ptw_applications")
+          .insert(payload)
+          .select("id")
+          .single();
+
+        if (ptwError || !ptwData) {
+          throw new Error("오류 발생: " + (ptwError?.message || "저장 실패"));
+        }
+        targetPtwId = ptwData.id;
+      }
+
+      if (deletedSigIds.length > 0) {
+        const { error: delSigErr } = await supabase
+          .from("ptw_signatures")
+          .delete()
+          .in("id", deletedSigIds);
+        if (delSigErr) {
+          throw new Error("서명 삭제 오류: " + delSigErr.message);
+        }
+      }
+
+      const newSigs = signatures.filter((s) => !s.id);
+      if (!form.pledgePending && newSigs.length > 0) {
+        const sigInserts = newSigs.map((sig) => ({
+          ptw_id: targetPtwId,
+          worker_type: sig.type,
+          worker_name: sig.name,
+          signature_data: sig.data,
+        }));
+        const { error: insSigErr } = await supabase.from("ptw_signatures").insert(sigInserts);
+        if (insSigErr) {
+          throw new Error("서명 저장 오류: " + insSigErr.message);
+        }
+      }
+
+      try {
+        const resolvedCompanyName =
+          form.companyType === "internal"
+            ? companies.find((c) => c.id === form.companyId)?.name || "협력사"
+            : form.companyName;
+        const resolvedDate =
+          form.workPeriodType === "period" && form.endDate !== form.date
+            ? `${form.date} ~ ${form.endDate}`
+            : form.date;
+
+        await fetch("/api/ptw-notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            isEdit: Boolean(editId),
+            companyName: resolvedCompanyName,
+            projectName: form.projectName,
+            workDate: resolvedDate,
+            workTime: `${form.startTime} ~ ${form.endTime}`,
+            workLocation: form.location,
+            workTypes: form.workTypes,
+            siteManager: form.siteManager,
+            contact: form.contact,
+            adminUrl: `${window.location.origin}/ptw/admin`,
+          }),
+        });
+      } catch {
+        // 메일 발송 실패 시에도 허가서 제출 완료 처리는 정상 유지
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      setMsg(
+        (err?.message || "전송 중 통신 오류가 발생했습니다.") +
+          " 입력하신 내용은 그대로 유지되니 [다시 시도]를 눌러 주세요."
+      );
+      setCanRetry(true);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSubmitted(true);
-    setIsSubmitting(false);
   }
 
   if (submitted) {
@@ -996,7 +1029,7 @@ const newSigs = signatures.filter((s) => !s.id);
           </div>
         </div>
 
-{/* 2. 작업 종류 선택 */}
+        {/* 2. 작업 종류 선택 */}
         <div className="card section">
           <h3>2. 작업 종류 선택 (다중 선택 가능)</h3>
           <div
@@ -1165,7 +1198,7 @@ const newSigs = signatures.filter((s) => !s.id);
               ))}
             </div>
 
-<div className="field" style={{ marginTop: 12 }}>
+            <div className="field" style={{ marginTop: 12 }}>
               <label>작업절차</label>
               <textarea
                 style={{ height: 75 }}
@@ -1739,7 +1772,7 @@ const newSigs = signatures.filter((s) => !s.id);
           </div>
         )}
 
-{/* 고소작업 추가 양식 */}
+        {/* 고소작업 추가 양식 */}
         {form.workTypes.includes("고소작업") && (
           <div className="card section" style={{ border: "2px solid #0ea5e9", background: "#f0f9ff" }}>
             <h3 style={{ color: "#0369a1", marginTop: 0 }}>🪜 고소작업 계획</h3>
@@ -2026,7 +2059,7 @@ const newSigs = signatures.filter((s) => !s.id);
             </label>
           </div>
           <p style={{ fontSize: 12.5, color: "#dc2626", margin: "0 0 14px 0", fontWeight: 500 }}>
-            - 당일 실시 예정인 경우 체크 후 제출하시고, 작업 당일 TBM 실시 후 [승인 현황]에서
+            ※ 당일 실시 예정인 경우 체크 후 제출하시고, 작업 당일 TBM 실시 후 [승인 현황]에서
             추가 제출해 주세요.
           </p>
 
@@ -2208,7 +2241,7 @@ const newSigs = signatures.filter((s) => !s.id);
             </label>
           </div>
           <p style={{ fontSize: 12.5, color: "#dc2626", margin: "0 0 14px 0", fontWeight: 500 }}>
-            - 당일 실시 예정인 경우 체크 후 제출하시고, 작업 당일 TBM 실시 후 [승인 현황]에서
+            ※ 당일 실시 예정인 경우 체크 후 제출하시고, 작업 당일 TBM 실시 후 [승인 현황]에서
             추가 제출해 주세요.
           </p>
 
@@ -2372,7 +2405,7 @@ const newSigs = signatures.filter((s) => !s.id);
           <button
             type="button"
             className="btn"
-            style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: 60 }}
+            style={{ width: "100%", padding: 16, fontSize: 16, marginBottom: canRetry ? 12 : 60 }}
             onClick={submitPtw}
             disabled={isSubmitting}
           >
@@ -2384,7 +2417,22 @@ const newSigs = signatures.filter((s) => !s.id);
           </button>
         )}
 
-        {msg && <p style={{ color: "#b33", textAlign: "center", marginBottom: 40 }}>{msg}</p>}
+        {msg && (
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <p style={{ color: "#b33", marginBottom: canRetry ? 10 : 0 }}>{msg}</p>
+            {canRetry && (
+              <button
+                type="button"
+                className="btn"
+                style={{ background: "#dc2626", borderColor: "#dc2626", padding: "10px 18px" }}
+                onClick={submitPtw}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "재전송 중..." : "다시 시도"}
+              </button>
+            )}
+          </div>
+        )}
 
         {showSignModal && (
           <div

@@ -61,6 +61,7 @@ export default function SpotTbmCreatePage() {
   const [createdSpotId, setCreatedSpotId] = useState<string | null>(null);
   const [copyMsg, setCopyMsg] = useState("");
   const [msg, setMsg] = useState("");
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     if (!configured) return;
@@ -208,7 +209,10 @@ export default function SpotTbmCreatePage() {
   }
 
   async function handleSubmit() {
+    if (submitting) return;
     setMsg("");
+    setCanRetry(false);
+
     if (!companyId || !teamId) {
       setMsg("소속 회사와 소속 조를 선택해 주세요.");
       return;
@@ -219,59 +223,67 @@ export default function SpotTbmCreatePage() {
     }
 
     setSubmitting(true);
-    let photoPath: string | null = null;
+    try {
+      let photoPath: string | null = null;
 
-    if (photoFile) {
-      const compressed = await compressImage(photoFile);
-      const isJpeg = compressed !== photoFile;
-      const ext = isJpeg ? "jpg" : (photoFile.name.split(".").pop() || "jpg");
-      const path = `spot-tbm/${workDate}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("tbm-photos").upload(path, compressed, {
-        contentType: isJpeg ? "image/jpeg" : photoFile.type,
-      });
-      if (upErr) {
-        setMsg("사진 업로드 실패: " + upErr.message);
-        setSubmitting(false);
-        return;
+      if (photoFile) {
+        const compressed = await compressImage(photoFile);
+        const isJpeg = compressed !== photoFile;
+        const ext = isJpeg ? "jpg" : (photoFile.name.split(".").pop() || "jpg");
+        const path = `spot-tbm/${workDate}/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("tbm-photos").upload(path, compressed, {
+          contentType: isJpeg ? "image/jpeg" : photoFile.type,
+        });
+        if (upErr) {
+          throw new Error("사진 업로드 실패: " + upErr.message);
+        }
+        photoPath = path;
       }
-      photoPath = path;
-    }
 
-    const { data: spotData, error } = await supabase
-      .from("tbm_spot_logs")
-      .insert({
-        company_id: companyId,
-        team_id: teamId,
-        work_date: workDate,
-        work_category: workCategory,
-        work_title: workTitle.trim(),
-        leader_name: leaderName.trim(),
-        health_status: healthStatus,
-        hazard_factors: hazardFactors,
-        safety_measures: safetyMeasures,
-        photo_path: photoPath,
-      })
-      .select("id")
-      .single();
+      const { data: spotData, error } = await supabase
+        .from("tbm_spot_logs")
+        .insert({
+          company_id: companyId,
+          team_id: teamId,
+          work_date: workDate,
+          work_category: workCategory,
+          work_title: workTitle.trim(),
+          leader_name: leaderName.trim(),
+          health_status: healthStatus,
+          hazard_factors: hazardFactors,
+          safety_measures: safetyMeasures,
+          photo_path: photoPath,
+        })
+        .select("id")
+        .single();
 
-    if (error || !spotData) {
-      setMsg("등록 오류: " + (error?.message || "저장 실패"));
-      setSubmitting(false);
-      return;
-    }
+      if (error || !spotData) {
+        throw new Error("등록 오류: " + (error?.message || "저장 실패"));
+      }
 
-    if (signatures.length > 0) {
-      await supabase.from("tbm_spot_signatures").insert(
-        signatures.map(s => ({
-          spot_id: spotData.id,
-          worker_name: s.name,
-          signature_data: s.data,
-        }))
+      if (signatures.length > 0) {
+        const { error: sigErr } = await supabase.from("tbm_spot_signatures").insert(
+          signatures.map(s => ({
+            spot_id: spotData.id,
+            worker_name: s.name,
+            signature_data: s.data,
+          }))
+        );
+        if (sigErr) {
+          throw new Error("서명 저장 오류: " + sigErr.message);
+        }
+      }
+
+      setCreatedSpotId(spotData.id);
+    } catch (err: any) {
+      setMsg(
+        (err?.message || "저장 중 통신 오류가 발생했습니다.") +
+          " 입력하신 내용은 그대로 유지되니 [다시 시도]를 눌러 주세요."
       );
+      setCanRetry(true);
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    setCreatedSpotId(spotData.id);
   }
 
   async function copyShareLink() {
@@ -454,11 +466,32 @@ export default function SpotTbmCreatePage() {
         )}
       </div>
 
-      <button type="button" className="btn" style={{ width: "100%", padding: 15, fontSize: 16, marginTop: 14, background: "#0f766e", borderColor: "#0f766e" }} onClick={handleSubmit} disabled={submitting}>
+      <button
+        type="button"
+        className="btn"
+        style={{ width: "100%", padding: 15, fontSize: 16, marginTop: 14, background: "#0f766e", borderColor: "#0f766e" }}
+        onClick={handleSubmit}
+        disabled={submitting}
+      >
         {submitting ? "저장 중..." : "수시 작업 TBM 제출하기"}
       </button>
 
-      {msg && <p style={{ color: "#b91c1c", fontWeight: "bold", textAlign: "center", marginTop: 10 }}>{msg}</p>}
+      {msg && (
+        <div style={{ marginTop: 12, textAlign: "center" }}>
+          <p style={{ color: "#b91c1c", fontWeight: "bold", marginBottom: canRetry ? 8 : 0 }}>{msg}</p>
+          {canRetry && (
+            <button
+              type="button"
+              className="btn"
+              style={{ background: "#dc2626", borderColor: "#dc2626", padding: "10px 18px" }}
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? "재전송 중..." : "다시 시도"}
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={{ textAlign: "center", marginTop: 16 }}>
         <Link href="/tbm" className="muted" style={{ fontSize: 13 }}>← 정기 TBM 화면으로 돌아가기</Link>
