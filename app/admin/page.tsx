@@ -25,7 +25,7 @@ export default function Admin() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [spotLogs, setSpotLogs] = useState<any[]>([]);
   const [msg, setMsg] = useState("");
-const [detailModal, setDetailModal] = useState<{
+  const [detailModal, setDetailModal] = useState<{
     type: "regular" | "spot";
     data: any;
     photoUrl: string;
@@ -295,7 +295,7 @@ const [detailModal, setDetailModal] = useState<{
     load();
   }
 
-async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
+  async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
     let url = "";
     const path = type === "regular" ? data.leaderSubmission?.photo_path : data.photo_path;
     if (type === "regular" && data.leaderSubmission?.photo_url) {
@@ -565,7 +565,6 @@ async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
     const wb = new ExcelJS.Workbook();
     const dateStr = new Date().toISOString().slice(0, 10);
 
-    // 1. 개인별 교육 확인 (선택 수칙 + 서명 이미지 포함)
     const ackSheet = wb.addWorksheet("개인별 서명 현황");
     ackSheet.columns = [
       { header: "교육 회차", key: "week", width: 16 },
@@ -610,7 +609,6 @@ async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
       }
     }
 
-    // 2. 조별 TBM 일지 (사진 + 일지 내용)
     const photoSheet = wb.addWorksheet("조별 TBM 일지");
     photoSheet.columns = [
       { header: "교육 회차", key: "week", width: 16 },
@@ -760,7 +758,7 @@ async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
     );
   }
 
-const mergedMap = new Map<string, any>();
+  const mergedMap = new Map<string, any>();
   filteredPhotos.forEach((p: any) => {
     const key = `${p.week_id}_${p.company_id}_${p.team_id}`;
     mergedMap.set(key, {
@@ -797,21 +795,34 @@ const mergedMap = new Map<string, any>();
 
   return (
     <>
-<style>{`
-        .admin-print-card table { width: 100%; min-width: 560px; border-collapse: collapse; border: 2px solid #000; font-size: 12px; }
-        .admin-print-card th, .admin-print-card td { border: 1px solid #000; padding: 6px; word-break: keep-all; overflow-wrap: break-word; }
+      <style>{`
+        .admin-print-card { box-sizing: border-box; max-width: 800px; width: 100%; overflow-x: hidden; }
+        .admin-sheet-table { width: 100%; max-width: 100%; min-width: 0; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; box-sizing: border-box; }
+        .admin-sheet-table th, .admin-sheet-table td { border: 1px solid #000; padding: 6px; overflow-wrap: anywhere; word-break: break-word; min-width: 0; box-sizing: border-box; }
+        .admin-sheet-label { background: #f9fafb; width: 110px; }
+        .admin-print-sig-card { border: 1px solid #999; padding: 4px; text-align: center; width: 95px; max-width: 100%; box-sizing: border-box; }
         @media (max-width: 640px) {
-          .admin-print-wrapper { padding: 10px !important; }
-          .admin-print-card { padding: 12px !important; border-radius: 12px !important; width: 100% !important; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-          .admin-print-card table { min-width: 540px; font-size: 11.5px; }
+          .admin-print-wrapper { padding: 6px !important; }
+          .admin-print-card { padding: 8px !important; border-radius: 10px !important; width: 100% !important; }
+          .admin-sheet-table { font-size: 9px; line-height: 1.3; }
+          .admin-sheet-table th, .admin-sheet-table td { padding: 3px; }
+          .admin-sheet-title { font-size: 12px !important; padding: 6px 4px !important; }
+          .admin-sheet-label { width: 48px !important; font-size: 8.5px !important; }
+          .admin-print-card img { max-width: 100% !important; height: auto !important; max-height: 140px !important; object-fit: contain; display: block; margin: 0 auto; }
+          .admin-print-sig-card { width: calc((100% - 12px) / 3) !important; min-width: 0; padding: 2px; }
+          .admin-print-sig-card img { height: 30px !important; }
+          .admin-print-sig-card div { font-size: 9px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         }
         @page { size: A4 portrait; margin: 0; }
         @media print {
           .no-print { display: none !important; }
           .admin-print-wrapper { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; }
           .admin-print-card { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm !important; overflow: visible !important; }
-          .admin-print-card table { min-width: 0 !important; width: 100% !important; font-size: 12px !important; }
-          .admin-print-card th, .admin-print-card td { padding: 6px !important; }
+          .admin-sheet-table { font-size: 12px !important; table-layout: auto !important; }
+          .admin-sheet-table th, .admin-sheet-table td { padding: 6px !important; }
+          .admin-sheet-title { font-size: 18px !important; padding: 10px !important; }
+          .admin-sheet-label { width: 110px !important; font-size: 12px !important; }
+          .admin-print-sig-card { width: 95px !important; padding: 4px !important; }
         }
       `}</style>
 
@@ -1371,20 +1382,13 @@ const mergedMap = new Map<string, any>();
             </div>
 
             {detailModal.type === "spot" ? (
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  border: "2px solid #000",
-                  fontSize: 12,
-                }}
-              >
+              <table className="admin-sheet-table">
                 <tbody>
                   <tr>
                     <th
                       colSpan={4}
+                      className="admin-sheet-title"
                       style={{
-                        border: "1px solid #000",
                         padding: 10,
                         fontSize: 18,
                         background: "#f3f4f6",
@@ -1394,50 +1398,28 @@ const mergedMap = new Map<string, any>();
                     </th>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>
-                      작업일자
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.work_date}
-                    </td>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>
-                      소속 / 조
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
+                    <th className="admin-sheet-label">작업일자</th>
+                    <td>{detailModal.data.work_date}</td>
+                    <th className="admin-sheet-label">소속 / 조</th>
+                    <td>
                       {detailModal.data.companies?.name} / {detailModal.data.teams?.name}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      작업명
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.work_title}
-                    </td>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      작업책임자
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.leader_name}
-                    </td>
+                    <th className="admin-sheet-label">작업명</th>
+                    <td>{detailModal.data.work_title}</td>
+                    <th className="admin-sheet-label">작업책임자</th>
+                    <td>{detailModal.data.leader_name}</td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      건강·보호구
-                    </th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.health_status || "-"}
-                    </td>
+                    <th className="admin-sheet-label">건강·보호구</th>
+                    <td colSpan={3}>{detailModal.data.health_status || "-"}</td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      유해·위험요인
-                    </th>
+                    <th className="admin-sheet-label">유해·위험요인</th>
                     <td
                       colSpan={3}
                       style={{
-                        border: "1px solid #000",
-                        padding: 6,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.5,
                       }}
@@ -1446,14 +1428,10 @@ const mergedMap = new Map<string, any>();
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      안전대책
-                    </th>
+                    <th className="admin-sheet-label">안전대책</th>
                     <td
                       colSpan={3}
                       style={{
-                        border: "1px solid #000",
-                        padding: 6,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.5,
                       }}
@@ -1463,13 +1441,8 @@ const mergedMap = new Map<string, any>();
                   </tr>
                   {detailModal.photoUrl && (
                     <tr>
-                      <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                        현장 실시 사진
-                      </th>
-                      <td
-                        colSpan={3}
-                        style={{ border: "1px solid #000", padding: 8, textAlign: "center" }}
-                      >
+                      <th className="admin-sheet-label">현장 실시 사진</th>
+                      <td colSpan={3} style={{ padding: 8, textAlign: "center" }}>
                         <img
                           src={detailModal.photoUrl}
                           alt="현장 사진"
@@ -1479,22 +1452,14 @@ const mergedMap = new Map<string, any>();
                     </tr>
                   )}
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
+                    <th className="admin-sheet-label">
                       참여자 서명
                       <br />({(detailModal.data.tbm_spot_signatures || []).length}명)
                     </th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                    <td colSpan={3} style={{ padding: 8 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         {(detailModal.data.tbm_spot_signatures || []).map((sig: any) => (
-                          <div
-                            key={sig.id}
-                            style={{
-                              border: "1px solid #999",
-                              padding: 4,
-                              textAlign: "center",
-                              width: 95,
-                            }}
-                          >
+                          <div key={sig.id} className="admin-print-sig-card">
                             <img
                               src={sig.signature_data}
                               alt="서명"
@@ -1511,20 +1476,13 @@ const mergedMap = new Map<string, any>();
                 </tbody>
               </table>
             ) : (
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  border: "2px solid #000",
-                  fontSize: 12,
-                }}
-              >
+              <table className="admin-sheet-table">
                 <tbody>
                   <tr>
                     <th
                       colSpan={4}
+                      className="admin-sheet-title"
                       style={{
-                        border: "1px solid #000",
                         padding: 10,
                         fontSize: 18,
                         background: "#f3f4f6",
@@ -1534,36 +1492,22 @@ const mergedMap = new Map<string, any>();
                     </th>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>
-                      교육 회차
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.weekLabel}
-                    </td>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>
-                      소속 / 조
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
+                    <th className="admin-sheet-label">교육 회차</th>
+                    <td>{detailModal.data.weekLabel}</td>
+                    <th className="admin-sheet-label">소속 / 조</th>
+                    <td>
                       {detailModal.data.companyName} / {detailModal.data.teamName}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      교육 주제
-                    </th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.topic}
-                    </td>
+                    <th className="admin-sheet-label">교육 주제</th>
+                    <td colSpan={3}>{detailModal.data.topic}</td>
                   </tr>
-<tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      교육 내용
-                    </th>
+                  <tr>
+                    <th className="admin-sheet-label">교육 내용</th>
                     <td
                       colSpan={3}
                       style={{
-                        border: "1px solid #000",
-                        padding: 6,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.55,
                       }}
@@ -1573,10 +1517,8 @@ const mergedMap = new Map<string, any>();
                   </tr>
                   {detailModal.eduPhotoUrls && detailModal.eduPhotoUrls.length > 0 && (
                     <tr>
-                      <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                        교육자료 사진
-                      </th>
-                      <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                      <th className="admin-sheet-label">교육자료 사진</th>
+                      <td colSpan={3} style={{ padding: 8 }}>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
                           {detailModal.eduPhotoUrls.map((eduUrl, idx) => (
                             <img
@@ -1591,36 +1533,26 @@ const mergedMap = new Map<string, any>();
                     </tr>
                   )}
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      조장 확인
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
+                    <th className="admin-sheet-label">조장 확인</th>
+                    <td>
                       {detailModal.data.leaderSubmission
                         ? `${detailModal.data.leaderSubmission.leader_name} (제출완료)`
                         : "미제출"}
                     </td>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      건강·보호구
-                    </th>
-                    <td style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.leaderSubmission?.health_status || "-"}
-                    </td>
+                    <th className="admin-sheet-label">건강·보호구</th>
+                    <td>{detailModal.data.leaderSubmission?.health_status || "-"}</td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                      금주 핵심 위험
-                    </th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
-                      {detailModal.data.leaderSubmission?.daily_hazard || "-"}
-                    </td>
+                    <th className="admin-sheet-label">금주 핵심 위험</th>
+                    <td colSpan={3}>{detailModal.data.leaderSubmission?.daily_hazard || "-"}</td>
                   </tr>
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
+                    <th className="admin-sheet-label">
                       개인별 선택
                       <br />
                       안전수칙
                     </th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 6, lineHeight: 1.6 }}>
+                    <td colSpan={3} style={{ lineHeight: 1.6 }}>
                       {detailModal.data.workers.length > 0 ? (
                         detailModal.data.workers.map((w: any) => (
                           <div key={w.id} style={{ marginBottom: 4 }}>
@@ -1637,13 +1569,8 @@ const mergedMap = new Map<string, any>();
                   </tr>
                   {detailModal.photoUrl && (
                     <tr>
-                      <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                        TBM 실시 사진
-                      </th>
-                      <td
-                        colSpan={3}
-                        style={{ border: "1px solid #000", padding: 8, textAlign: "center" }}
-                      >
+                      <th className="admin-sheet-label">TBM 실시 사진</th>
+                      <td colSpan={3} style={{ padding: 8, textAlign: "center" }}>
                         <img
                           src={detailModal.photoUrl}
                           alt="조별 사진"
@@ -1653,22 +1580,14 @@ const mergedMap = new Map<string, any>();
                     </tr>
                   )}
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
+                    <th className="admin-sheet-label">
                       근로자 서명
                       <br />({detailModal.data.workers.length}명)
                     </th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                    <td colSpan={3} style={{ padding: 8 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         {detailModal.data.workers.map((w: any) => (
-                          <div
-                            key={w.id}
-                            style={{
-                              border: "1px solid #999",
-                              padding: 4,
-                              textAlign: "center",
-                              width: 95,
-                            }}
-                          >
+                          <div key={w.id} className="admin-print-sig-card">
                             {w.signature_data ? (
                               <img
                                 src={w.signature_data}
