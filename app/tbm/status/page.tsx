@@ -422,73 +422,36 @@ export default function TbmStatusPage() {
         .tbm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
         .tbm-table-scroll table { min-width: 650px; width: 100%; }
         .tbm-table-scroll th, .tbm-table-scroll td { white-space: nowrap; }
-        .tbm-sheet-table { width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; }
-        .tbm-sheet-table th, .tbm-sheet-table td { border: 1px solid #000; padding: 6px; overflow-wrap: break-word; word-break: break-word; }
-        .tbm-sig-card { border: 1px solid #999; padding: 4px; text-align: center; width: 95px; box-sizing: border-box; }
-        @media.print-modal-card { box-sizing: border-box; max-width: 800px; width: 100%; overflow-x: hidden; }
-<table className="tbm-sheet-table">
-              <tbody>
-                <tr>
-                  <th colSpan={4} className="tbm-sheet-title" style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
-                    수 시 작 업 T B M 일 지 ({selectedSpot.work_category})
-                  </th>
-                </tr>
-                <tr>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>작업일자</th>
-                  <td>{selectedSpot.work_date}</td>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>소속 / 조</th>
-                  <td>{selectedSpot.companies?.name} / {selectedSpot.teams?.name}</td>
-                </tr>
-                <tr>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>작업명</th>
-                  <td>{selectedSpot.work_title}</td>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>작업책임자</th>
-                  <td>{selectedSpot.leader_name}</td>
-                </tr>
-                <tr>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>건강·보호구</th>
-                  <td colSpan={3}>{selectedSpot.health_status || "-"}</td>
-                </tr>
-                <tr>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>유해·위험요인</th>
-                  <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                    {selectedSpot.hazard_factors || "-"}
-                  </td>
-                </tr>
-                <tr>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>안전대책</th>
-                  <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                    {selectedSpot.safety_measures || "-"}
-                  </td>
-                </tr>
-                {detailPhotoUrl && (
-                  <tr>
-                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>현장 실시 사진</th>
-                    <td colSpan={3} style={{ padding: 8, textAlign: "center" }}>
-                      <img src={detailPhotoUrl} alt="현장 TBM 사진" className="tbm-sheet-img" style={{ maxHeight: 220, maxWidth: "100%", border: "1px solid #ccc" }} />
-                    </td>
-                  </tr>
-                )}
-                <tr>
-                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>
-                    참여자 서명<br />({(selectedSpot.tbm_spot_signatures || []).length}명)
-                  </th>
-                  <td colSpan={3} style={{ padding: 8 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {(selectedSpot.tbm_spot_signatures || []).map(sig => (
-                        <div key={sig.id} className="tbm-sig-card">
-                          <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 38, objectFit: "contain" }} />
-                          <div style={{ fontSize: 11, fontWeight: "bold" }}>{sig.worker_name}</div>
-                        </div>
-                      ))}
-                      {(selectedSpot.tbm_spot_signatures || []).length === 0 && (
-                        <span className="muted">등록된 참여자 서명이 없습니다.</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        .print-modal-card { box-sizing: border-box; max-width: 800px; width: 100%; overflow-x: hidden; }
+        .tbm-sheet-scroll { width: 100%; max-width: 100%; overflow-x: hidden; }
+        .tbm-sheet-table { width: 100%; max-width: 100%; min-width: 0; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; box-sizing: border-box; }
+        .tbm-sheet-table th, .tbm-sheet-table td { border: 1px solid #000; padding: 6px; overflow-wrap: anywhere; word-break: break-word; min-width: 0; box-sizing: border-box; }
+        .tbm-sig-card { border: 1px solid #999; padding: 4px; text-align: center; width: 95px; max-width: 100%; box-sizing: border-box; }
+        @media (max-width: 640px) {
+          .print-modal-wrapper { padding: 6px !important; }
+          .print-modal-card { padding: 8px !important; border-radius: 10px !important; width: 100% !important; }
+          .tbm-sheet-table { font-size: 9px; line-height: 1.3; }
+          .tbm-sheet-table th, .tbm-sheet-table td { padding: 3px; }
+          .tbm-sheet-title { font-size: 12px !important; padding: 6px 4px !important; }
+          .tbm-sheet-label { width: 48px !important; font-size: 8.5px !important; }
+          .tbm-sheet-img { width: 100% !important; max-width: 100% !important; height: auto !important; max-height: 140px !important; object-fit: contain; display: block; margin: 0 auto; }
+          .tbm-sig-card { width: calc((100% - 12px) / 3) !important; min-width: 0; padding: 2px; }
+          .tbm-sig-card img { height: 30px !important; }
+          .tbm-sig-card div { font-size: 9px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        }
+        @page { size: A4 portrait; margin: 0; }
+        @media print {
+          html, body { height: auto !important; overflow: visible !important; background: #fff !important; margin: 0 !important; padding: 0 !important; }
+          .no-print { display: none !important; }
+          .print-modal-wrapper { position: static !important; inset: auto !important; overflow: visible !important; background: none !important; padding: 0 !important; }
+          .print-modal-card { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm !important; }
+          .tbm-sheet-scroll { overflow: visible !important; }
+          .tbm-sheet-table { font-size: 12px !important; table-layout: auto !important; }
+          .tbm-sheet-table th, .tbm-sheet-table td { padding: 6px !important; }
+          .tbm-sheet-title { font-size: 18px !important; padding: 10px !important; }
+          .tbm-sheet-label { width: 110px !important; }
+          .tbm-sig-card { width: 95px !important; padding: 4px !important; }
+        }
       `}</style>
 
       <header className="topbar no-print">
@@ -840,60 +803,60 @@ export default function TbmStatusPage() {
               </div>
             )}
 
-<div className="tbm-sheet-scroll">
+            <div className="tbm-sheet-scroll">
               <table className="tbm-sheet-table">
                 <tbody>
                   <tr>
-                    <th colSpan={4} style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
+                    <th colSpan={4} className="tbm-sheet-title" style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
                       수 시 작 업 T B M 일 지 ({selectedSpot.work_category})
                     </th>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb", width: 110 }}>작업일자</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>작업일자</th>
                     <td>{selectedSpot.work_date}</td>
-                    <th style={{ background: "#f9fafb", width: 110 }}>소속 / 조</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>소속 / 조</th>
                     <td>{selectedSpot.companies?.name} / {selectedSpot.teams?.name}</td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>작업명</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>작업명</th>
                     <td>{selectedSpot.work_title}</td>
-                    <th style={{ background: "#f9fafb" }}>작업책임자</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>작업책임자</th>
                     <td>{selectedSpot.leader_name}</td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>건강·보호구</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>건강·보호구</th>
                     <td colSpan={3}>{selectedSpot.health_status || "-"}</td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>유해·위험요인</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>유해·위험요인</th>
                     <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
                       {selectedSpot.hazard_factors || "-"}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>안전대책</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>안전대책</th>
                     <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
                       {selectedSpot.safety_measures || "-"}
                     </td>
                   </tr>
                   {detailPhotoUrl && (
                     <tr>
-                      <th style={{ background: "#f9fafb" }}>현장 실시 사진</th>
+                      <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>현장 실시 사진</th>
                       <td colSpan={3} style={{ padding: 8, textAlign: "center" }}>
-                        <img src={detailPhotoUrl} alt="현장 TBM 사진" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                        <img src={detailPhotoUrl} alt="현장 TBM 사진" className="tbm-sheet-img" style={{ maxHeight: 220, maxWidth: "100%", border: "1px solid #ccc" }} />
                       </td>
                     </tr>
                   )}
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>
                       참여자 서명<br />({(selectedSpot.tbm_spot_signatures || []).length}명)
                     </th>
                     <td colSpan={3} style={{ padding: 8 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {(selectedSpot.tbm_spot_signatures || []).map(sig => (
                           <div key={sig.id} className="tbm-sig-card">
-                            <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 40, objectFit: "contain" }} />
-                            <div style={{ fontSize: 11.5, fontWeight: "bold" }}>{sig.worker_name}</div>
+                            <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 38, objectFit: "contain" }} />
+                            <div style={{ fontSize: 11, fontWeight: "bold" }}>{sig.worker_name}</div>
                           </div>
                         ))}
                         {(selectedSpot.tbm_spot_signatures || []).length === 0 && (
@@ -945,33 +908,33 @@ export default function TbmStatusPage() {
               <button className="btn secondary" onClick={() => setSelectedRegular(null)}>닫기</button>
             </div>
 
-<div className="tbm-sheet-scroll">
+            <div className="tbm-sheet-scroll">
               <table className="tbm-sheet-table">
                 <tbody>
                   <tr>
-                    <th colSpan={4} style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
+                    <th colSpan={4} className="tbm-sheet-title" style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
                       정 기 안 전 교 육 및 T B M 일 지
                     </th>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb", width: 110 }}>교육 회차</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>교육 회차</th>
                     <td>{selectedRegular.weekLabel}</td>
-                    <th style={{ background: "#f9fafb", width: 110 }}>소속 / 조</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>소속 / 조</th>
                     <td>{selectedRegular.companyName} / {selectedRegular.teamName}</td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>교육 주제</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>교육 주제</th>
                     <td colSpan={3}>{selectedRegular.topic}</td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>교육 내용</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>교육 내용</th>
                     <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
                       {selectedRegular.content || "-"}
                     </td>
                   </tr>
                   {detailEduPhotoUrls.length > 0 && (
                     <tr>
-                      <th style={{ background: "#f9fafb" }}>교육자료 사진</th>
+                      <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>교육자료 사진</th>
                       <td colSpan={3} style={{ padding: 8 }}>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
                           {detailEduPhotoUrls.map((eduUrl, idx) => (
@@ -979,7 +942,8 @@ export default function TbmStatusPage() {
                               key={idx}
                               src={eduUrl}
                               alt={`교육자료 사진 ${idx + 1}`}
-                              style={{ maxHeight: 180, maxWidth: "48%", objectFit: "contain", border: "1px solid #ccc" }}
+                              className="tbm-sheet-img"
+                              style={{ maxHeight: 180, maxWidth: "100%", objectFit: "contain", border: "1px solid #ccc" }}
                             />
                           ))}
                         </div>
@@ -987,23 +951,23 @@ export default function TbmStatusPage() {
                     </tr>
                   )}
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>조장 확인</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>조장 확인</th>
                     <td>
                       {selectedRegular.leaderSubmission ? `${selectedRegular.leaderSubmission.leader_name} (제출완료)` : "미제출"}
                     </td>
-                    <th style={{ background: "#f9fafb" }}>건강·보호구</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>건강·보호구</th>
                     <td>
                       {selectedRegular.leaderSubmission?.health_status || "-"}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>금주 핵심 위험</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>금주 핵심 위험</th>
                     <td colSpan={3}>
                       {selectedRegular.leaderSubmission?.daily_hazard || "-"}
                     </td>
                   </tr>
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>개인별 선택<br />안전수칙</th>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>개인별 선택<br />안전수칙</th>
                     <td colSpan={3} style={{ lineHeight: 1.6 }}>
                       {selectedRegular.workers.length > 0 ? (
                         selectedRegular.workers.map(w => (
@@ -1021,26 +985,26 @@ export default function TbmStatusPage() {
                   </tr>
                   {detailPhotoUrl && (
                     <tr>
-                      <th style={{ background: "#f9fafb" }}>TBM 실시 사진</th>
+                      <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>TBM 실시 사진</th>
                       <td colSpan={3} style={{ padding: 8, textAlign: "center" }}>
-                        <img src={detailPhotoUrl} alt="조별 TBM 사진" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                        <img src={detailPhotoUrl} alt="조별 TBM 사진" className="tbm-sheet-img" style={{ maxHeight: 220, maxWidth: "100%", border: "1px solid #ccc" }} />
                       </td>
                     </tr>
                   )}
                   <tr>
-                    <th style={{ background: "#f9fafb" }}>
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>
                       근로자 서명<br />({selectedRegular.workers.length}명)
                     </th>
                     <td colSpan={3} style={{ padding: 8 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {selectedRegular.workers.map(w => (
                           <div key={w.id} className="tbm-sig-card">
                             {w.signature_data ? (
-                              <img src={w.signature_data} alt="서명" style={{ width: "100%", height: 40, objectFit: "contain" }} />
+                              <img src={w.signature_data} alt="서명" style={{ width: "100%", height: 38, objectFit: "contain" }} />
                             ) : (
-                              <div style={{ height: 40, lineHeight: "40px", fontSize: 11, color: "#666" }}>서명완료</div>
+                              <div style={{ height: 38, lineHeight: "38px", fontSize: 11, color: "#666" }}>서명완료</div>
                             )}
-                            <div style={{ fontSize: 11.5, fontWeight: "bold" }}>{w.worker_name}</div>
+                            <div style={{ fontSize: 11, fontWeight: "bold" }}>{w.worker_name}</div>
                           </div>
                         ))}
                         {selectedRegular.workers.length === 0 && (
