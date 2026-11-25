@@ -188,21 +188,22 @@ const mergedList = Array.from(map.values()).sort((a, b) =>
     loadAll();
   }, []);
 
-  // 회사·조 정렬 및 선택 회차별 실시/미실시 현황 계산
-  const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
+// 협력사 정렬 및 선택 회차별 실시/미실시 현황 계산 (동아스틸 제외)
+  const companyOrder = ["다인스틸", "나로스틸", "세현스틸", "에스로지스"];
   const teamOrder: Record<string, string[]> = {
-    동아스틸: ["전기파트", "품질파트", "기타부서"],
     다인스틸: ["P5", "P9", "P10"],
     나로스틸: ["C1", "P1", "P7", "P8"],
     세현스틸: ["SL2", "SL5", "SCP1", "SCP2", "1공무", "2공무", "1품질", "2품질"],
     에스로지스: ["1출하", "2출하"],
   };
 
-  const sortedCompanies = [...companiesList].sort((a, b) => {
-    const ia = companyOrder.indexOf(a.name);
-    const ib = companyOrder.indexOf(b.name);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-  });
+  const sortedCompanies = companiesList
+    .filter((c) => c.name !== "동아스틸")
+    .sort((a, b) => {
+      const ia = companyOrder.indexOf(a.name);
+      const ib = companyOrder.indexOf(b.name);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
 
   const targetWeekObj = weeksList.find((w) => w.id === checkWeekId);
   const weekRegularItems = regularItems.filter((item) => item.weekId === checkWeekId);
