@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, FileText } from "lucide-react";
+import { ClipboardList, FileText, Truck } from "lucide-react";
 
 export default function Home() {
   return (
@@ -18,23 +18,42 @@ export default function Home() {
           </div>
         </div>
 
-      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
-          <div className="card" style={{ padding: 28, display: "flex", flexDirection: "column" }}>
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: 20,
+          }}
+        >
+          <div
+            className="card"
+            style={{ padding: 28, display: "flex", flexDirection: "column" }}
+          >
             <ClipboardList size={32} />
             <h2 style={{ marginTop: 14, marginBottom: 8 }}>TBM 통합관리시스템</h2>
-<p className="muted" style={{ marginBottom: 24 }}>
+            <p className="muted" style={{ marginBottom: 24 }}>
               정기 안전교육 확인, 수시 작업 TBM(R/C·정비) 작성 및 실시 현황 관리
             </p>
             <Link
               className="btn"
               href="/tbm-main"
-              style={{ display: "block", textAlign: "center", textDecoration: "none", padding: "14px 16px", fontSize: 16, marginTop: "auto" }}
+              style={{
+                display: "block",
+                textAlign: "center",
+                textDecoration: "none",
+                padding: "14px 16px",
+                fontSize: 16,
+                marginTop: "auto",
+              }}
             >
               TBM 통합관리시스템 이동
             </Link>
           </div>
 
-          <div className="card" style={{ padding: 28, display: "flex", flexDirection: "column" }}>
+          <div
+            className="card"
+            style={{ padding: 28, display: "flex", flexDirection: "column" }}
+          >
             <FileText size={32} />
             <h2 style={{ marginTop: 14, marginBottom: 8 }}>안전작업허가서 작성</h2>
             <p className="muted" style={{ marginBottom: 24 }}>
@@ -43,10 +62,84 @@ export default function Home() {
             <Link
               className="btn"
               href="/ptw"
-              style={{ display: "block", textAlign: "center", textDecoration: "none", padding: "14px 16px", fontSize: 16, marginTop: "auto" }}
+              style={{
+                display: "block",
+                textAlign: "center",
+                textDecoration: "none",
+                padding: "14px 16px",
+                fontSize: 16,
+                marginTop: "auto",
+              }}
             >
               안전작업허가서 작성 이동
             </Link>
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: 28,
+              display: "flex",
+              flexDirection: "column",
+              gridColumn: "1 / -1",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Truck size={30} />
+              <h2 style={{ margin: 0 }}>지게차 사용</h2>
+            </div>
+            <p className="muted" style={{ marginTop: 10, marginBottom: 20 }}>
+              키 수령·반납 관리, 작업전/중/후 TBM 체크리스트 점검 및 사용 현황·관리자 조회
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+                marginTop: "auto",
+              }}
+            >
+              <Link
+                className="btn"
+                href="/forklift"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  padding: "13px 16px",
+                  fontSize: 15,
+                }}
+              >
+                지게차 사용 신청
+              </Link>
+              <Link
+                className="btn secondary"
+                href="/forklift/status"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  padding: "13px 16px",
+                  fontSize: 15,
+                }}
+              >
+                지게차 사용 현황
+              </Link>
+              <Link
+                className="btn secondary"
+                href="/forklift/admin"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  padding: "13px 16px",
+                  fontSize: 15,
+                }}
+              >
+                관리자 대시보드
+              </Link>
+            </div>
           </div>
         </div>
 
