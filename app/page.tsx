@@ -77,69 +77,27 @@ export default function Home() {
 
           <div
             className="card"
-            style={{
-              padding: 28,
-              display: "flex",
-              flexDirection: "column",
-              gridColumn: "1 / -1",
-            }}
+            style={{ padding: 28, display: "flex", flexDirection: "column" }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Truck size={30} />
-              <h2 style={{ margin: 0 }}>지게차 사용</h2>
-            </div>
-            <p className="muted" style={{ marginTop: 10, marginBottom: 20 }}>
-              키 수령·반납 관리, 작업전/중/후 TBM 체크리스트 점검 및 사용 현황·관리자 조회
+            <Truck size={32} />
+            <h2 style={{ marginTop: 14, marginBottom: 8 }}>지게차 사용</h2>
+            <p className="muted" style={{ marginBottom: 24 }}>
+              지게차 키 수령·반납, 작업전/중/후 TBM 체크리스트 및 사용 현황·관리자 조회
             </p>
-
-            <div
+            <Link
+              className="btn"
+              href="/forklift-main"
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 12,
+                display: "block",
+                textAlign: "center",
+                textDecoration: "none",
+                padding: "14px 16px",
+                fontSize: 16,
                 marginTop: "auto",
               }}
             >
-              <Link
-                className="btn"
-                href="/forklift"
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  textDecoration: "none",
-                  padding: "13px 16px",
-                  fontSize: 15,
-                }}
-              >
-                지게차 사용 신청
-              </Link>
-              <Link
-                className="btn secondary"
-                href="/forklift/status"
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  textDecoration: "none",
-                  padding: "13px 16px",
-                  fontSize: 15,
-                }}
-              >
-                지게차 사용 현황
-              </Link>
-              <Link
-                className="btn secondary"
-                href="/forklift/admin"
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  textDecoration: "none",
-                  padding: "13px 16px",
-                  fontSize: 15,
-                }}
-              >
-                관리자 대시보드
-              </Link>
-            </div>
+              지게차 사용 이동
+            </Link>
           </div>
         </div>
 
