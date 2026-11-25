@@ -25,10 +25,11 @@ export default function Admin() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [spotLogs, setSpotLogs] = useState<any[]>([]);
   const [msg, setMsg] = useState("");
-  const [detailModal, setDetailModal] = useState<{
+const [detailModal, setDetailModal] = useState<{
     type: "regular" | "spot";
     data: any;
     photoUrl: string;
+    eduPhotoUrls: string[];
   } | null>(null);
 
   const [processRules, setProcessRules] = useState<any[]>([]);
@@ -294,7 +295,7 @@ export default function Admin() {
     load();
   }
 
-  async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
+async function openAdminTbmDetail(type: "regular" | "spot", data: any) {
     let url = "";
     const path = type === "regular" ? data.leaderSubmission?.photo_path : data.photo_path;
     if (type === "regular" && data.leaderSubmission?.photo_url) {
@@ -305,7 +306,22 @@ export default function Admin() {
         .createSignedUrl(path, 3600);
       url = signed?.signedUrl || "";
     }
-    setDetailModal({ type, data, photoUrl: url });
+
+    const eduPhotoUrls: string[] = [];
+    if (type === "regular" && data.weekId) {
+      const targetWeek = weeks.find((w) => w.id === data.weekId);
+      const eduPaths = targetWeek?.photo_paths || [];
+      for (const eduPath of eduPaths) {
+        const { data: signedEdu, error: eduErr } = await supabase.storage
+          .from("tbm-education-photos")
+          .createSignedUrl(eduPath, 3600);
+        if (!eduErr && signedEdu?.signedUrl) {
+          eduPhotoUrls.push(signedEdu.signedUrl);
+        }
+      }
+    }
+
+    setDetailModal({ type, data, photoUrl: url, eduPhotoUrls });
   }
 
   async function deleteSpotLog(id: string) {
@@ -744,11 +760,12 @@ export default function Admin() {
     );
   }
 
-  const mergedMap = new Map<string, any>();
+const mergedMap = new Map<string, any>();
   filteredPhotos.forEach((p: any) => {
     const key = `${p.week_id}_${p.company_id}_${p.team_id}`;
     mergedMap.set(key, {
       key,
+      weekId: p.week_id,
       weekLabel: p.tbm_weeks?.week_label || "-",
       topic: p.tbm_weeks?.topic || "-",
       content: p.tbm_weeks?.content || "-",
@@ -765,6 +782,7 @@ export default function Admin() {
     } else {
       mergedMap.set(key, {
         key,
+        weekId: a.week_id,
         weekLabel: a.tbm_weeks?.week_label || "-",
         topic: a.tbm_weeks?.topic || "-",
         content: a.tbm_weeks?.content || "-",
@@ -1528,7 +1546,7 @@ export default function Admin() {
                       {detailModal.data.topic}
                     </td>
                   </tr>
-                  <tr>
+<tr>
                     <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
                       교육 내용
                     </th>
@@ -1544,6 +1562,25 @@ export default function Admin() {
                       {detailModal.data.content || "-"}
                     </td>
                   </tr>
+                  {detailModal.eduPhotoUrls && detailModal.eduPhotoUrls.length > 0 && (
+                    <tr>
+                      <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
+                        교육자료 사진
+                      </th>
+                      <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                          {detailModal.eduPhotoUrls.map((eduUrl, idx) => (
+                            <img
+                              key={idx}
+                              src={eduUrl}
+                              alt={`교육자료 사진 ${idx + 1}`}
+                              style={{ maxHeight: 180, maxWidth: "48%", objectFit: "contain", border: "1px solid #ccc" }}
+                            />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
                       조장 확인
