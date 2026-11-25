@@ -25,6 +25,7 @@ export default function Admin() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [spotLogs, setSpotLogs] = useState<any[]>([]);
   const [msg, setMsg] = useState("");
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{
     type: "regular" | "spot";
     data: any;
@@ -332,8 +333,60 @@ export default function Admin() {
       setMsg("삭제 실패: " + error.message);
       return;
     }
+    if (detailModal?.type === "spot" && detailModal.data?.id === id) {
+      setDetailModal(null);
+    }
     setMsg("수시 작업 TBM 기록이 삭제되었습니다.");
     load();
+  }
+
+  async function deleteRegularTeamRecord(item: any) {
+    if (deletingKey) return;
+    const confirmText =
+      `[${item.weekLabel} / ${item.companyName} - ${item.teamName}] 정기 안전교육 기록을 삭제하시겠습니까?\n` +
+      `조장 사진·일지 및 근로자 서명(${item.workers.length}명) 기록이 삭제됩니다.`;
+    if (!window.confirm(confirmText)) return;
+
+    setDeletingKey(item.key);
+    setMsg("");
+
+    try {
+      if (item.leaderSubmission?.photo_path) {
+        await supabase.storage.from("tbm-photos").remove([item.leaderSubmission.photo_path]);
+      }
+
+      if (item.leaderSubmission?.id) {
+        const { error: subErr } = await supabase
+          .from("tbm_team_submissions")
+          .delete()
+          .eq("id", item.leaderSubmission.id);
+        if (subErr) {
+          throw new Error("조장 사진·일지 삭제 실패: " + subErr.message);
+        }
+      }
+
+      const { error: ackErr } = await supabase
+        .from("tbm_acknowledgements")
+        .delete()
+        .eq("week_id", item.weekId)
+        .eq("company_id", item.companyId)
+        .eq("team_id", item.teamId);
+
+      if (ackErr) {
+        throw new Error("근로자 서명 삭제 실패: " + ackErr.message);
+      }
+
+      if (detailModal?.type === "regular" && detailModal.data?.key === item.key) {
+        setDetailModal(null);
+      }
+
+      setMsg(`[${item.companyName} - ${item.teamName}] 정기 안전교육 조별 기록이 삭제되었습니다.`);
+      await load();
+    } catch (err: any) {
+      setMsg("삭제 오류: " + (err?.message || "삭제 중 문제가 발생했습니다."));
+    } finally {
+      setDeletingKey(null);
+    }
   }
 
   async function publish() {
@@ -764,6 +817,8 @@ export default function Admin() {
     mergedMap.set(key, {
       key,
       weekId: p.week_id,
+      companyId: p.company_id,
+      teamId: p.team_id,
       weekLabel: p.tbm_weeks?.week_label || "-",
       topic: p.tbm_weeks?.topic || "-",
       content: p.tbm_weeks?.content || "-",
@@ -781,6 +836,8 @@ export default function Admin() {
       mergedMap.set(key, {
         key,
         weekId: a.week_id,
+        companyId: a.company_id,
+        teamId: a.team_id,
         weekLabel: a.tbm_weeks?.week_label || "-",
         topic: a.tbm_weeks?.topic || "-",
         content: a.tbm_weeks?.content || "-",
@@ -1323,12 +1380,27 @@ export default function Admin() {
                       </span>
                     </td>
                     <td>
-                      <button
-                        className="btn secondary"
-                        onClick={() => openAdminTbmDetail("regular", m)}
-                      >
-                        상세 / 일지출력
-                      </button>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className="btn secondary"
+                          onClick={() => openAdminTbmDetail("regular", m)}
+                        >
+                          상세 / 일지출력
+                        </button>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          style={{
+                            color: "#ef4444",
+                            background: "#fee2e2",
+                            borderColor: "#fca5a5",
+                          }}
+                          disabled={deletingKey === m.key}
+                          onClick={() => deleteRegularTeamRecord(m)}
+                        >
+                          {deletingKey === m.key ? "삭제 중..." : "삭제"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
