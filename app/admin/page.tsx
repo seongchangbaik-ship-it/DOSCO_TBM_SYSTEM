@@ -797,12 +797,23 @@ const mergedMap = new Map<string, any>();
 
   return (
     <>
-      <style>{`
+<style>{`
+        .admin-print-card table { width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; }
+        .admin-print-card th, .admin-print-card td { border: 1px solid #000; padding: 6px; overflow-wrap: break-word; word-break: break-word; }
+        @media (max-width: 640px) {
+          .admin-print-wrapper { padding: 8px !important; }
+          .admin-print-card { padding: 10px !important; border-radius: 10px !important; }
+          .admin-print-card table { font-size: 10.5px; }
+          .admin-print-card th, .admin-print-card td { padding: 4px 5px; }
+          .admin-print-card img { max-width: 100% !important; height: auto !important; max-height: 160px !important; }
+        }
         @page { size: A4 portrait; margin: 0; }
         @media print {
           .no-print { display: none !important; }
           .admin-print-wrapper { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; }
           .admin-print-card { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm !important; }
+          .admin-print-card table { font-size: 12px !important; table-layout: auto !important; }
+          .admin-print-card th, .admin-print-card td { padding: 6px !important; }
         }
       `}</style>
 
