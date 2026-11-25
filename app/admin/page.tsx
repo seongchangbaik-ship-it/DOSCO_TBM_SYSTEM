@@ -798,21 +798,19 @@ const mergedMap = new Map<string, any>();
   return (
     <>
 <style>{`
-        .admin-print-card table { width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; }
-        .admin-print-card th, .admin-print-card td { border: 1px solid #000; padding: 6px; overflow-wrap: break-word; word-break: break-word; }
+        .admin-print-card table { width: 100%; min-width: 560px; border-collapse: collapse; border: 2px solid #000; font-size: 12px; }
+        .admin-print-card th, .admin-print-card td { border: 1px solid #000; padding: 6px; word-break: keep-all; overflow-wrap: break-word; }
         @media (max-width: 640px) {
-          .admin-print-wrapper { padding: 8px !important; }
-          .admin-print-card { padding: 10px !important; border-radius: 10px !important; }
-          .admin-print-card table { font-size: 10.5px; }
-          .admin-print-card th, .admin-print-card td { padding: 4px 5px; }
-          .admin-print-card img { max-width: 100% !important; height: auto !important; max-height: 160px !important; }
+          .admin-print-wrapper { padding: 10px !important; }
+          .admin-print-card { padding: 12px !important; border-radius: 12px !important; width: 100% !important; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .admin-print-card table { min-width: 540px; font-size: 11.5px; }
         }
         @page { size: A4 portrait; margin: 0; }
         @media print {
           .no-print { display: none !important; }
           .admin-print-wrapper { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; }
-          .admin-print-card { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm !important; }
-          .admin-print-card table { font-size: 12px !important; table-layout: auto !important; }
+          .admin-print-card { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10mm !important; overflow: visible !important; }
+          .admin-print-card table { min-width: 0 !important; width: 100% !important; font-size: 12px !important; }
           .admin-print-card th, .admin-print-card td { padding: 6px !important; }
         }
       `}</style>
