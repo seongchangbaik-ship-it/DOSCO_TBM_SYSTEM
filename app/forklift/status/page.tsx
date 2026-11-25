@@ -23,6 +23,7 @@ type ForkliftLog = {
   returned_at: string | null;
   return_location: string | null;
   return_note: string | null;
+  return_photo_data: string | null;
 };
 
 export default function ForkliftStatusPage() {
@@ -34,6 +35,8 @@ export default function ForkliftStatusPage() {
   const [returningLog, setReturningLog] = useState<ForkliftLog | null>(null);
   const [returnType, setReturnType] = useState<string>("1공장 출하사무실");
   const [customReturnLocation, setCustomReturnLocation] = useState("");
+  const [returnConfirmed, setReturnConfirmed] = useState(false);
+  const [returnPhotoData, setReturnPhotoData] = useState<string | null>(null);
   const [returnNote, setReturnNote] = useState("");
   const [savingReturn, setSavingReturn] = useState(false);
 
@@ -72,18 +75,39 @@ export default function ForkliftStatusPage() {
         : "1공장 출하사무실"
     );
     setCustomReturnLocation("");
+    setReturnConfirmed(false);
+    setReturnPhotoData(null);
     setReturnNote("");
+  }
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setReturnPhotoData(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   async function confirmReturn() {
     if (!returningLog || savingReturn) return;
+    setMsg("");
+
     if (returnType === "기타장소" && !customReturnLocation.trim()) {
       setMsg("기타장소를 선택하셨습니다. 반납 장소를 직접 입력해 주세요.");
       return;
     }
 
+    if (!returnConfirmed) {
+      setMsg('"지정된 반납장소에 반납하셨습니까?" 항목의 예에 체크해 주세요.');
+      return;
+    }
+
     setSavingReturn(true);
-    setMsg("");
 
     try {
       const finalReturnLocation =
@@ -96,6 +120,7 @@ export default function ForkliftStatusPage() {
           returned_at: new Date().toISOString(),
           return_location: finalReturnLocation,
           return_note: returnNote.trim() || null,
+          return_photo_data: returnPhotoData,
         })
         .eq("id", returningLog.id);
 
@@ -160,7 +185,7 @@ export default function ForkliftStatusPage() {
         </div>
       </div>
 
-      {msg && (
+      {msg && !returningLog && (
         <div className="card section" style={{ padding: 12 }}>
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{msg}</p>
         </div>
@@ -209,6 +234,7 @@ export default function ForkliftStatusPage() {
                   <th>자격</th>
                   <th>수령장소 / 수령일시</th>
                   <th>반납장소 / 반납일시</th>
+                  <th>반납사진</th>
                   <th>점검</th>
                   <th>반납</th>
                 </tr>
@@ -251,6 +277,25 @@ export default function ForkliftStatusPage() {
                         )}
                       </td>
                       <td>
+                        {item.return_photo_data ? (
+                          <a href={item.return_photo_data} target="_blank" rel="noreferrer">
+                            <img
+                              src={item.return_photo_data}
+                              alt="반납 사진"
+                              style={{
+                                width: 48,
+                                height: 48,
+                                objectFit: "cover",
+                                borderRadius: 6,
+                                border: "1px solid #cbd5e1",
+                              }}
+                            />
+                          </a>
+                        ) : (
+                          <span className="muted">-</span>
+                        )}
+                      </td>
+                      <td>
                         {abnCnt > 0 ? (
                           <span className="pill" style={{ background: "#fee2e2", color: "#dc2626" }}>
                             부적정 {abnCnt}건
@@ -270,7 +315,7 @@ export default function ForkliftStatusPage() {
                             반납
                           </button>
                         ) : (
-                          <span className="muted">완료</span>
+                          <span className="pill ok">반납</span>
                         )}
                       </td>
                     </tr>
@@ -279,7 +324,7 @@ export default function ForkliftStatusPage() {
 
                 {!filteredLogs.length && (
                   <tr>
-                    <td colSpan={8} className="empty">
+                    <td colSpan={9} className="empty">
                       표시할 지게차 사용 기록이 없습니다.
                     </td>
                   </tr>
@@ -301,12 +346,23 @@ export default function ForkliftStatusPage() {
             alignItems: "center",
             justifyContent: "center",
             padding: 16,
+            overflowY: "auto",
           }}
         >
-          <div className="card" style={{ maxWidth: 440, width: "100%", background: "#fff" }}>
+          <div
+            className="card"
+            style={{
+              maxWidth: 460,
+              width: "100%",
+              background: "#fff",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+          >
             <h3 style={{ marginTop: 0 }}>지게차 키 반납</h3>
             <p className="muted" style={{ marginTop: 4 }}>
-              <b>{returningLog.forklift_type}</b> · {returningLog.company_name} {returningLog.user_name}님
+              <b>{returningLog.forklift_type}</b> · {returningLog.company_name}{" "}
+              {returningLog.user_name}님
             </p>
 
             <div className="field">
@@ -348,17 +404,86 @@ export default function ForkliftStatusPage() {
               </div>
             )}
 
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 8,
+                background: "#eff6ff",
+                border: "1px solid #93c5fd",
+              }}
+            >
+              <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 6 }}>
+                지정된 반납장소에 반납하셨습니까?
+              </div>
+              <label className="checkrow" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={returnConfirmed}
+                  onChange={(e) => setReturnConfirmed(e.target.checked)}
+                />
+                <span style={{ fontWeight: 600 }}>예</span>
+              </label>
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>반납 사진 첨부 (선택)</label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                style={{ marginTop: 6, fontSize: 13 }}
+              />
+              {returnPhotoData && (
+                <div style={{ marginTop: 8 }}>
+                  <img
+                    src={returnPhotoData}
+                    alt="반납 사진 미리보기"
+                    style={{
+                      width: "100%",
+                      maxHeight: 180,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      border: "1px solid #cbd5e1",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    style={{ marginTop: 6, padding: "4px 10px", fontSize: 12 }}
+                    onClick={() => setReturnPhotoData(null)}
+                  >
+                    사진 제거
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="field">
-              <label>특이사항 / 이상 메모 (선택)</label>
+              <label>특이사항 / 메모 (선택)</label>
               <input
                 className="input"
                 value={returnNote}
                 onChange={(e) => setReturnNote(e.target.value)}
-                placeholder="이상 없으면 비워 두셔도 됩니다"
+                placeholder="특이사항이 없으면 비워 두셔도 됩니다"
               />
             </div>
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+            {msg && (
+              <p style={{ color: "#dc2626", fontSize: 13, marginTop: 8, marginBottom: 0 }}>
+                {msg}
+              </p>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                marginTop: 14,
+              }}
+            >
               <button
                 type="button"
                 className="btn secondary"
@@ -373,7 +498,7 @@ export default function ForkliftStatusPage() {
                 disabled={savingReturn}
                 onClick={confirmReturn}
               >
-                {savingReturn ? "반납 처리 중..." : "반납 완료"}
+                {savingReturn ? "반납 처리 중..." : "반납"}
               </button>
             </div>
           </div>
