@@ -49,10 +49,18 @@ type SpotLogItem = {
 };
 
 export default function TbmStatusPage() {
-  const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
+const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
   const [loading, setLoading] = useState(true);
   const [regularItems, setRegularItems] = useState<RegularMergedItem[]>([]);
   const [spotItems, setSpotItems] = useState<SpotLogItem[]>([]);
+
+  // 정기 TBM 미실시 조 현황판 상태
+  const [weeksList, setWeeksList] = useState<{ id: string; week_label: string; topic: string; is_published: boolean }[]>([]);
+  const [companiesList, setCompaniesList] = useState<{ id: string; name: string }[]>([]);
+  const [teamsList, setTeamsList] = useState<{ id: string; name: string; company_id: string }[]>([]);
+  const [checkWeekId, setCheckWeekId] = useState<string>("");
+  const [onlyUnfinished, setOnlyUnfinished] = useState<boolean>(false);
+  const [missingCopyMsg, setMissingCopyMsg] = useState<string>("");
 
  // 상세 모달 상태
   const [selectedRegular, setSelectedRegular] = useState<RegularMergedItem | null>(null);
@@ -144,17 +152,140 @@ export default function TbmStatusPage() {
       }
     });
 
-    const mergedList = Array.from(map.values()).sort((a, b) =>
+const mergedList = Array.from(map.values()).sort((a, b) =>
       b.latestTime.localeCompare(a.latestTime)
     );
     setRegularItems(mergedList);
     setSpotItems((spotsRes.data as SpotLogItem[]) || []);
+
+    const [weeksRes, companiesRes, teamsRes] = await Promise.all([
+      supabase
+        .from("tbm_weeks")
+        .select("id, week_label, topic, is_published")
+        .order("starts_at", { ascending: false })
+        .limit(30),
+      supabase.from("companies").select("id, name").eq("active", true).order("name"),
+      supabase.from("teams").select("id, name, company_id").eq("active", true).order("name"),
+    ]);
+
+    const fetchedWeeks = weeksRes.data || [];
+    setWeeksList(fetchedWeeks);
+    setCompaniesList(companiesRes.data || []);
+    setTeamsList(teamsRes.data || []);
+
+    if (fetchedWeeks.length > 0) {
+      setCheckWeekId((prev) => {
+        if (prev && fetchedWeeks.some((w) => w.id === prev)) return prev;
+        const pub = fetchedWeeks.find((w) => w.is_published);
+        return pub ? pub.id : fetchedWeeks[0].id;
+      });
+    }
+
     setLoading(false);
   }
 
   useEffect(() => {
     loadAll();
   }, []);
+
+  // 회사·조 정렬 및 선택 회차별 실시/미실시 현황 계산
+  const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
+  const teamOrder: Record<string, string[]> = {
+    동아스틸: ["전기파트", "품질파트", "기타부서"],
+    다인스틸: ["P5", "P9", "P10"],
+    나로스틸: ["C1", "P1", "P7", "P8"],
+    세현스틸: ["SL2", "SL5", "SCP1", "SCP2", "1공무", "2공무", "1품질", "2품질"],
+    에스로지스: ["1출하", "2출하"],
+  };
+
+  const sortedCompanies = [...companiesList].sort((a, b) => {
+    const ia = companyOrder.indexOf(a.name);
+    const ib = companyOrder.indexOf(b.name);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
+  const targetWeekObj = weeksList.find((w) => w.id === checkWeekId);
+  const weekRegularItems = regularItems.filter((item) => item.weekId === checkWeekId);
+
+  const companyStatusList = sortedCompanies
+    .map((comp) => {
+      const order = teamOrder[comp.name] || [];
+      const compTeams = teamsList
+        .filter((t) => t.company_id === comp.id)
+        .sort((a, b) => {
+          const ia = order.indexOf(a.name);
+          const ib = order.indexOf(b.name);
+          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        })
+        .map((team) => {
+          const found = weekRegularItems.find(
+            (r) => r.companyId === comp.id && r.teamId === team.id
+          );
+          const hasLeader = Boolean(found?.leaderSubmission);
+          const workerCount = found?.workers.length || 0;
+          let status: "done" | "partial" | "missing" = "missing";
+          if (hasLeader && workerCount > 0) status = "done";
+          else if (hasLeader || workerCount > 0) status = "partial";
+
+          return {
+            ...team,
+            hasLeader,
+            workerCount,
+            status,
+            mergedItem: found || null,
+          };
+        });
+
+      return {
+        ...comp,
+        teams: compTeams,
+      };
+    })
+    .filter((comp) => comp.teams.length > 0);
+
+  const allTeamStatuses = companyStatusList.flatMap((c) =>
+    c.teams.map((t) => ({ ...t, companyName: c.name }))
+  );
+  const totalTeamCount = allTeamStatuses.length;
+  const doneTeamCount = allTeamStatuses.filter((t) => t.status === "done").length;
+  const partialTeamCount = allTeamStatuses.filter((t) => t.status === "partial").length;
+  const missingTeamCount = allTeamStatuses.filter((t) => t.status === "missing").length;
+
+  async function copyMissingTeamsNotice() {
+    const weekTitle = targetWeekObj
+      ? `${targetWeekObj.week_label} (${targetWeekObj.topic})`
+      : "금주 정기 TBM";
+    const missingByCompany = companyStatusList
+      .map((c) => {
+        const targets = c.teams.filter((t) => t.status !== "done");
+        if (targets.length === 0) return null;
+        const labels = targets.map((t) =>
+          t.status === "partial"
+            ? `${t.name}(${t.hasLeader ? "근로자서명 미완" : "조장사진 미제출"})`
+            : t.name
+        );
+        return `- ${c.name}: ${labels.join(", ")}`;
+      })
+      .filter(Boolean);
+
+    if (missingByCompany.length === 0) {
+      setMissingCopyMsg("모든 조가 정기 TBM을 완료했습니다!");
+      setTimeout(() => setMissingCopyMsg(""), 3000);
+      return;
+    }
+
+    const noticeText = `[정기 TBM 미실시·미완료 조 안내]\n대상 회차: ${weekTitle}\n\n${missingByCompany.join(
+      "\n"
+    )}\n\n※ 작업 시작 전 TBM 교육 확인 및 서명, 조장 현장사진 제출을 완료해 주세요.\n바로가기: ${window.location.origin}/tbm`;
+
+    try {
+      await navigator.clipboard.writeText(noticeText);
+      setMissingCopyMsg("미실시 조 안내 문구가 복사되었습니다! 단톡방에 붙여넣기 하세요.");
+    } catch {
+      window.prompt("아래 안내 문구를 복사해 단톡방에 공유해 주세요:", noticeText);
+    }
+    setTimeout(() => setMissingCopyMsg(""), 4000);
+  }
 
   async function getPhotoUrl(path?: string | null) {
     if (!path) return "";
@@ -325,6 +456,188 @@ async function openRegularModal(item: RegularMergedItem) {
             <button className="btn secondary" onClick={loadAll}>새로고침</button>
           </div>
         </div>
+
+{/* 정기 TBM 조별 실시·미실시 현황판 */}
+        {tab !== "spot" && weeksList.length > 0 && (
+          <div className="card section" style={{ borderLeft: "4px solid #dc2626" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <h2 style={{ margin: 0 }}>📊 정기 TBM 조별 실시 · 미실시 현황판</h2>
+                <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                  조장 사진·일지 제출과 근로자 서명이 모두 완료되어야 <b>실시완료</b>로 집계됩니다.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <select
+                  value={checkWeekId}
+                  onChange={(e) => setCheckWeekId(e.target.value)}
+                  style={{ minWidth: 210, fontWeight: "bold" }}
+                >
+                  {weeksList.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.week_label} · {w.topic}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setOnlyUnfinished((prev) => !prev)}
+                  style={{
+                    background: onlyUnfinished ? "#fee2e2" : "#fff",
+                    color: onlyUnfinished ? "#b91c1c" : "#1e293b",
+                    borderColor: onlyUnfinished ? "#fca5a5" : "#cbd5e1",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {onlyUnfinished ? "전체 조 보기" : `미실시·미완만 보기 (${missingTeamCount + partialTeamCount})`}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ background: "#1e3a8a", borderColor: "#1e3a8a" }}
+                  onClick={copyMissingTeamsNotice}
+                >
+                  카톡방 미실시 안내 복사
+                </button>
+              </div>
+            </div>
+
+            {missingCopyMsg && (
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #86efac",
+                  color: "#15803d",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  marginBottom: 12,
+                  fontWeight: 600,
+                }}
+              >
+                {missingCopyMsg}
+              </div>
+            )}
+
+            {/* 요약 배지 */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, fontSize: 13 }}>
+              <span className="pill" style={{ background: "#f1f5f9", color: "#334155", fontWeight: "bold" }}>
+                전체 대상: {totalTeamCount}개 조
+              </span>
+              <span className="pill ok" style={{ fontWeight: "bold" }}>
+                실시완료: {doneTeamCount}개 조
+              </span>
+              <span className="pill" style={{ background: "#fef3c7", color: "#92400e", fontWeight: "bold" }}>
+                일부미완(조장 또는 서명 누락): {partialTeamCount}개 조
+              </span>
+              <span className="pill" style={{ background: "#fee2e2", color: "#b91c1c", fontWeight: "bold" }}>
+                미실시: {missingTeamCount}개 조
+              </span>
+            </div>
+
+            {/* 회사별 조 상태 그리드 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+              {companyStatusList.map((comp) => {
+                const visibleTeams = onlyUnfinished
+                  ? comp.teams.filter((t) => t.status !== "done")
+                  : comp.teams;
+                if (visibleTeams.length === 0) return null;
+
+                const compDoneCount = comp.teams.filter((t) => t.status === "done").length;
+
+                return (
+                  <div
+                    key={comp.id}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      padding: 12,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 8,
+                        paddingBottom: 6,
+                        borderBottom: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <b style={{ fontSize: 14, color: "#0f172a" }}>{comp.name}</b>
+                      <span style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>
+                        완료 {compDoneCount}/{comp.teams.length}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {visibleTeams.map((t) => {
+                        const isDone = t.status === "done";
+                        const isPartial = t.status === "partial";
+                        const bg = isDone ? "#dcfce7" : isPartial ? "#fef3c7" : "#fee2e2";
+                        const border = isDone ? "#86efac" : isPartial ? "#fcd34d" : "#fca5a5";
+                        const color = isDone ? "#166534" : isPartial ? "#92400e" : "#b91c1c";
+
+                        const subLabel = isDone
+                          ? `완료(${t.workerCount}명)`
+                          : isPartial
+                          ? `${t.hasLeader ? "서명0명" : "조장미제출"}`
+                          : "미실시";
+
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              if (t.mergedItem) openRegularModal(t.mergedItem);
+                            }}
+                            title={
+                              t.mergedItem
+                                ? "클릭하면 상세 일지를 확인할 수 있습니다"
+                                : "아직 제출된 기록이 없습니다"
+                            }
+                            style={{
+                              background: bg,
+                              border: `1px solid ${border}`,
+                              color,
+                              borderRadius: 8,
+                              padding: "5px 9px",
+                              fontSize: 12.5,
+                              fontWeight: 700,
+                              cursor: t.mergedItem ? "pointer" : "default",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <span>{t.name}</span>
+                            <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.9 }}>
+                              · {subLabel}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 필터 탭 */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
