@@ -103,19 +103,9 @@ if(w.data && w.data.length > 0){
       setWeek(currentWeek);
 
       const paths=currentWeek.photo_paths||[];
-      const urls:string[]=[];
-
-      for(const path of paths){
-        const {data,error}=await supabase.storage
-          .from("tbm-education-photos")
-          .createSignedUrl(path,3600);
-
-        if(!error&&data?.signedUrl){
-          urls.push(data.signedUrl);
-        }
-      }
-
-      setPhotoUrls(urls);
+if(w.data && w.data.length > 0){
+      setWeeks(w.data as Week[]);
+      await selectWeekItem(w.data[0] as Week);
     }
   })();
  },[]);
@@ -179,12 +169,34 @@ const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasEle
 
   const stopDrawing = () => setIsDrawing(false);
 
-  const clearCanvas = () => {
+const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawn(false);
   };
+
+  async function selectWeekItem(targetWeek: Week) {
+    setWeek(targetWeek);
+    setPhotoUrls([]);
+    setDone(false);
+    setMsg("");
+
+    const paths = targetWeek.photo_paths || [];
+    const urls: string[] = [];
+
+    for (const path of paths) {
+      const { data, error } = await supabase.storage
+        .from("tbm-education-photos")
+        .createSignedUrl(path, 3600);
+
+      if (!error && data?.signedUrl) {
+        urls.push(data.signedUrl);
+      }
+    }
+
+    setPhotoUrls(urls);
+  }
 
 const selectedTeamObj = teams.find(t => t.id === team);
   const currentProcess = selectedTeamObj ? getProcessByTeamName(selectedTeamObj.name) : "";
@@ -267,11 +279,30 @@ const selectedTeamObj = teams.find(t => t.id === team);
       <div style={{fontSize:13,opacity:.85}}>작업 전 안전보건교육 확인</div>
     </div>
 
-    <div className="card">
+<div className="card">
       <div className="row between">
-        <b>이번 주 TBM 교육자료</b>
+        <b>TBM 교육자료</b>
         <span className="pill ok">근로자 페이지</span>
       </div>
+
+      {weeks.length > 0 && (
+        <div className="field" style={{ marginTop: 10, marginBottom: 4 }}>
+          <label>교육 회차 선택 (최근 회차 기본 · 이전 회차 선택 가능)</label>
+          <select
+            value={week?.id || ""}
+            onChange={(e) => {
+              const found = weeks.find((item) => item.id === e.target.value);
+              if (found) selectWeekItem(found);
+            }}
+          >
+            {weeks.map((item, idx) => (
+              <option key={item.id} value={item.id}>
+                {idx === 0 ? `[최신] ${item.week_label}` : item.week_label} · {item.topic}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {!configured?
         <p className="muted">{msg}</p>
