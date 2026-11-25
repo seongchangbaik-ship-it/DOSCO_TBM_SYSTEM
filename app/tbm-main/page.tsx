@@ -37,6 +37,15 @@ export default function TbmMain() {
             </Link>
           </div>
 
+<div className="card" style={{ display: "flex", flexDirection: "column" }}>
+            <Camera />
+            <h3>조별 사진·일지 제출</h3>
+            <p className="muted">우리 조 실시간 서명 확인 및 정기 TBM 사진·일지 등록</p>
+            <Link className="btn secondary" href="/leader" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}>
+              조장 페이지
+            </Link>
+          </div>
+
           <div className="card" style={{ display: "flex", flexDirection: "column", borderColor: "#99f6e4", background: "#f0fdfa" }}>
             <Wrench color="#0f766e" />
             <h3 style={{ color: "#0f766e" }}>수시 작업 TBM 작성</h3>
@@ -47,15 +56,6 @@ export default function TbmMain() {
               style={{ marginTop: "auto", textAlign: "center", textDecoration: "none", background: "#0f766e", borderColor: "#0f766e" }}
             >
               수시 TBM 작성
-            </Link>
-          </div>
-
-          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
-            <Camera />
-            <h3>조별 사진·일지 제출</h3>
-            <p className="muted">우리 조 실시간 서명 확인 및 정기 TBM 사진·일지 등록</p>
-            <Link className="btn secondary" href="/leader" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}>
-              조장 페이지
             </Link>
           </div>
 
