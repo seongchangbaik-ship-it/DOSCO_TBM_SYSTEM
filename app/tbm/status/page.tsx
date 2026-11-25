@@ -425,7 +425,22 @@ export default function TbmStatusPage() {
         .tbm-sheet-table { width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; }
         .tbm-sheet-table th, .tbm-sheet-table td { border: 1px solid #000; padding: 6px; overflow-wrap: break-word; word-break: break-word; }
         .tbm-sig-card { border: 1px solid #999; padding: 4px; text-align: center; width: 95px; box-sizing: border-box; }
+        @media.print-modal-card { box-sizing: border-box; max-width: 800px; width: 100%; overflow-x: hidden; }
+        .tbm-sheet-table { width: 100%; max-width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; table-layout: fixed; box-sizing: border-box; }
+        .tbm-sheet-table th, .tbm-sheet-table td { border: 1px solid #000; padding: 6px; overflow-wrap: anywhere; word-break: break-word; min-width: 0; box-sizing: border-box; }
+        .tbm-sig-card { border: 1px solid #999; padding: 4px; text-align: center; width: 95px; max-width: 100%; box-sizing: border-box; }
         @media (max-width: 640px) {
+          .print-modal-wrapper { padding: 6px !important; }
+          .print-modal-card { padding: 8px !important; border-radius: 10px !important; width: 100% !important; }
+          .tbm-sheet-table { font-size: 9.5px; line-height: 1.35; }
+          .tbm-sheet-table th, .tbm-sheet-table td { padding: 3px 4px; }
+          .tbm-sheet-title { font-size: 12.5px !important; padding: 6px 4px !important; }
+          .tbm-sheet-label { width: 54px !important; font-size: 9px !important; }
+          .tbm-sheet-img { width: 100% !important; max-width: 100% !important; height: auto !important; max-height: 140px !important; object-fit: contain; display: block; margin: 0 auto; }
+          .tbm-sig-card { width: calc((100% - 12px) / 3) !important; min-width: 0; padding: 2px; }
+          .tbm-sig-card img { height: 32px !important; }
+          .tbm-sig-card div { font-size: 9.5px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        } (max-width: 640px) {
           .print-modal-wrapper { padding: 8px !important; }
           .print-modal-card { padding: 10px !important; border-radius: 10px !important; }
           .tbm-sheet-table { font-size: 10.5px; }
