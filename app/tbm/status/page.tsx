@@ -49,7 +49,7 @@ type SpotLogItem = {
 };
 
 export default function TbmStatusPage() {
-const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
+  const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
   const [loading, setLoading] = useState(true);
   const [regularItems, setRegularItems] = useState<RegularMergedItem[]>([]);
   const [spotItems, setSpotItems] = useState<SpotLogItem[]>([]);
@@ -62,7 +62,7 @@ const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
   const [onlyUnfinished, setOnlyUnfinished] = useState<boolean>(false);
   const [missingCopyMsg, setMissingCopyMsg] = useState<string>("");
 
- // 상세 모달 상태
+  // 상세 모달 상태
   const [selectedRegular, setSelectedRegular] = useState<RegularMergedItem | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<SpotLogItem | null>(null);
   const [detailPhotoUrl, setDetailPhotoUrl] = useState("");
@@ -152,7 +152,7 @@ const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
       }
     });
 
-const mergedList = Array.from(map.values()).sort((a, b) =>
+    const mergedList = Array.from(map.values()).sort((a, b) =>
       b.latestTime.localeCompare(a.latestTime)
     );
     setRegularItems(mergedList);
@@ -188,7 +188,7 @@ const mergedList = Array.from(map.values()).sort((a, b) =>
     loadAll();
   }, []);
 
-// 협력사 정렬 및 선택 회차별 실시/미실시 현황 계산 (동아스틸 제외)
+  // 협력사 정렬 및 선택 회차별 실시/미실시 현황 계산 (동아스틸 제외)
   const companyOrder = ["다인스틸", "나로스틸", "세현스틸", "에스로지스"];
   const teamOrder: Record<string, string[]> = {
     다인스틸: ["P5", "P9", "P10"],
@@ -294,7 +294,7 @@ const mergedList = Array.from(map.values()).sort((a, b) =>
     return data?.signedUrl || "";
   }
 
-async function openRegularModal(item: RegularMergedItem) {
+  async function openRegularModal(item: RegularMergedItem) {
     setSelectedSpot(null);
     setSelectedRegular(item);
     setDetailPhotoUrl("");
@@ -418,7 +418,7 @@ async function openRegularModal(item: RegularMergedItem) {
 
   return (
     <div>
-<style>{`
+      <style>{`
         .tbm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
         .tbm-table-scroll table { min-width: 650px; width: 100%; }
         .tbm-table-scroll th, .tbm-table-scroll td { white-space: nowrap; }
@@ -476,7 +476,7 @@ async function openRegularModal(item: RegularMergedItem) {
           </div>
         </div>
 
-{/* 정기 TBM 조별 실시·미실시 현황판 */}
+        {/* 정기 TBM 조별 실시·미실시 현황판 */}
         {tab !== "spot" && weeksList.length > 0 && (
           <div className="card section" style={{ borderLeft: "4px solid #dc2626" }}>
             <div
@@ -798,105 +798,63 @@ async function openRegularModal(item: RegularMergedItem) {
               </div>
             )}
 
-<table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #000", fontSize: 12 }}>
+            <table className="tbm-sheet-table">
               <tbody>
                 <tr>
-                  <th colSpan={4} style={{ border: "1px solid #000", padding: 10, fontSize: 18, background: "#f3f4f6" }}>
-                    정 기 안 전 교 육 및 T B M 일 지
+                  <th colSpan={4} className="tbm-sheet-title" style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
+                    수 시 작 업 T B M 일 지 ({selectedSpot.work_category})
                   </th>
                 </tr>
                 <tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>교육 회차</th>
-                  <td style={{ border: "1px solid #000", padding: 6 }}>{selectedRegular.weekLabel}</td>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6, width: 110 }}>소속 / 조</th>
-                  <td style={{ border: "1px solid #000", padding: 6 }}>{selectedRegular.companyName} / {selectedRegular.teamName}</td>
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>작업일자</th>
+                  <td>{selectedSpot.work_date}</td>
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb", width: 110 }}>소속 / 조</th>
+                  <td>{selectedSpot.companies?.name} / {selectedSpot.teams?.name}</td>
                 </tr>
-<tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 주제</th>
-                  <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>{selectedRegular.topic}</td>
-                </tr>
-<tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육 내용</th>
-                  <td colSpan={3} style={{ border: "1px solid #000", padding: 6, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
-                    {selectedRegular.content || "-"}
-                  </td>
-                </tr>
-                {detailEduPhotoUrls.length > 0 && (
-                  <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>교육자료 사진</th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                        {detailEduPhotoUrls.map((eduUrl, idx) => (
-                          <img
-                            key={idx}
-                            src={eduUrl}
-                            alt={`교육자료 사진 ${idx + 1}`}
-                            style={{ maxHeight: 180, maxWidth: "48%", objectFit: "contain", border: "1px solid #ccc" }}
-                          />
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                )}
                 <tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>조장 확인</th>
-                  <td style={{ border: "1px solid #000", padding: 6 }}>
-                    {selectedRegular.leaderSubmission ? `${selectedRegular.leaderSubmission.leader_name} (제출완료)` : "미제출"}
-                  </td>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>건강·보호구</th>
-                  <td style={{ border: "1px solid #000", padding: 6 }}>
-                    {selectedRegular.leaderSubmission?.health_status || "-"}
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>작업명</th>
+                  <td>{selectedSpot.work_title}</td>
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>작업책임자</th>
+                  <td>{selectedSpot.leader_name}</td>
+                </tr>
+                <tr>
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>건강·보호구</th>
+                  <td colSpan={3}>{selectedSpot.health_status || "-"}</td>
+                </tr>
+                <tr>
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>유해·위험요인</th>
+                  <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                    {selectedSpot.hazard_factors || "-"}
                   </td>
                 </tr>
                 <tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>금주 핵심 위험</th>
-                  <td colSpan={3} style={{ border: "1px solid #000", padding: 6 }}>
-                    {selectedRegular.leaderSubmission?.daily_hazard || "-"}
-                  </td>
-                </tr>
-                <tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>개인별 선택<br />안전수칙</th>
-                  <td colSpan={3} style={{ border: "1px solid #000", padding: 6, lineHeight: 1.6 }}>
-                    {selectedRegular.workers.length > 0 ? (
-                      selectedRegular.workers.map(w => (
-                        <div key={w.id} style={{ marginBottom: 4 }}>
-                          <b>{w.worker_name}</b> -{" "}
-                          {Array.isArray(w.selected_rules) && w.selected_rules.length > 0
-                            ? w.selected_rules.join(" / ")
-                            : "선택 항목 없음"}
-                        </div>
-                      ))
-                    ) : (
-                      <span className="muted">등록된 개인별 확인 내역이 없습니다.</span>
-                    )}
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>안전대책</th>
+                  <td colSpan={3} style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                    {selectedSpot.safety_measures || "-"}
                   </td>
                 </tr>
                 {detailPhotoUrl && (
                   <tr>
-                    <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>TBM 실시 사진</th>
-                    <td colSpan={3} style={{ border: "1px solid #000", padding: 8, textAlign: "center" }}>
-                      <img src={detailPhotoUrl} alt="조별 TBM 사진" style={{ maxHeight: 220, border: "1px solid #ccc" }} />
+                    <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>현장 실시 사진</th>
+                    <td colSpan={3} style={{ padding: 8, textAlign: "center" }}>
+                      <img src={detailPhotoUrl} alt="현장 TBM 사진" className="tbm-sheet-img" style={{ maxHeight: 220, maxWidth: "100%", border: "1px solid #ccc" }} />
                     </td>
                   </tr>
                 )}
                 <tr>
-                  <th style={{ border: "1px solid #000", background: "#f9fafb", padding: 6 }}>
-                    근로자 서명<br />({selectedRegular.workers.length}명)
+                  <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>
+                    참여자 서명<br />({(selectedSpot.tbm_spot_signatures || []).length}명)
                   </th>
-                  <td colSpan={3} style={{ border: "1px solid #000", padding: 8 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {selectedRegular.workers.map(w => (
-                        <div key={w.id} style={{ border: "1px solid #999", padding: 4, textAlign: "center", width: 95 }}>
-                          {w.signature_data ? (
-                            <img src={w.signature_data} alt="서명" style={{ width: "100%", height: 40, objectFit: "contain" }} />
-                          ) : (
-                            <div style={{ height: 40, lineHeight: "40px", fontSize: 11, color: "#666" }}>서명완료</div>
-                          )}
-                          <div style={{ fontSize: 11.5, fontWeight: "bold" }}>{w.worker_name}</div>
+                  <td colSpan={3} style={{ padding: 8 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {(selectedSpot.tbm_spot_signatures || []).map(sig => (
+                        <div key={sig.id} className="tbm-sig-card">
+                          <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 38, objectFit: "contain" }} />
+                          <div style={{ fontSize: 11, fontWeight: "bold" }}>{sig.worker_name}</div>
                         </div>
                       ))}
-                      {selectedRegular.workers.length === 0 && (
-                        <span className="muted">등록된 근로자 서명이 없습니다.</span>
+                      {(selectedSpot.tbm_spot_signatures || []).length === 0 && (
+                        <span className="muted">등록된 참여자 서명이 없습니다.</span>
                       )}
                     </div>
                   </td>
@@ -943,7 +901,7 @@ async function openRegularModal(item: RegularMergedItem) {
               <button className="btn secondary" onClick={() => setSelectedRegular(null)}>닫기</button>
             </div>
 
-<table className="tbm-sheet-table">
+            <table className="tbm-sheet-table">
               <tbody>
                 <tr>
                   <th colSpan={4} className="tbm-sheet-title" style={{ fontSize: 18, padding: 10, background: "#f3f4f6" }}>
