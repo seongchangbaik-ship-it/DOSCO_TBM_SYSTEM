@@ -1,5 +1,4 @@
-﻿$code = @'
-"use client";
+﻿"use client";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -49,13 +48,23 @@ function LeaderForm() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [submittedWorkers, setSubmittedWorkers] = useState<
-    { id: string; worker_name: string; status?: string; is_individual_scheduled?: boolean; acknowledged_at?: string | null }[]
+    {
+      id: string;
+      worker_name: string;
+      status?: string;
+      is_individual_scheduled?: boolean;
+      acknowledged_at?: string | null;
+    }[]
   >([]);
   const [loadingWorkers, setLoadingWorkers] = useState(false);
 
   const selectedWeekObj = weeks.find((w) => w.id === week) || null;
 
-  async function loadSubmittedWorkers(targetWeek: string, targetCompany: string, targetTeam: string) {
+  async function loadSubmittedWorkers(
+    targetWeek: string,
+    targetCompany: string,
+    targetTeam: string
+  ) {
     if (!configured || !targetWeek || !targetCompany || !targetTeam) {
       setSubmittedWorkers([]);
       return;
@@ -121,7 +130,10 @@ function LeaderForm() {
     return order.indexOf(a.name) - order.indexOf(b.name);
   });
 
-  const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+  const getCoords = (
+    e: React.MouseEvent | React.TouchEvent,
+    canvas: HTMLCanvasElement
+  ) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -178,11 +190,16 @@ function LeaderForm() {
       return;
     }
     if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
-      setMsg("개별진행이 아닌 경우 근로자 서명을 입력하거나 [개별진행]을 체크해 주세요.");
+      setMsg(
+        "개별진행이 아닌 경우 근로자 서명을 입력하거나 [개별진행]을 체크해 주세요."
+      );
       return;
     }
 
-    const sig = individualScheduled || !canvasRef.current ? null : canvasRef.current.toDataURL("image/png");
+    const sig =
+      individualScheduled || !canvasRef.current
+        ? null
+        : canvasRef.current.toDataURL("image/png");
     setWorkerEntries((prev) => [
       ...prev,
       {
@@ -266,14 +283,19 @@ function LeaderForm() {
     const pendingEntries: WorkerEntry[] = [...workerEntries];
     if (workerName.trim()) {
       if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
-        setMsg("입력 중인 근로자의 서명을 완료하거나 [개별진행]을 체크해 주세요.");
+        setMsg(
+          "입력 중인 근로자의 서명을 완료하거나 [개별진행]을 체크해 주세요."
+        );
         return;
       }
       pendingEntries.push({
         id: "current-draft",
         worker_name: workerName.trim(),
         individual_scheduled: individualScheduled,
-        signature_data: individualScheduled || !canvasRef.current ? null : canvasRef.current.toDataURL("image/png"),
+        signature_data:
+          individualScheduled || !canvasRef.current
+            ? null
+            : canvasRef.current.toDataURL("image/png"),
         has_drawn: !individualScheduled && hasDrawn,
       });
     }
@@ -323,9 +345,13 @@ function LeaderForm() {
           is_individual_scheduled: entry.individual_scheduled,
           acknowledged_at: entry.individual_scheduled ? null : new Date().toISOString(),
         }));
-        const { error: ackError } = await supabase.from("tbm_acknowledgements").insert(rows);
+        const { error: ackError } = await supabase
+          .from("tbm_acknowledgements")
+          .insert(rows);
         if (ackError) {
-          throw new Error("근로자 서명/개별진행 저장 실패: " + ackError.message);
+          throw new Error(
+            "근로자 서명/개별진행 저장 실패: " + ackError.message
+          );
         }
       }
 
@@ -360,11 +386,20 @@ function LeaderForm() {
       <div className="mobilehero">
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · LEADER</div>
         <h1>조장등록 (조별 TBM 사진 제출)</h1>
-        <div style={{ fontSize: 13, opacity: 0.85 }}>교육자료 확인 · 사진 첨부 · 근로자 서명 / 개별진행</div>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          교육자료 확인 · 사진 첨부 · 근로자 서명 / 개별진행
+        </div>
       </div>
 
       {selectedWeekObj && (
-        <div className="card" style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #cbd5e1" }}>
+        <div
+          className="card"
+          style={{
+            marginBottom: 12,
+            background: "#f8fafc",
+            border: "1px solid #cbd5e1",
+          }}
+        >
           <div className="row between" style={{ marginBottom: 6 }}>
             <b style={{ fontSize: 13.5, color: "#1e3a8a" }}>
               금주 교육자료 · {selectedWeekObj.week_label}
@@ -374,10 +409,18 @@ function LeaderForm() {
             </span>
           </div>
           <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>
-            {selectedWeekObj.topic} {selectedWeekObj.title ? `— ${selectedWeekObj.title}` : ""}
+            {selectedWeekObj.topic}{" "}
+            {selectedWeekObj.title ? `— ${selectedWeekObj.title}` : ""}
           </div>
           {selectedWeekObj.content && (
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "#334155" }}>
+            <div
+              style={{
+                whiteSpace: "pre-wrap",
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: "#334155",
+              }}
+            >
               {selectedWeekObj.content}
             </div>
           )}
@@ -385,7 +428,9 @@ function LeaderForm() {
       )}
 
       <div className="card">
-        {!configured && <p className="muted">Supabase 연결 후 사용할 수 있습니다.</p>}
+        {!configured && (
+          <p className="muted">Supabase 연결 후 사용할 수 있습니다.</p>
+        )}
         <div className="field">
           <label>교육 회차</label>
           <select value={week} onChange={(e) => setWeek(e.target.value)}>
@@ -437,7 +482,14 @@ function LeaderForm() {
               marginBottom: 14,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
               <b style={{ fontSize: 13.5, color: "#166534" }}>
                 우리 조 서명/개별진행 현황 ({submittedWorkers.length}명)
               </b>
@@ -453,13 +505,16 @@ function LeaderForm() {
             {submittedWorkers.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {submittedWorkers.map((w, idx) => {
-                  const isPending = w.is_individual_scheduled || w.status === "개별진행";
+                  const isPending =
+                    w.is_individual_scheduled || w.status === "개별진행";
                   return (
                     <span
                       key={w.id}
                       style={{
                         background: "#fff",
-                        border: isPending ? "1px solid #fcd34d" : "1px solid #86efac",
+                        border: isPending
+                          ? "1px solid #fcd34d"
+                          : "1px solid #86efac",
                         color: isPending ? "#b45309" : "#15803d",
                         borderRadius: 999,
                         padding: "3px 10px",
@@ -467,7 +522,8 @@ function LeaderForm() {
                         fontWeight: 600,
                       }}
                     >
-                      {idx + 1}. {w.worker_name} {isPending ? "(개별진행)" : "✓"}
+                      {idx + 1}. {w.worker_name}{" "}
+                      {isPending ? "(개별진행)" : "✓"}
                     </span>
                   );
                 })}
@@ -492,10 +548,19 @@ function LeaderForm() {
 
         <div className="field">
           <label>작업자 건강 및 보호구 상태 점검</label>
-          <select value={healthStatus} onChange={(e) => setHealthStatus(e.target.value)}>
-            <option value="이상없음">전원 이상없음 (보호구 착용 및 건강 양호)</option>
-            <option value="보호구 보완 조치 완료">보호구 미비자 보완 조치 후 작업 투입</option>
-            <option value="건강 이상자 작업 조정">건강 이상자(음주·피로 등) 작업 제외/조정</option>
+          <select
+            value={healthStatus}
+            onChange={(e) => setHealthStatus(e.target.value)}
+          >
+            <option value="이상없음">
+              전원 이상없음 (보호구 착용 및 건강 양호)
+            </option>
+            <option value="보호구 보완 조치 완료">
+              보호구 미비자 보완 조치 후 작업 투입
+            </option>
+            <option value="건강 이상자 작업 조정">
+              건강 이상자(음주·피로 등) 작업 제외/조정
+            </option>
           </select>
         </div>
 
@@ -517,7 +582,9 @@ function LeaderForm() {
               accept="image/*"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
-            <p className="muted">{file ? file.name : "현장에서 사진을 촬영하거나 선택해 주세요."}</p>
+            <p className="muted">
+              {file ? file.name : "현장에서 사진을 촬영하거나 선택해 주세요."}
+            </p>
           </div>
         </div>
 
@@ -545,7 +612,8 @@ function LeaderForm() {
               }}
             />
             <span>
-              <b>개별진행</b> (체크 시 서명 없이 저장되며, 근로자가 직접 들어가 교육 확인 후 서명)
+              <b>개별진행</b> (체크 시 서명 없이 저장되며, 근로자가 직접 들어가
+              교육 확인 후 서명)
             </span>
           </label>
 
@@ -562,12 +630,23 @@ function LeaderForm() {
           {!individualScheduled && (
             <div className="field" style={{ marginTop: 10, marginBottom: 10 }}>
               <label>근로자 서명</label>
-              <div style={{ border: "2px dashed #cbd5e1", borderRadius: 8, background: "#fff" }}>
+              <div
+                style={{
+                  border: "2px dashed #cbd5e1",
+                  borderRadius: 8,
+                  background: "#fff",
+                }}
+              >
                 <canvas
                   ref={canvasRef}
                   width={360}
                   height={120}
-                  style={{ width: "100%", height: 120, touchAction: "none", display: "block" }}
+                  style={{
+                    width: "100%",
+                    height: 120,
+                    touchAction: "none",
+                    display: "block",
+                  }}
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
@@ -585,7 +664,9 @@ function LeaderForm() {
                     borderTop: "1px solid #e5e7eb",
                   }}
                 >
-                  <span style={{ fontSize: 12, color: "#64748b" }}>서명란에 서명해 주세요</span>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    서명란에 서명해 주세요
+                  </span>
                   <button
                     type="button"
                     className="btn secondary"
@@ -609,7 +690,14 @@ function LeaderForm() {
           </button>
 
           {workerEntries.length > 0 && (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
               {workerEntries.map((entry, idx) => (
                 <div
                   key={entry.id}
@@ -629,10 +717,14 @@ function LeaderForm() {
                       {idx + 1}. {entry.worker_name}
                     </b>{" "}
                     <span
-                      className={`pill ${entry.individual_scheduled ? "wait" : "ok"}`}
+                      className={`pill ${
+                        entry.individual_scheduled ? "wait" : "ok"
+                      }`}
                       style={{ fontSize: 11.5, marginLeft: 4 }}
                     >
-                      {entry.individual_scheduled ? "개별진행 예정" : "서명 완료"}
+                      {entry.individual_scheduled
+                        ? "개별진행 예정"
+                        : "서명 완료"}
                     </span>
                   </div>
                   <button
@@ -649,7 +741,12 @@ function LeaderForm() {
           )}
         </div>
 
-        <button className="btn" style={{ width: "100%" }} onClick={upload} disabled={submitting}>
+        <button
+          className="btn"
+          style={{ width: "100%" }}
+          onClick={upload}
+          disabled={submitting}
+        >
           {submitting ? "제출 중..." : "사진 및 근로자 등록 제출"}
         </button>
 
@@ -669,7 +766,11 @@ function LeaderForm() {
               <button
                 type="button"
                 className="btn"
-                style={{ background: "#dc2626", borderColor: "#dc2626", padding: "8px 16px" }}
+                style={{
+                  background: "#dc2626",
+                  borderColor: "#dc2626",
+                  padding: "8px 16px",
+                }}
                 onClick={upload}
                 disabled={submitting}
               >
@@ -679,7 +780,9 @@ function LeaderForm() {
           </div>
         )}
       </div>
-      <div className="footer">사진에는 교육 참여 현장이 확인되도록 촬영해 주세요.</div>
+      <div className="footer">
+        사진에는 교육 참여 현장이 확인되도록 촬영해 주세요.
+      </div>
     </main>
   );
 }
@@ -697,7 +800,3 @@ export default function LeaderPage() {
     </Suspense>
   );
 }
-'@
-[System.IO.File]::WriteAllText((Resolve-Path "app/leader/page.tsx"), $code, [System.Text.UTF8Encoding]::new($false))
-Get-Item app/leader/page.tsx | Select-Object Name, Length
-Get-Content app/leader/page.tsx | Select-Object -Last 10
