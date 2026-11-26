@@ -241,7 +241,7 @@ export default function ForkliftAdminPage() {
     URL.revokeObjectURL(url);
   }
 
-  function printSingleTbm(item: any) {
+  function openTbmDocument(item: any, mode: "print" | "pdf") {
     const printWin = window.open("", "_blank", "width=820,height=920");
     if (!printWin) {
       setMsg("팝업 차단이 켜져 있습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.");
@@ -258,6 +258,8 @@ export default function ForkliftAdminPage() {
         : item.status === "반납완료"
         ? "-"
         : "미반납";
+
+    const docTitle = `지게차_TBM_${item.forklift_type}_${item.user_name}`;
 
     const checklistRows = Object.keys(PRE_WORK_LABELS)
       .map((num) => {
@@ -304,19 +306,23 @@ export default function ForkliftAdminPage() {
       `
       : "";
 
+    const pdfHint =
+      mode === "pdf"
+        ? `<div class="pdf-banner">인쇄 창에서 대상을 <b>'PDF로 저장(Save as PDF)'</b>으로 선택한 뒤 저장해 주세요.</div>`
+        : "";
+
     const html = `
       <!doctype html>
       <html lang="ko">
       <head>
         <meta charset="utf-8" />
-        <title>지게차 TBM 기록 - ${escapeHtml(item.forklift_type)} - ${escapeHtml(
-      item.user_name
-    )}</title>
+        <title>${escapeHtml(docTitle)}</title>
         <style>
           body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; color: #0f172a; margin: 24px; }
           .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 16px; }
           h1 { margin: 0; font-size: 20px; }
           .sub { font-size: 12px; color: #475569; margin-top: 4px; }
+          .pdf-banner { background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; padding: 8px 12px; border-radius: 6px; font-size: 12.5px; margin-bottom: 12px; }
           .info-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
           .info-table th, .info-table td { border: 1px solid #cbd5e1; padding: 7px 9px; text-align: left; }
           .info-table th { background: #f1f5f9; width: 16%; font-weight: bold; }
@@ -331,18 +337,21 @@ export default function ForkliftAdminPage() {
           .photo-img { max-width: 100%; max-height: 240px; object-fit: contain; display: block; border-radius: 4px; }
           .sign-img { max-height: 110px; object-fit: contain; display: block; }
           .muted { color: #64748b; font-size: 12.5px; }
-          .no-print { margin-bottom: 14px; text-align: right; }
+          .no-print { margin-bottom: 14px; display: flex; gap: 8px; justify-content: flex-end; }
           .print-btn { padding: 8px 14px; font-size: 13px; font-weight: bold; background: #1d4ed8; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
           @media print {
-            .no-print { display: none; }
+            .no-print, .pdf-banner { display: none; }
             body { margin: 10mm; }
           }
         </style>
       </head>
       <body>
         <div class="no-print">
-          <button class="print-btn" onclick="window.print()">인쇄 / PDF 저장</button>
+          <button class="print-btn" onclick="window.print()">${
+            mode === "pdf" ? "PDF로 저장" : "인쇄하기"
+          }</button>
         </div>
+        ${pdfHint}
         <div class="head">
           <div>
             <h1>동아스틸 지게차 사용 및 TBM 점검 기록</h1>
@@ -660,9 +669,16 @@ export default function ForkliftAdminPage() {
                       <button
                         type="button"
                         className="btn secondary"
-                        onClick={() => printSingleTbm(item)}
+                        onClick={() => openTbmDocument(item, "print")}
                       >
-                        출력/PDF
+                        출력
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        onClick={() => openTbmDocument(item, "pdf")}
+                      >
+                        PDF 저장
                       </button>
                       <button
                         type="button"
@@ -706,14 +722,22 @@ export default function ForkliftAdminPage() {
           <div className="card" style={{ maxWidth: 720, margin: "0 auto", background: "#fff" }}>
             <div className="row between" style={{ marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>지게차 사용 상세 내역</h3>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="btn"
                   style={{ padding: "7px 12px", fontSize: 13 }}
-                  onClick={() => printSingleTbm(selectedLog)}
+                  onClick={() => openTbmDocument(selectedLog, "print")}
                 >
-                  TBM 출력 / PDF 저장
+                  출력
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ padding: "7px 12px", fontSize: 13, background: "#0f766e" }}
+                  onClick={() => openTbmDocument(selectedLog, "pdf")}
+                >
+                  PDF 저장
                 </button>
                 <button
                   type="button"
