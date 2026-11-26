@@ -120,7 +120,7 @@ function LeaderForm() {
           .select("id,week_label,topic,title,content,photo_paths")
           .eq("is_published", true)
           .order("starts_at", { ascending: false }),
-supabase
+        supabase
           .from("tbm_process_rules")
           .select("id,process_name,rule_text"),
       ]);
@@ -158,7 +158,7 @@ supabase
     return order.indexOf(a.name) - order.indexOf(b.name);
   });
 
-const selectedTeamObj = teams.find((t) => t.id === team);
+  const selectedTeamObj = teams.find((t) => t.id === team);
   const currentProcess = selectedTeamObj ? getProcessByTeamName(selectedTeamObj.name) : "전사공통";
   const normalizeProc = (s: string) => (s || "").replace(/\s+/g, "").trim();
   const matchedProcessRules = processRules.filter(
@@ -234,7 +234,7 @@ const selectedTeamObj = teams.find((t) => t.id === team);
     setHasDrawn(false);
   };
 
-function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
+  function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
     const trimmed = workerName.trim();
 
     if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
@@ -346,41 +346,23 @@ function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
       return;
     }
 
-function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
-    const trimmed = workerName.trim();
+    const pendingEntries: WorkerEntry[] = [...workerEntries];
+    const hasAnyWorkerInput =
+      workerName.trim().length > 0 ||
+      individualScheduled ||
+      hasDrawn ||
+      workerSelectedRules.length > 0;
 
-    if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
+    if (!individualScheduled && !hasDrawn && pendingEntries.length === 0) {
       setNotice("개별 제출인 경우 체크 후 제출해주세요", true);
-      return null;
+      return;
     }
 
-    if (requireName && !trimmed) {
-      setNotice("근로자 이름을 입력해 주세요.", true);
-      return null;
+    if (hasAnyWorkerInput) {
+      const draftEntry = validateAndBuildDraftEntry(true);
+      if (!draftEntry) return;
+      pendingEntries.push(draftEntry);
     }
-
-    if (!individualScheduled && minRequiredRules > 0 && workerSelectedRules.length < minRequiredRules) {
-      setNotice(
-        `위험요인(안전수칙)을 ${minRequiredRules}개 이상 선택해 주세요.`,
-        true
-      );
-      return null;
-    }
-
-    const sig =
-      individualScheduled || !canvasRef.current
-        ? null
-        : canvasRef.current.toDataURL("image/png");
-
-    return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      worker_name: trimmed,
-      individual_scheduled: individualScheduled,
-      selected_rules: individualScheduled ? [] : workerSelectedRules,
-      signature_data: sig,
-      has_drawn: !individualScheduled && hasDrawn,
-    };
-  }
 
     setSubmitting(true);
     setNotice("사진 용량을 최적화하여 업로드 중입니다...", false);
@@ -721,7 +703,6 @@ function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
             />
           </div>
 
-{/* 다같이 서명(개별진행 미체크) 시 근로자 이름 밑 위험요인 2개 이상 선택 */}
           {!individualScheduled && applicableRules.length > 0 && (
             <div
               style={{
