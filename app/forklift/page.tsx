@@ -21,133 +21,49 @@ const PICKUP_LOCATIONS = [
   "기타장소",
 ] as const;
 
-type ChecklistItem = {
+type PreCheckItem = {
   no: number;
-  stage: "작업전 TBM" | "작업중 TBM" | "작업후 TBM";
   hazard: string;
   measure: string;
 };
 
-const TBM_CHECKLIST: ChecklistItem[] = [
-  // 제1단 작업전 TBM
+const PRE_WORK_CHECKLIST: PreCheckItem[] = [
   {
     no: 1,
-    stage: "작업전 TBM",
     hazard: "지면 파손·미끄러움으로 전도 위험",
     measure: "작업 전 바닥 점검, 미끄럼 방지 조치",
   },
   {
     no: 2,
-    stage: "작업전 TBM",
     hazard: "지게차 브레이크·타이어 불량",
     measure: "운행 전 일상 점검 후 발견 시 운행 금지",
   },
   {
     no: 3,
-    stage: "작업전 TBM",
     hazard: "포크 체결 부 느슨함",
     measure: "포크 상태 및 체결 핀 확인, 이상 시 정비 요청",
   },
   {
     no: 4,
-    stage: "작업전 TBM",
     hazard: "배터리·연료 부족으로 작업 중단",
     measure: "충전·주유 상태 점검 후 충분히 확보",
   },
   {
     no: 5,
-    stage: "작업전 TBM",
     hazard: "경사로·장애물 확인",
     measure: "동선 사전 점검, 위험 구간 회피 계획 수립",
   },
   {
     no: 6,
-    stage: "작업전 TBM",
     hazard: "지게차, 화물차량 사람 또는 타물체와 충돌 위험",
     measure: "보행통로 이동 및 주변 확인 철저",
   },
-
-  // 제2단 작업중 TBM
-  {
-    no: 7,
-    stage: "작업중 TBM",
-    hazard: "제한속도 초과로 충돌 위험",
-    measure: "지정 속도 (10KM 이하) 준수, 급정지·급회전 금지",
-  },
-  {
-    no: 8,
-    stage: "작업중 TBM",
-    hazard: "포크를 높인 상태로 주행",
-    measure: "주행 시 포크 최저 위치 유지",
-  },
-  {
-    no: 9,
-    stage: "작업중 TBM",
-    hazard: "적재물로 인한 시야 방해",
-    measure: "과적 금지, 시야 방해 시 신호수 유도 활용",
-  },
-  {
-    no: 10,
-    stage: "작업중 TBM",
-    hazard: "경사로 주행 시 전도",
-    measure: "저속·직선 주행, 경사도 큰 구간은 우회",
-  },
-  {
-    no: 11,
-    stage: "작업중 TBM",
-    hazard: "적재물 낙하 위험",
-    measure: "화물 균형 확인, 묶음 고정 사용",
-  },
-  {
-    no: 12,
-    stage: "작업중 TBM",
-    hazard: "보행자 접근으로 충돌",
-    measure: "접근 시 경적·경광등 사용, 일시 정지",
-  },
-  {
-    no: 13,
-    stage: "작업중 TBM",
-    hazard: "조명 불량 구역 작업",
-    measure: "추가 조명 설치 또는 작업 제한",
-  },
-
-  // 제3단 작업후 TBM
-  {
-    no: 14,
-    stage: "작업후 TBM",
-    hazard: "브레이크 미 체결, 키 방치",
-    measure: "주차 브레이크 채우고 키 분리·관리",
-  },
-  {
-    no: 15,
-    stage: "작업후 TBM",
-    hazard: "지정 구역 외 주차로 충돌 위험",
-    measure: "반드시 지정된 주차 장소에 주차",
-  },
-  {
-    no: 16,
-    stage: "작업후 TBM",
-    hazard: "이상 발생 보고 누락",
-    measure: "TBM 일지 및 정비 요청서 기록 및 제출",
-  },
 ];
 
-const STAGES: { key: ChecklistItem["stage"]; title: string; guide: string }[] = [
-  {
-    key: "작업전 TBM",
-    title: "제1단 · 작업전 TBM",
-    guide: "중점실시항목에 ◎표시하고 전원이 지시호칭한다 (적정 ○ / 부적정 △)",
-  },
-  {
-    key: "작업중 TBM",
-    title: "제2단 · 작업중 TBM",
-    guide: "중점실시항목에 ◎표시하고 전원이 지시호칭한다 (적정 ○ / 부적정 △)",
-  },
-  {
-    key: "작업후 TBM",
-    title: "제3단 · 작업후 TBM",
-    guide: "중점실시항목에 ◎표시하고 전원이 지시호칭한다 (적정 ○ / 부적정 △)",
-  },
+const WORK_RULES_SUMMARY = [
+  "제한속도(10km 이하) 준수, 급정지·급회전 금지",
+  "주행 시 포크 최저 위치 유지 및 적재물 시야·균형·고정 확인",
+  "보행자 접근 시 경적·경광등 사용 및 일시 정지, 조도 취약 구역 주의",
 ];
 
 export default function ForkliftPage() {
@@ -162,6 +78,7 @@ export default function ForkliftPage() {
 
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [checklist, setChecklist] = useState<Record<string, "적정 ○" | "부적정 △" | "">>({});
+  const [workRulesAgreed, setWorkRulesAgreed] = useState(false);
   const [pledgeChecked, setPledgeChecked] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
@@ -267,16 +184,23 @@ export default function ForkliftPage() {
     }
 
     if (!checklistOpen) {
-      setMsg("먼저 [수령] 버튼을 눌러 TBM 체크리스트를 확인해 주세요.");
+      setMsg("먼저 [수령] 버튼을 눌러 작업 전 점검 체크리스트를 확인해 주세요.");
       return;
     }
 
-    const missingItem = TBM_CHECKLIST.find(
+    const missingItem = PRE_WORK_CHECKLIST.find(
       (item) =>
         checklist[String(item.no)] !== "적정 ○" && checklist[String(item.no)] !== "부적정 △"
     );
     if (missingItem) {
-      setMsg(`${missingItem.no}번 항목(${missingItem.hazard})의 적정 ○ / 부적정 △을 선택해 주세요.`);
+      setMsg(
+        `${missingItem.no}번 항목(${missingItem.hazard})의 적정 ○ / 부적정 △을 선택해 주세요.`
+      );
+      return;
+    }
+
+    if (!workRulesAgreed) {
+      setMsg('"작업중 안전수칙을 준수하겠습니다."에 체크해 주세요.');
       return;
     }
 
@@ -296,6 +220,11 @@ export default function ForkliftPage() {
       pickupType === "기타장소" ? customPickupLocation.trim() : pickupType;
     const pickedUpAt = new Date().toISOString();
 
+    const payloadChecklist = {
+      ...checklist,
+      work_rules_agreed: true,
+    };
+
     setSubmitting(true);
     try {
       const signatureData = canvasRef.current.toDataURL("image/png");
@@ -307,7 +236,7 @@ export default function ForkliftPage() {
         has_license: hasLicense,
         pickup_location: finalPickupLocation,
         pickup_location_type: pickupType,
-        checklist,
+        checklist: payloadChecklist,
         pledge_agreed: true,
         signature_data: signatureData,
         status: "사용중",
@@ -348,7 +277,7 @@ export default function ForkliftPage() {
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · FORKLIFT TBM</div>
         <h1>지게차 사용 신청</h1>
         <div style={{ fontSize: 13, opacity: 0.85 }}>
-          키 수령(복수 선택 가능) · 작업전/중/후 TBM 체크리스트 · 서명
+          키 수령(복수 선택 가능) · 작업 전 점검 · 작업중 안전수칙 · 서명
         </div>
       </div>
 
@@ -502,82 +431,109 @@ export default function ForkliftPage() {
               style={{ width: "100%", marginTop: 10 }}
               onClick={handlePickupClick}
             >
-              수령 (TBM 체크리스트 열기)
+              수령 (작업 전 점검 열기)
             </button>
           </div>
 
           {checklistOpen && (
             <div className="card section">
               <div className="row between" style={{ marginBottom: 8 }}>
-                <h3 style={{ margin: 0 }}>2. 지게차 TBM 체크리스트</h3>
+                <h3 style={{ margin: 0 }}>2. 작업 전 지게차 점검</h3>
                 <span className="pill ok">{selectedForklifts.join(" · ")}</span>
               </div>
 
-              {STAGES.map((stageObj) => (
-                <div key={stageObj.key} style={{ marginTop: 14 }}>
-                  <div
-                    style={{
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      background: "#1e3a8a",
-                      color: "#fff",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>{stageObj.title}</div>
-                    <div style={{ fontSize: 11.5, opacity: 0.9, marginTop: 2 }}>{stageObj.guide}</div>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                    {TBM_CHECKLIST.filter((item) => item.stage === stageObj.key).map((item) => {
-                      const currentVal = checklist[String(item.no)] || "";
-                      return (
-                        <div
-                          key={item.no}
-                          style={{
-                            padding: 10,
-                            borderRadius: 8,
-                            border: "1px solid #cbd5e1",
-                            background: "#f8fafc",
-                          }}
-                        >
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                            {item.no}. {item.hazard}
-                          </div>
-                          <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>
-                            안전대책: {item.measure}
-                          </div>
-                          <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
-                            {(["적정 ○", "부적정 △"] as const).map((opt) => (
-                              <label key={opt} className="checkrow" style={{ margin: 0 }}>
-                                <input
-                                  type="radio"
-                                  name={`chk_${item.no}`}
-                                  checked={currentVal === opt}
-                                  onChange={() =>
-                                    setChecklist((prev) => ({ ...prev, [String(item.no)]: opt }))
-                                  }
-                                />
-                                <span
-                                  style={{
-                                    fontWeight: 600,
-                                    color: opt === "부적정 △" ? "#dc2626" : "#1d4ed8",
-                                  }}
-                                >
-                                  {opt}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+              <div
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  background: "#1e3a8a",
+                  color: "#fff",
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>작업 전 점검 항목 (1~6번)</div>
+                <div style={{ fontSize: 11.5, opacity: 0.9, marginTop: 2 }}>
+                  출발 전 현장·장비 상태를 확인하고 적정 ○ / 부적정 △을 선택해 주세요.
                 </div>
-              ))}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                {PRE_WORK_CHECKLIST.map((item) => {
+                  const currentVal = checklist[String(item.no)] || "";
+                  return (
+                    <div
+                      key={item.no}
+                      style={{
+                        padding: 10,
+                        borderRadius: 8,
+                        border: "1px solid #cbd5e1",
+                        background: "#f8fafc",
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                        {item.no}. {item.hazard}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>
+                        안전대책: {item.measure}
+                      </div>
+                      <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+                        {(["적정 ○", "부적정 △"] as const).map((opt) => (
+                          <label key={opt} className="checkrow" style={{ margin: 0 }}>
+                            <input
+                              type="radio"
+                              name={`chk_${item.no}`}
+                              checked={currentVal === opt}
+                              onChange={() =>
+                                setChecklist((prev) => ({ ...prev, [String(item.no)]: opt }))
+                              }
+                            />
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color: opt === "부적정 △" ? "#dc2626" : "#1d4ed8",
+                              }}
+                            >
+                              {opt}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
               <div
                 style={{
-                  marginTop: 16,
+                  marginTop: 14,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: "#f8fafc",
+                  border: "1px solid #cbd5e1",
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>
+                  작업 중 안전수칙 안내
+                </div>
+                <ul style={{ margin: "0 0 10px 18px", padding: 0, fontSize: 12.5, color: "#334155", lineHeight: 1.55 }}>
+                  {WORK_RULES_SUMMARY.map((rule) => (
+                    <li key={rule}>{rule}</li>
+                  ))}
+                </ul>
+                <label className="checkrow" style={{ margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={workRulesAgreed}
+                    onChange={(e) => setWorkRulesAgreed(e.target.checked)}
+                  />
+                  <span style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a" }}>
+                    작업중 안전수칙을 준수하겠습니다.
+                  </span>
+                </label>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 12,
                   padding: 12,
                   borderRadius: 8,
                   background: "#eff6ff",
@@ -687,6 +643,7 @@ export default function ForkliftPage() {
                 setDone(false);
                 setChecklistOpen(false);
                 setChecklist({});
+                setWorkRulesAgreed(false);
                 setPledgeChecked(false);
                 setHasDrawn(false);
                 setUserName("");

@@ -3,23 +3,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
 
-const TBM_LABELS: Record<string, { stage: string; hazard: string; measure: string }> = {
-  "1": { stage: "작업전 TBM", hazard: "지면 파손·미끄러움으로 전도 위험", measure: "작업 전 바닥 점검, 미끄럼 방지 조치" },
-  "2": { stage: "작업전 TBM", hazard: "지게차 브레이크·타이어 불량", measure: "운행 전 일상 점검 후 발견 시 운행 금지" },
-  "3": { stage: "작업전 TBM", hazard: "포크 체결 부 느슨함", measure: "포크 상태 및 체결 핀 확인, 이상 시 정비 요청" },
-  "4": { stage: "작업전 TBM", hazard: "배터리·연료 부족으로 작업 중단", measure: "충전·주유 상태 점검 후 충분히 확보" },
-  "5": { stage: "작업전 TBM", hazard: "경사로·장애물 확인", measure: "동선 사전 점검, 위험 구간 회피 계획 수립" },
-  "6": { stage: "작업전 TBM", hazard: "지게차, 화물차량 사람 또는 타물체와 충돌 위험", measure: "보행통로 이동 및 주변 확인 철저" },
-  "7": { stage: "작업중 TBM", hazard: "제한속도 초과로 충돌 위험", measure: "지정 속도 (10KM 이하) 준수, 급정지·급회전 금지" },
-  "8": { stage: "작업중 TBM", hazard: "포크를 높인 상태로 주행", measure: "주행 시 포크 최저 위치 유지" },
-  "9": { stage: "작업중 TBM", hazard: "적재물로 인한 시야 방해", measure: "과적 금지, 시야 방해 시 신호수 유도 활용" },
-  "10": { stage: "작업중 TBM", hazard: "경사로 주행 시 전도", measure: "저속·직선 주행, 경사도 큰 구간은 우회" },
-  "11": { stage: "작업중 TBM", hazard: "적재물 낙하 위험", measure: "화물 균형 확인, 묶음 고정 사용" },
-  "12": { stage: "작업중 TBM", hazard: "보행자 접근으로 충돌", measure: "접근 시 경적·경광등 사용, 일시 정지" },
-  "13": { stage: "작업중 TBM", hazard: "조명 불량 구역 작업", measure: "추가 조명 설치 또는 작업 제한" },
-  "14": { stage: "작업후 TBM", hazard: "브레이크 미 체결, 키 방치", measure: "주차 브레이크 채우고 키 분리·관리" },
-  "15": { stage: "작업후 TBM", hazard: "지정 구역 외 주차로 충돌 위험", measure: "반드시 지정된 주차 장소에 주차" },
-  "16": { stage: "작업후 TBM", hazard: "이상 발생 보고 누락", measure: "TBM 일지 및 정비 요청서 기록 및 제출" },
+const PRE_WORK_LABELS: Record<string, { hazard: string; measure: string }> = {
+  "1": { hazard: "지면 파손·미끄러움으로 전도 위험", measure: "작업 전 바닥 점검, 미끄럼 방지 조치" },
+  "2": { hazard: "지게차 브레이크·타이어 불량", measure: "운행 전 일상 점검 후 발견 시 운행 금지" },
+  "3": { hazard: "포크 체결 부 느슨함", measure: "포크 상태 및 체결 핀 확인, 이상 시 정비 요청" },
+  "4": { hazard: "배터리·연료 부족으로 작업 중단", measure: "충전·주유 상태 점검 후 충분히 확보" },
+  "5": { hazard: "경사로·장애물 확인", measure: "동선 사전 점검, 위험 구간 회피 계획 수립" },
+  "6": { hazard: "지게차, 화물차량 사람 또는 타물체와 충돌 위험", measure: "보행통로 이동 및 주변 확인 철저" },
 };
 
 export default function ForkliftAdminPage() {
@@ -184,16 +174,14 @@ export default function ForkliftAdminPage() {
       : logs.filter((l) => l.forklift_type === forkliftFilter);
 
   const activeCnt = logs.filter((l) => l.status === "사용중").length;
-  const abnormalCnt = logs.filter((l) =>
-    Object.values(l.checklist || {}).some((v) => v === "부적정 △")
-  ).length;
+  const issueCnt = logs.filter((l) => l.return_issue_status === "있음").length;
 
   return (
     <main className="shell">
       <div className="pagehead">
         <div>
           <h1>지게차 관리자 대시보드</h1>
-          <div className="muted">수령·반납 이력, TBM 체크리스트 결과, 반납사진 및 서명 조회</div>
+          <div className="muted">수령·반납 이력, 작업 전 점검, 특이사항, 반납사진 및 서명 조회</div>
         </div>
         <div className="row">
           <Link href="/" className="btn secondary">
@@ -218,9 +206,9 @@ export default function ForkliftAdminPage() {
           <div className="metric">{activeCnt}</div>
         </div>
         <div className="card">
-          <div className="muted">부적정 △ 포함 건</div>
+          <div className="muted">반납 특이사항 있음</div>
           <div className="metric" style={{ color: "#dc2626" }}>
-            {abnormalCnt}
+            {issueCnt}
           </div>
         </div>
       </div>
@@ -242,7 +230,7 @@ export default function ForkliftAdminPage() {
             marginBottom: 12,
           }}
         >
-          <h2 style={{ margin: 0 }}>지게차 TBM 및 키 관리 기록</h2>
+          <h2 style={{ margin: 0 }}>지게차 사용 및 점검 기록</h2>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {["전체", "1공장 7톤", "1공장 14톤", "2공장 7톤"].map((f) => (
               <button
@@ -272,6 +260,7 @@ export default function ForkliftAdminPage() {
                 <th>자격</th>
                 <th>수령장소 / 시각</th>
                 <th>반납장소 / 시각</th>
+                <th>특이사항</th>
                 <th>관리</th>
               </tr>
             </thead>
@@ -310,6 +299,21 @@ export default function ForkliftAdminPage() {
                     )}
                   </td>
                   <td>
+                    {item.status === "반납완료" ? (
+                      <span
+                        className="pill"
+                        style={{
+                          background: item.return_issue_status === "있음" ? "#fee2e2" : "#dcfce7",
+                          color: item.return_issue_status === "있음" ? "#dc2626" : "#15803d",
+                        }}
+                      >
+                        {item.return_issue_status || "없음"}
+                      </span>
+                    ) : (
+                      <span className="muted">-</span>
+                    )}
+                  </td>
+                  <td>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button
                         type="button"
@@ -336,7 +340,7 @@ export default function ForkliftAdminPage() {
               ))}
               {!filtered.length && (
                 <tr>
-                  <td colSpan={8} className="empty">
+                  <td colSpan={9} className="empty">
                     기록이 없습니다.
                   </td>
                 </tr>
@@ -359,13 +363,13 @@ export default function ForkliftAdminPage() {
         >
           <div className="card" style={{ maxWidth: 720, margin: "0 auto", background: "#fff" }}>
             <div className="row between" style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: 0 }}>지게차 TBM 상세 내역</h3>
+              <h3 style={{ margin: 0 }}>지게차 사용 상세 내역</h3>
               <button type="button" className="btn secondary" onClick={() => setSelectedLog(null)}>
                 닫기
               </button>
             </div>
 
-            <p style={{ fontSize: 13.5, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13.5, lineHeight: 1.65 }}>
               <b>지게차:</b> {selectedLog.forklift_type} / <b>상태:</b> {selectedLog.status}
               <br />
               <b>소속업체:</b> {selectedLog.company_name} / <b>사용자:</b> {selectedLog.user_name} (자격:{" "}
@@ -373,6 +377,9 @@ export default function ForkliftAdminPage() {
               <br />
               <b>수령:</b> {selectedLog.pickup_location} (
               {new Date(selectedLog.picked_up_at).toLocaleString("ko-KR")})
+              <br />
+              <b>작업중 안전수칙 준수:</b>{" "}
+              {selectedLog.checklist?.work_rules_agreed ? "준수 동의" : "미기록"}
               <br />
               <b>반납:</b>{" "}
               {selectedLog.status === "반납완료"
@@ -382,18 +389,24 @@ export default function ForkliftAdminPage() {
                       : "-"
                   })`
                 : "미반납"}
+              {selectedLog.status === "반납완료" && (
+                <>
+                  <br />
+                  <b>반납 특이사항 유무:</b> {selectedLog.return_issue_status || "없음"}
+                </>
+              )}
               {selectedLog.return_note && (
                 <>
                   <br />
-                  <b>반납 메모:</b> {selectedLog.return_note}
+                  <b>특이사항 메모:</b> {selectedLog.return_note}
                 </>
               )}
             </p>
 
-            <h4>체크리스트 점검 결과</h4>
+            <h4>작업 전 지게차 점검 결과</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {Object.keys(TBM_LABELS).map((num) => {
-                const info = TBM_LABELS[num];
+              {Object.keys(PRE_WORK_LABELS).map((num) => {
+                const info = PRE_WORK_LABELS[num];
                 const val = selectedLog.checklist?.[num] || "-";
                 const isBad = val === "부적정 △";
                 return (
@@ -411,7 +424,7 @@ export default function ForkliftAdminPage() {
                     }}
                   >
                     <div style={{ fontSize: 12.5 }}>
-                      <b>{num}.</b> [{info.stage}] {info.hazard}
+                      <b>{num}.</b> {info.hazard}
                     </div>
                     <span
                       className={`pill ${isBad ? "wait" : "ok"}`}

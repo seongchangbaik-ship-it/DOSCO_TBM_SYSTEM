@@ -17,11 +17,12 @@ type ForkliftLog = {
   user_name: string;
   has_license: string;
   pickup_location: string;
-  checklist: Record<string, string>;
+  checklist: Record<string, any>;
   status: string;
   picked_up_at: string;
   returned_at: string | null;
   return_location: string | null;
+  return_issue_status: string | null;
   return_note: string | null;
   return_photo_data: string | null;
 };
@@ -37,8 +38,9 @@ export default function ForkliftStatusPage() {
   const [returnType, setReturnType] = useState<string>("1공장 출하사무실");
   const [customReturnLocation, setCustomReturnLocation] = useState("");
   const [returnConfirmed, setReturnConfirmed] = useState(false);
-  const [returnPhotoData, setReturnPhotoData] = useState<string | null>(null);
+  const [issueStatus, setIssueStatus] = useState<"없음" | "있음">("없음");
   const [returnNote, setReturnNote] = useState("");
+  const [returnPhotoData, setReturnPhotoData] = useState<string | null>(null);
   const [savingReturn, setSavingReturn] = useState(false);
 
   async function loadLogs() {
@@ -90,8 +92,9 @@ export default function ForkliftStatusPage() {
     );
     setCustomReturnLocation("");
     setReturnConfirmed(false);
-    setReturnPhotoData(null);
+    setIssueStatus("없음");
     setReturnNote("");
+    setReturnPhotoData(null);
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -121,6 +124,11 @@ export default function ForkliftStatusPage() {
       return;
     }
 
+    if (issueStatus === "있음" && !returnNote.trim()) {
+      setMsg("특이사항 '있음'을 선택하셨습니다. 이상·고장·접촉 내용을 메모에 입력해 주세요.");
+      return;
+    }
+
     setSavingReturn(true);
 
     try {
@@ -134,6 +142,7 @@ export default function ForkliftStatusPage() {
           status: "반납완료",
           returned_at: new Date().toISOString(),
           return_location: finalReturnLocation,
+          return_issue_status: issueStatus,
           return_note: returnNote.trim() || null,
           return_photo_data: returnPhotoData,
         })
@@ -144,7 +153,9 @@ export default function ForkliftStatusPage() {
       }
 
       const targetNames = returningTargets.map((t) => t.forklift_type).join(", ");
-      setMsg(`${targetNames} (${returningTargets.length}건)이 [${finalReturnLocation}]에 반납 처리되었습니다.`);
+      setMsg(
+        `${targetNames} (${returningTargets.length}건)이 [${finalReturnLocation}]에 반납 처리되었습니다.`
+      );
       setReturningTargets([]);
       setSelectedIds((prev) => prev.filter((id) => !targetIds.includes(id)));
       await loadLogs();
@@ -155,9 +166,11 @@ export default function ForkliftStatusPage() {
     }
   }
 
-  function countAbnormal(checklist: Record<string, string>) {
+  function countAbnormal(checklist: Record<string, any>) {
     if (!checklist) return 0;
-    return Object.values(checklist).filter((v) => v === "부적정 △").length;
+    return Object.entries(checklist)
+      .filter(([key]) => ["1", "2", "3", "4", "5", "6"].includes(key))
+      .filter(([, val]) => val === "부적정 △").length;
   }
 
   const filteredLogs = logs.filter((item) => {
@@ -289,6 +302,7 @@ export default function ForkliftStatusPage() {
                   <th>자격</th>
                   <th>수령장소 / 수령일시</th>
                   <th>반납장소 / 반납일시</th>
+                  <th>특이사항</th>
                   <th>반납사진</th>
                   <th>점검</th>
                   <th>반납</th>
@@ -298,6 +312,7 @@ export default function ForkliftStatusPage() {
                 {filteredLogs.map((item) => {
                   const abnCnt = countAbnormal(item.checklist);
                   const isActive = item.status === "사용중";
+                  const hasIssue = item.return_issue_status === "있음";
                   return (
                     <tr key={item.id}>
                       <td>
@@ -341,6 +356,26 @@ export default function ForkliftStatusPage() {
                           </>
                         ) : (
                           <span className="muted">미반납</span>
+                        )}
+                      </td>
+                      <td>
+                        {!isActive ? (
+                          <div>
+                            <span
+                              className="pill"
+                              style={{
+                                background: hasIssue ? "#fee2e2" : "#dcfce7",
+                                color: hasIssue ? "#dc2626" : "#15803d",
+                              }}
+                            >
+                              {item.return_issue_status || "없음"}
+                            </span>
+                            {item.return_note && (
+                              <div style={{ fontSize: 12, marginTop: 4 }}>{item.return_note}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="muted">-</span>
                         )}
                       </td>
                       <td>
@@ -391,7 +426,7 @@ export default function ForkliftStatusPage() {
 
                 {!filteredLogs.length && (
                   <tr>
-                    <td colSpan={10} className="empty">
+                    <td colSpan={11} className="empty">
                       표시할 지게차 사용 기록이 없습니다.
                     </td>
                   </tr>
@@ -500,6 +535,41 @@ export default function ForkliftStatusPage() {
             </div>
 
             <div className="field" style={{ marginTop: 12 }}>
+              <label>운행중 이상·고장·접촉 등 특이사항 유무</label>
+              <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
+                {(["없음", "있음"] as const).map((opt) => (
+                  <label key={opt} className="checkrow" style={{ margin: 0 }}>
+                    <input
+                      type="radio"
+                      name="issueStatus"
+                      checked={issueStatus === opt}
+                      onChange={() => setIssueStatus(opt)}
+                    />
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        color: opt === "있음" ? "#dc2626" : "#0f172a",
+                      }}
+                    >
+                      {opt}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {issueStatus === "있음" && (
+                <div style={{ marginTop: 8 }}>
+                  <input
+                    className="input"
+                    value={returnNote}
+                    onChange={(e) => setReturnNote(e.target.value)}
+                    placeholder="이상·고장·접촉 등 특이사항 메모를 입력해 주세요"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
               <label>반납 사진 첨부 (선택)</label>
               <input
                 type="file"
@@ -531,16 +601,6 @@ export default function ForkliftStatusPage() {
                   </button>
                 </div>
               )}
-            </div>
-
-            <div className="field">
-              <label>특이사항 / 메모 (선택)</label>
-              <input
-                className="input"
-                value={returnNote}
-                onChange={(e) => setReturnNote(e.target.value)}
-                placeholder="특이사항이 없으면 비워 두셔도 됩니다"
-              />
             </div>
 
             {msg && (
