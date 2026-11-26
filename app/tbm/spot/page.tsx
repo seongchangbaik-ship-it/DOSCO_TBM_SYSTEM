@@ -329,11 +329,16 @@ export default function SpotTbmCreatePage() {
 
   return (
     <main className="mobile">
+            <div className="row between" style={{ marginBottom: 10 }}>
+        <Link href="/tbm-main" className="btn secondary">
+          ← TBM 메뉴
+        </Link>
+        <Link href="/tbm/status" className="btn secondary">
+          실시 현황 보기 →
+        </Link>
+      </div>
       <div className="mobilehero" style={{ background: "linear-gradient(135deg, #0f766e, #115e59)" }}>
-        <div className="row between"><div style={{ display: "flex", alignItems: "center", gap: 10 }}><Link href="/tbm-main" style={{ color: "#fff", fontSize: 12.5, textDecoration: "underline", fontWeight: 600 }}>← TBM 메뉴</Link><span style={{ fontSize: 12, opacity: 0.85 }}>DOSCO TBM SYSTEM</span></div>
-          <Link href="/tbm/status" style={{ color: "#fff", fontSize: 12.5, textDecoration: "underline" }}>
-            실시 현황 보기 →
-          </Link>
+        <div className="row between"><span style={{ fontSize: 12, opacity: 0.85 }}>DOSCO TBM SYSTEM</span>
         </div>
         <h1>수시 작업 TBM 작성</h1>
         <div style={{ fontSize: 13, opacity: 0.9 }}>R/C(롤 교체) · 설비 정비 · 돌발작업 전 현장 TBM</div>
@@ -534,4 +539,5 @@ export default function SpotTbmCreatePage() {
     </main>
   );
 }
+
 
