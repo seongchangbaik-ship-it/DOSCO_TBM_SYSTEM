@@ -1,5 +1,6 @@
 ﻿"use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
 
@@ -21,7 +22,10 @@ type WorkerEntry = {
   has_drawn: boolean;
 };
 
-export default function LeaderPage() {
+function LeaderForm() {
+  const searchParams = useSearchParams();
+  const initialWeekId = searchParams.get("w") || "";
+
   const [companies, setCompanies] = useState<Company[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [weeks, setWeeks] = useState<Week[]>([]);
@@ -92,10 +96,16 @@ export default function LeaderPage() {
         )
       );
       setTeams(t.data || []);
-      setWeeks((w.data as Week[]) || []);
-      if (w.data?.[0]) setWeek(w.data[0].id);
+
+      const loadedWeeks = (w.data as Week[]) || [];
+      setWeeks(loadedWeeks);
+      if (initialWeekId && loadedWeeks.some((item) => item.id === initialWeekId)) {
+        setWeek(initialWeekId);
+      } else if (loadedWeeks[0]) {
+        setWeek(loadedWeeks[0].id);
+      }
     })();
-  }, []);
+  }, [initialWeekId]);
 
   const filtered = teams.filter((t) => t.company_id === company);
   const selectedCompanyName = companies.find((c) => c.id === company)?.name;
@@ -253,7 +263,6 @@ export default function LeaderPage() {
       return;
     }
 
-    // 현재 입력 중인 근로자 행이 있으면 자동 포함 여부 확인
     const pendingEntries: WorkerEntry[] = [...workerEntries];
     if (workerName.trim()) {
       if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
@@ -674,5 +683,19 @@ export default function LeaderPage() {
       </div>
       <div className="footer">사진에는 교육 참여 현장이 확인되도록 촬영해 주세요.</div>
     </main>
+  );
+}
+
+export default function LeaderPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mobile">
+          <div className="card">조장 페이지를 불러오는 중...</div>
+        </main>
+      }
+    >
+      <LeaderForm />
+    </Suspense>
   );
 }
