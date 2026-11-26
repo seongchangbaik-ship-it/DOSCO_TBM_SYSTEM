@@ -122,7 +122,9 @@ function LeaderForm() {
           .order("starts_at", { ascending: false }),
         supabase
           .from("tbm_process_rules")
-          .select("id,process_name,rule_text")
+          .select("id,process_name,rulsupabase
+          .from("tbm_process_rules")
+          .select("id,process_name,rule_text"),e_text")
           .eq("active", true)
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: true }),
@@ -161,16 +163,19 @@ function LeaderForm() {
     return order.indexOf(a.name) - order.indexOf(b.name);
   });
 
-  const selectedTeamObj = teams.find((t) => t.id === team);
-  const currentProcess = selectedTeamObj ? getProcessByTeamName(selectedTeamObj.name) : "";
-  const applicableRules = currentProcess
-    ? [
-        ...processRules.filter((r) => r.process_name === currentProcess),
-        ...(currentProcess !== "전사공통"
-          ? processRules.filter((r) => r.process_name === "전사공통")
-          : []),
-      ]
-    : [];
+const selectedTeamObj = teams.find((t) => t.id === team);
+  const currentProcess = selectedTeamObj ? getProcessByTeamName(selectedTeamObj.name) : "전사공통";
+  const normalizeProc = (s: string) => (s || "").replace(/\s+/g, "").trim();
+  const matchedProcessRules = processRules.filter(
+    (r) => normalizeProc(r.process_name) === normalizeProc(currentProcess)
+  );
+  const matchedCommonRules = processRules.filter(
+    (r) => normalizeProc(r.process_name).includes("전사공통")
+  );
+  const combinedRules = [...matchedProcessRules, ...matchedCommonRules].filter(
+    (rule, idx, arr) => arr.findIndex((item) => item.id === rule.id) === idx
+  );
+  const applicableRules = combinedRules.length > 0 ? combinedRules : processRules;
   const minRequiredRules = Math.min(2, applicableRules.length);
 
   function toggleWorkerRule(ruleText: string, checked: boolean) {
@@ -697,8 +702,8 @@ function LeaderForm() {
             />
           </div>
 
-          {/* 다같이 서명(개별진행 미체크) 시 근로자 이름 밑 위험요인 2개 이상 선택 */}
-          {!individualScheduled && team && applicableRules.length > 0 && (
+{/* 다같이 서명(개별진행 미체크) 시 근로자 이름 밑 위험요인 2개 이상 선택 */}
+          {!individualScheduled && applicableRules.length > 0 && (
             <div
               style={{
                 background: "#eff6ff",
