@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -281,9 +281,9 @@ function TBMForm() {
   return (
     <main className="mobile">
       <div style={{ marginBottom: 10 }}>
-        <Link href="/" className="btn secondary">
-          ← 홈으로
-        </Link>
+<Link className="btn secondary" href="/tbm-main">
+  ← TBM 메뉴
+</Link>
       </div>
       <div className="mobilehero">
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · SAFETY</div>
