@@ -669,20 +669,6 @@ export default function ForkliftAdminPage() {
                       <button
                         type="button"
                         className="btn secondary"
-                        onClick={() => openTbmDocument(item, "print")}
-                      >
-                        출력
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary"
-                        onClick={() => openTbmDocument(item, "pdf")}
-                      >
-                        PDF 저장
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary"
                         style={{
                           color: "#ef4444",
                           background: "#fee2e2",
