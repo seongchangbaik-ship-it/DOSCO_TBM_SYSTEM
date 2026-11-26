@@ -1130,149 +1130,6 @@ export default function Admin() {
           {msg && <p className="muted">{msg}</p>}
         </div>
 
-        {/* 공정별 안전수칙 풀 관리 */}
-        <div className="section card">
-          <div style={{ marginBottom: 10 }}>
-            <h2 style={{ margin: 0 }}>⚙️ 공정별 중점 안전수칙 관리</h2>
-            <div className="muted" style={{ fontSize: 13 }}>
-              근로자가 TBM 서명 시 자기 공정 목록에서 직접 2개 이상 선택합니다. (개수 제한 없이 추가 가능)
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-            {PROCESS_LIST.map((proc) => {
-              const cnt = processRules.filter((r) => r.process_name === proc).length;
-              const activeTab = selectedProcess === proc;
-              return (
-                <button
-                  key={proc}
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => {
-                    setSelectedProcess(proc);
-                    setEditingRuleId(null);
-                  }}
-                  style={{
-                    background: activeTab ? "#1e3a8a" : "#fff",
-                    color: activeTab ? "#fff" : "#1e293b",
-                    borderColor: activeTab ? "#1e3a8a" : "#cbd5e1",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {proc} ({cnt})
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "flex-start" }}>
-            <textarea
-              value={newRuleText}
-              onChange={(e) => setNewRuleText(e.target.value)}
-              placeholder={`[${selectedProcess}] 공정에 추가할 안전수칙을 입력하세요.\n(엔터로 줄바꿈하면 여러 개를 한 번에 등록할 수 있습니다)`}
-              style={{ flex: 1, height: 64 }}
-            />
-            <button
-              type="button"
-              className="btn"
-              style={{ height: 64, whiteSpace: "nowrap" }}
-              onClick={addProcessRule}
-            >
-              + 수칙 추가
-            </button>
-          </div>
-
-          <div
-            style={{
-              maxHeight: 280,
-              overflowY: "auto",
-              border: "1px solid #e2e8f0",
-              borderRadius: 8,
-            }}
-          >
-            {processRules
-              .filter((r) => r.process_name === selectedProcess)
-              .map((rule, idx) => (
-                <div
-                  key={rule.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 12px",
-                    borderBottom: "1px solid #f1f5f9",
-                    background: idx % 2 === 0 ? "#fff" : "#f8fafc",
-                  }}
-                >
-                  {editingRuleId === rule.id ? (
-                    <>
-                      <input
-                        className="input"
-                        value={editingRuleText}
-                        onChange={(e) => setEditingRuleText(e.target.value)}
-                        style={{ flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ padding: "5px 10px", fontSize: 12 }}
-                        onClick={() => saveEditRule(rule.id)}
-                      >
-                        저장
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary"
-                        style={{ padding: "5px 10px", fontSize: 12 }}
-                        onClick={() => setEditingRuleId(null)}
-                      >
-                        취소
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 13.5, flex: 1 }}>
-                        <b>{idx + 1}.</b> {rule.rule_text}
-                      </span>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          style={{ padding: "4px 9px", fontSize: 12 }}
-                          onClick={() => {
-                            setEditingRuleId(rule.id);
-                            setEditingRuleText(rule.rule_text);
-                          }}
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          style={{
-                            padding: "4px 9px",
-                            fontSize: 12,
-                            color: "#dc2626",
-                            borderColor: "#fca5a5",
-                          }}
-                          onClick={() => deleteProcessRule(rule.id)}
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            {processRules.filter((r) => r.process_name === selectedProcess).length === 0 && (
-              <div className="empty" style={{ padding: 20 }}>
-                등록된 안전수칙이 없습니다.
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* 1. 수시 작업 TBM 현황 */}
         <div className="section card">
           <h2>🛠️ 수시 작업 TBM 실시 현황 (R/C · 정비 · 돌발작업)</h2>
@@ -1414,6 +1271,149 @@ export default function Admin() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* 3. 공정별 안전수칙 풀 관리 (최하단 배치) */}
+        <div className="section card">
+          <div style={{ marginBottom: 10 }}>
+            <h2 style={{ margin: 0 }}>⚙️ 공정별 중점 안전수칙 관리</h2>
+            <div className="muted" style={{ fontSize: 13 }}>
+              근로자가 TBM 서명 시 자기 공정 목록에서 직접 2개 이상 선택합니다. (개수 제한 없이 추가 가능)
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+            {PROCESS_LIST.map((proc) => {
+              const cnt = processRules.filter((r) => r.process_name === proc).length;
+              const activeTab = selectedProcess === proc;
+              return (
+                <button
+                  key={proc}
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    setSelectedProcess(proc);
+                    setEditingRuleId(null);
+                  }}
+                  style={{
+                    background: activeTab ? "#1e3a8a" : "#fff",
+                    color: activeTab ? "#fff" : "#1e293b",
+                    borderColor: activeTab ? "#1e3a8a" : "#cbd5e1",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {proc} ({cnt})
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "flex-start" }}>
+            <textarea
+              value={newRuleText}
+              onChange={(e) => setNewRuleText(e.target.value)}
+              placeholder={`[${selectedProcess}] 공정에 추가할 안전수칙을 입력하세요.\n(엔터로 줄바꿈하면 여러 개를 한 번에 등록할 수 있습니다)`}
+              style={{ flex: 1, height: 64 }}
+            />
+            <button
+              type="button"
+              className="btn"
+              style={{ height: 64, whiteSpace: "nowrap" }}
+              onClick={addProcessRule}
+            >
+              + 수칙 추가
+            </button>
+          </div>
+
+          <div
+            style={{
+              maxHeight: 280,
+              overflowY: "auto",
+              border: "1px solid #e2e8f0",
+              borderRadius: 8,
+            }}
+          >
+            {processRules
+              .filter((r) => r.process_name === selectedProcess)
+              .map((rule, idx) => (
+                <div
+                  key={rule.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 12px",
+                    borderBottom: "1px solid #f1f5f9",
+                    background: idx % 2 === 0 ? "#fff" : "#f8fafc",
+                  }}
+                >
+                  {editingRuleId === rule.id ? (
+                    <>
+                      <input
+                        className="input"
+                        value={editingRuleText}
+                        onChange={(e) => setEditingRuleText(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ padding: "5px 10px", fontSize: 12 }}
+                        onClick={() => saveEditRule(rule.id)}
+                      >
+                        저장
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        style={{ padding: "5px 10px", fontSize: 12 }}
+                        onClick={() => setEditingRuleId(null)}
+                      >
+                        취소
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 13.5, flex: 1 }}>
+                        <b>{idx + 1}.</b> {rule.rule_text}
+                      </span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          style={{ padding: "4px 9px", fontSize: 12 }}
+                          onClick={() => {
+                            setEditingRuleId(rule.id);
+                            setEditingRuleText(rule.rule_text);
+                          }}
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          style={{
+                            padding: "4px 9px",
+                            fontSize: 12,
+                            color: "#dc2626",
+                            borderColor: "#fca5a5",
+                          }}
+                          onClick={() => deleteProcessRule(rule.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            {processRules.filter((r) => r.process_name === selectedProcess).length === 0 && (
+              <div className="empty" style={{ padding: 20 }}>
+                등록된 안전수칙이 없습니다.
+              </div>
+            )}
           </div>
         </div>
       </main>
