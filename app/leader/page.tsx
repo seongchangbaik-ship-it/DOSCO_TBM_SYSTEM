@@ -120,14 +120,9 @@ function LeaderForm() {
           .select("id,week_label,topic,title,content,photo_paths")
           .eq("is_published", true)
           .order("starts_at", { ascending: false }),
-        supabase
+supabase
           .from("tbm_process_rules")
-          .select("id,process_name,rulsupabase
-          .from("tbm_process_rules")
-          .select("id,process_name,rule_text"),e_text")
-          .eq("active", true)
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: true }),
+          .select("id,process_name,rule_text"),
       ]);
 
       const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
