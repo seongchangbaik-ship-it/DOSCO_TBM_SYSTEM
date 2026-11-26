@@ -692,49 +692,6 @@ export default function TbmStatusPage() {
         {/* 1. 수시 작업 TBM 목록 */}
         {(tab === "all" || tab === "spot") && (
           <div className="card section">
-            <h2>🛠️ 수시 작업 TBM 현황 (R/C · 정비 · 돌발작업)</h2>
-            <div className="tablewrap tbm-table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>작업일자</th>
-                    <th>구분</th>
-                    <th>소속 / 조</th>
-                    <th>작업명</th>
-                    <th>책임자</th>
-                    <th>참여 서명</th>
-                    <th>상세 / 서명추가</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan={7} className="empty">불러오는 중...</td></tr>
-                  ) : spotItems.length > 0 ? (
-                    spotItems.map(item => (
-                      <tr key={item.id}>
-                        <td>{item.work_date}</td>
-                        <td><span className="pill" style={{ background: "#ccfbf1", color: "#0f766e" }}>{item.work_category}</span></td>
-                        <td><b>{item.companies?.name || "-"}</b> / {item.teams?.name || "-"}</td>
-                        <td>{item.work_title}</td>
-                        <td>{item.leader_name}</td>
-                        <td><span className="pill ok">{(item.tbm_spot_signatures || []).length}명 서명</span></td>
-                        <td>
-                          <button className="btn secondary" onClick={() => openSpotModal(item)}>상세 / 서명·출력</button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td colSpan={7} className="empty">등록된 수시 작업 TBM이 없습니다.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* 2. 정기 안전교육 조별 통합 현황 */}
-        {(tab === "all" || tab === "regular") && (
-          <div className="card section">
             <h2>📘 정기 안전교육 실시 현황 (조별 통합)</h2>
             <div className="tablewrap tbm-table-scroll">
               <table>
@@ -776,6 +733,49 @@ export default function TbmStatusPage() {
                     ))
                   ) : (
                     <tr><td colSpan={6} className="empty">정기 안전교육 기록이 없습니다.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 2. 정기 안전교육 조별 통합 현황 */}
+        {(tab === "all" || tab === "regular") && (
+          <div className="card section">
+            <h2>🛠️ 수시 작업 TBM 현황 (R/C · 정비 · 돌발작업)</h2>
+            <div className="tablewrap tbm-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>작업일자</th>
+                    <th>구분</th>
+                    <th>소속 / 조</th>
+                    <th>작업명</th>
+                    <th>책임자</th>
+                    <th>참여 서명</th>
+                    <th>상세 / 서명추가</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={7} className="empty">불러오는 중...</td></tr>
+                  ) : spotItems.length > 0 ? (
+                    spotItems.map(item => (
+                      <tr key={item.id}>
+                        <td>{item.work_date}</td>
+                        <td><span className="pill" style={{ background: "#ccfbf1", color: "#0f766e" }}>{item.work_category}</span></td>
+                        <td><b>{item.companies?.name || "-"}</b> / {item.teams?.name || "-"}</td>
+                        <td>{item.work_title}</td>
+                        <td>{item.leader_name}</td>
+                        <td><span className="pill ok">{(item.tbm_spot_signatures || []).length}명 서명</span></td>
+                        <td>
+                          <button className="btn secondary" onClick={() => openSpotModal(item)}>상세 / 서명·출력</button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr><td colSpan={7} className="empty">등록된 수시 작업 TBM이 없습니다.</td></tr>
                   )}
                 </tbody>
               </table>
