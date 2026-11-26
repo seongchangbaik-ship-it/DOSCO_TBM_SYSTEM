@@ -8,6 +8,7 @@ const CARDS = [
     href: "/forklift",
     cta: "지게차 사용 신청 이동",
     primary: true,
+    icon: "📋",
   },
   {
     title: "키 반납 신청 및 확인",
@@ -15,6 +16,7 @@ const CARDS = [
     href: "/forklift/return",
     cta: "키 반납 신청 및 확인 이동",
     primary: true,
+    icon: "🔑",
   },
   {
     title: "지게차 사용 현황",
@@ -22,6 +24,7 @@ const CARDS = [
     href: "/forklift/status",
     cta: "지게차 사용 현황 이동",
     primary: false,
+    icon: "📊",
   },
   {
     title: "관리자 대시보드",
@@ -29,70 +32,95 @@ const CARDS = [
     href: "/forklift/admin",
     cta: "관리자 대시보드 이동",
     primary: false,
+    icon: "🛡️",
   },
 ];
 
 export default function ForkliftMainPage() {
   return (
-    <main className="shell">
-      <div className="pagehead">
-        <div>
-          <h1>지게차 사용</h1>
-          <div className="muted">
-            키 수령·반납 신청 및 확인, 실시간 사용 현황 조회 및 관리자 메뉴를 선택해 주세요.
+    <div>
+      <style>{`
+        .forklift-hub-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 18px;
+          align-items: stretch;
+        }
+        @media (max-width: 1100px) {
+          .forklift-hub-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 640px) {
+          .forklift-hub-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      <header className="topbar no-print">
+        <div className="brand">
+          DOSCO TBM SYSTEM
+          <small>동아스틸 지게차 키 관리 시스템</small>
+        </div>
+        <nav className="nav">
+          <Link href="/">전체 홈</Link>
+          <Link href="/forklift">사용 신청</Link>
+          <Link href="/forklift/return">반납·확인</Link>
+          <Link href="/forklift/status">사용 현황</Link>
+          <Link href="/forklift/admin">관리자</Link>
+        </nav>
+      </header>
+
+      <main className="shell">
+        <div className="pagehead">
+          <div>
+            <h1>지게차 사용 관리</h1>
+            <div className="muted">
+              키 수령·반납 신청 및 확인, 실시간 사용 현황 조회 및 관리자 메뉴를 한 곳에서 관리합니다.
+            </div>
           </div>
         </div>
-        <div className="row">
-          <Link href="/" className="btn secondary">
-            ← 홈으로
-          </Link>
-        </div>
-      </div>
 
-      <div
-        className="grid section"
-        style={{
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: 20,
-          alignItems: "stretch",
-        }}
-      >
-        {CARDS.map((card) => (
-          <div
-            key={card.href}
-            className="card"
-            style={{
-              padding: 24,
-              minHeight: 210,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: 16,
-            }}
-          >
-            <div>
-              <h2 style={{ margin: "0 0 8px 0", fontSize: 20 }}>{card.title}</h2>
-              <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
-                {card.desc}
-              </p>
-            </div>
-            <Link
-              href={card.href}
-              className={`btn ${card.primary ? "" : "secondary"}`}
+        <div className="forklift-hub-grid section">
+          {CARDS.map((card) => (
+            <div
+              key={card.href}
+              className="card"
               style={{
-                width: "100%",
-                textAlign: "center",
-                padding: "12px 16px",
-                fontSize: 14.5,
-                fontWeight: 600,
-                boxSizing: "border-box",
+                padding: 24,
+                minHeight: 240,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: 16,
               }}
             >
-              {card.cta}
-            </Link>
-          </div>
-        ))}
-      </div>
-    </main>
+              <div>
+                <div style={{ fontSize: 22, marginBottom: 12 }}>{card.icon}</div>
+                <h2 style={{ margin: "0 0 8px 0", fontSize: 19 }}>{card.title}</h2>
+                <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55 }}>
+                  {card.desc}
+                </p>
+              </div>
+              <Link
+                href={card.href}
+                className={`btn ${card.primary ? "" : "secondary"}`}
+                style={{
+                  width: "100%",
+                  textAlign: "center",
+                  padding: "11px 14px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  boxSizing: "border-box",
+                }}
+              >
+                {card.cta}
+              </Link>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
   );
 }
