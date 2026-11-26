@@ -14,13 +14,29 @@ type Week = {
   content?: string;
   photo_paths?: string[];
 };
+type ProcessRule = {
+  id: string;
+  process_name: string;
+  rule_text: string;
+};
 type WorkerEntry = {
   id: string;
   worker_name: string;
   individual_scheduled: boolean;
+  selected_rules: string[];
   signature_data: string | null;
   has_drawn: boolean;
 };
+
+function getProcessByTeamName(teamName: string): string {
+  if (["P5", "P9", "P10", "C1", "P1", "P7", "P8"].includes(teamName)) return "조관";
+  if (["SL2", "SL5"].includes(teamName)) return "슬리터";
+  if (["SCP1", "SCP2"].includes(teamName)) return "도장";
+  if (["1출하", "2출하"].includes(teamName)) return "출하";
+  if (["1공무", "2공무", "전기파트"].includes(teamName)) return "공무";
+  if (["1품질", "2품질", "품질파트"].includes(teamName)) return "품질";
+  return "전사공통";
+}
 
 function LeaderForm() {
   const searchParams = useSearchParams();
@@ -29,6 +45,7 @@ function LeaderForm() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [weeks, setWeeks] = useState<Week[]>([]);
+  const [processRules, setProcessRules] = useState<ProcessRule[]>([]);
   const [company, setCompany] = useState("");
   const [team, setTeam] = useState("");
   const [week, setWeek] = useState("");
@@ -37,11 +54,13 @@ function LeaderForm() {
   const [dailyHazard, setDailyHazard] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [msg, setMsg] = useState("");
+  const [isErrorMsg, setIsErrorMsg] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
 
   const [workerName, setWorkerName] = useState("");
   const [individualScheduled, setIndividualScheduled] = useState(false);
+  const [workerSelectedRules, setWorkerSelectedRules] = useState<string[]>([]);
   const [workerEntries, setWorkerEntries] = useState<WorkerEntry[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -59,6 +78,11 @@ function LeaderForm() {
   const [loadingWorkers, setLoadingWorkers] = useState(false);
 
   const selectedWeekObj = weeks.find((w) => w.id === week) || null;
+
+  function setNotice(text: string, isError = false) {
+    setMsg(text);
+    setIsErrorMsg(isError);
+  }
 
   async function loadSubmittedWorkers(
     targetWeek: string,
@@ -88,7 +112,7 @@ function LeaderForm() {
   useEffect(() => {
     if (!configured) return;
     (async () => {
-      const [c, t, w] = await Promise.all([
+      const [c, t, w, r] = await Promise.all([
         supabase.from("companies").select("id,name").eq("active", true).order("name"),
         supabase.from("teams").select("id,name,company_id").eq("active", true).order("name"),
         supabase
@@ -96,6 +120,12 @@ function LeaderForm() {
           .select("id,week_label,topic,title,content,photo_paths")
           .eq("is_published", true)
           .order("starts_at", { ascending: false }),
+        supabase
+          .from("tbm_process_rules")
+          .select("id,process_name,rule_text")
+          .eq("active", true)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
       ]);
 
       const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
@@ -105,6 +135,7 @@ function LeaderForm() {
         )
       );
       setTeams(t.data || []);
+      setProcessRules((r.data as ProcessRule[]) || []);
 
       const loadedWeeks = (w.data as Week[]) || [];
       setWeeks(loadedWeeks);
@@ -129,6 +160,26 @@ function LeaderForm() {
     const order = teamOrder[selectedCompanyName || ""] || [];
     return order.indexOf(a.name) - order.indexOf(b.name);
   });
+
+  const selectedTeamObj = teams.find((t) => t.id === team);
+  const currentProcess = selectedTeamObj ? getProcessByTeamName(selectedTeamObj.name) : "";
+  const applicableRules = currentProcess
+    ? [
+        ...processRules.filter((r) => r.process_name === currentProcess),
+        ...(currentProcess !== "전사공통"
+          ? processRules.filter((r) => r.process_name === "전사공통")
+          : []),
+      ]
+    : [];
+  const minRequiredRules = Math.min(2, applicableRules.length);
+
+  function toggleWorkerRule(ruleText: string, checked: boolean) {
+    if (checked) {
+      setWorkerSelectedRules((prev) => (prev.includes(ruleText) ? prev : [...prev, ruleText]));
+    } else {
+      setWorkerSelectedRules((prev) => prev.filter((item) => item !== ruleText));
+    }
+  }
 
   const getCoords = (
     e: React.MouseEvent | React.TouchEvent,
@@ -183,37 +234,51 @@ function LeaderForm() {
     setHasDrawn(false);
   };
 
-  function addWorkerEntry() {
+  function validateAndBuildDraftEntry(): WorkerEntry | null {
     const trimmed = workerName.trim();
     if (!trimmed) {
-      setMsg("근로자 이름을 입력해 주세요.");
-      return;
+      setNotice("근로자 이름을 입력해 주세요.", true);
+      return null;
     }
+
     if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
-      setMsg(
-        "개별진행이 아닌 경우 근로자 서명을 입력하거나 [개별진행]을 체크해 주세요."
+      setNotice("개별 제출인 경우 체크 후 제출해주세요", true);
+      return null;
+    }
+
+    if (!individualScheduled && minRequiredRules > 0 && workerSelectedRules.length < minRequiredRules) {
+      setNotice(
+        `위험요인(안전수칙)을 ${minRequiredRules}개 이상 선택해 주세요.`,
+        true
       );
-      return;
+      return null;
     }
 
     const sig =
       individualScheduled || !canvasRef.current
         ? null
         : canvasRef.current.toDataURL("image/png");
-    setWorkerEntries((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        worker_name: trimmed,
-        individual_scheduled: individualScheduled,
-        signature_data: sig,
-        has_drawn: !individualScheduled && hasDrawn,
-      },
-    ]);
+
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      worker_name: trimmed,
+      individual_scheduled: individualScheduled,
+      selected_rules: individualScheduled ? [] : workerSelectedRules,
+      signature_data: sig,
+      has_drawn: !individualScheduled && hasDrawn,
+    };
+  }
+
+  function addWorkerEntry() {
+    const entry = validateAndBuildDraftEntry();
+    if (!entry) return;
+
+    setWorkerEntries((prev) => [...prev, entry]);
     setWorkerName("");
     setIndividualScheduled(false);
+    setWorkerSelectedRules([]);
     clearCanvas();
-    setMsg("");
+    setNotice("", false);
   }
 
   function removeWorkerEntry(id: string) {
@@ -268,40 +333,33 @@ function LeaderForm() {
 
   async function upload() {
     if (submitting) return;
-    setMsg("");
+    setNotice("", false);
     setCanRetry(false);
 
     if (!company || !team || !week || !leader.trim() || !file) {
-      setMsg("모든 항목과 사진을 입력해 주세요.");
+      setNotice("모든 항목과 사진을 입력해 주세요.", true);
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      setMsg("사진은 20MB 이하로 올려 주세요.");
+      setNotice("사진은 20MB 이하로 올려 주세요.", true);
       return;
     }
 
     const pendingEntries: WorkerEntry[] = [...workerEntries];
-    if (workerName.trim()) {
-      if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
-        setMsg(
-          "입력 중인 근로자의 서명을 완료하거나 [개별진행]을 체크해 주세요."
-        );
-        return;
-      }
-      pendingEntries.push({
-        id: "current-draft",
-        worker_name: workerName.trim(),
-        individual_scheduled: individualScheduled,
-        signature_data:
-          individualScheduled || !canvasRef.current
-            ? null
-            : canvasRef.current.toDataURL("image/png"),
-        has_drawn: !individualScheduled && hasDrawn,
-      });
+    const hasDraftInput =
+      workerName.trim().length > 0 ||
+      individualScheduled ||
+      hasDrawn ||
+      workerSelectedRules.length > 0;
+
+    if (hasDraftInput) {
+      const draftEntry = validateAndBuildDraftEntry();
+      if (!draftEntry) return;
+      pendingEntries.push(draftEntry);
     }
 
     setSubmitting(true);
-    setMsg("사진 용량을 최적화하여 업로드 중입니다...");
+    setNotice("사진 용량을 최적화하여 업로드 중입니다...", false);
 
     try {
       const compressed = await compressImage(file);
@@ -339,7 +397,7 @@ function LeaderForm() {
           company_id: company,
           team_id: team,
           worker_name: entry.worker_name,
-          selected_rules: [],
+          selected_rules: entry.selected_rules || [],
           signature_data: entry.individual_scheduled ? null : entry.signature_data,
           status: entry.individual_scheduled ? "개별진행" : "완료",
           is_individual_scheduled: entry.individual_scheduled,
@@ -358,13 +416,15 @@ function LeaderForm() {
       setWorkerEntries([]);
       setWorkerName("");
       setIndividualScheduled(false);
+      setWorkerSelectedRules([]);
       clearCanvas();
       await loadSubmittedWorkers(week, company, team);
-      setMsg("조별 TBM 일지, 현장 사진 및 근로자 등록이 저장되었습니다.");
+      setNotice("조별 TBM 일지, 현장 사진 및 근로자 등록이 저장되었습니다.", false);
     } catch (err: any) {
-      setMsg(
+      setNotice(
         (err?.message || "전송 중 오류가 발생했습니다.") +
-          " 입력하신 내용은 유지되니 [다시 시도]를 눌러 주세요."
+          " 입력하신 내용은 유지되니 [다시 시도]를 눌러 주세요.",
+        true
       );
       setCanRetry(true);
     } finally {
@@ -449,6 +509,7 @@ function LeaderForm() {
             onChange={(e) => {
               setCompany(e.target.value);
               setTeam("");
+              setWorkerSelectedRules([]);
             }}
           >
             <option value="">회사 선택</option>
@@ -461,7 +522,13 @@ function LeaderForm() {
         </div>
         <div className="field">
           <label>소속 조</label>
-          <select value={team} onChange={(e) => setTeam(e.target.value)}>
+          <select
+            value={team}
+            onChange={(e) => {
+              setTeam(e.target.value);
+              setWorkerSelectedRules([]);
+            }}
+          >
             <option value="">조 선택</option>
             {orderedTeams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -608,7 +675,10 @@ function LeaderForm() {
               checked={individualScheduled}
               onChange={(e) => {
                 setIndividualScheduled(e.target.checked);
-                if (e.target.checked) clearCanvas();
+                if (e.target.checked) {
+                  clearCanvas();
+                  setWorkerSelectedRules([]);
+                }
               }}
             />
             <span>
@@ -626,6 +696,79 @@ function LeaderForm() {
               placeholder="근로자 이름 입력"
             />
           </div>
+
+          {/* 다같이 서명(개별진행 미체크) 시 근로자 이름 밑 위험요인 2개 이상 선택 */}
+          {!individualScheduled && team && applicableRules.length > 0 && (
+            <div
+              style={{
+                background: "#eff6ff",
+                border: "1.5px solid #93c5fd",
+                borderRadius: 10,
+                padding: 11,
+                marginTop: 10,
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 6,
+                }}
+              >
+                <b style={{ fontSize: 13, color: "#1e3a8a" }}>
+                  [{currentProcess} 공정] 위험요인·중점 안전수칙 선택
+                </b>
+                <span
+                  className={`pill ${
+                    workerSelectedRules.length >= minRequiredRules ? "ok" : "wait"
+                  }`}
+                  style={{ fontSize: 11 }}
+                >
+                  {workerSelectedRules.length}개 선택 (최소 {minRequiredRules}개)
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: "#1d4ed8", margin: "0 0 8px 0" }}>
+                근로자 본인이 확인한 위험요인·안전수칙을{" "}
+                <b>{minRequiredRules}개 이상</b> 선택해 주세요.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {applicableRules.map((rule) => {
+                  const checked = workerSelectedRules.includes(rule.rule_text);
+                  return (
+                    <label
+                      key={rule.id}
+                      className="checkrow"
+                      style={{
+                        margin: 0,
+                        padding: "7px 9px",
+                        borderRadius: 8,
+                        border: checked
+                          ? "1.5px solid #2563eb"
+                          : "1px solid #cbd5e1",
+                        background: checked ? "#dbeafe" : "#fff",
+                        fontSize: 12.5,
+                        lineHeight: 1.4,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          toggleWorkerRule(rule.rule_text, e.target.checked)
+                        }
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>{rule.rule_text}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {!individualScheduled && (
             <div className="field" style={{ marginTop: 10, marginBottom: 10 }}>
@@ -724,7 +867,7 @@ function LeaderForm() {
                     >
                       {entry.individual_scheduled
                         ? "개별진행 예정"
-                        : "서명 완료"}
+                        : `서명 완료 · 수칙 ${entry.selected_rules.length}개`}
                     </span>
                   </div>
                   <button
@@ -755,8 +898,8 @@ function LeaderForm() {
             <p
               className="muted"
               style={{
-                color: canRetry ? "#b91c1c" : undefined,
-                fontWeight: canRetry ? "bold" : undefined,
+                color: isErrorMsg || canRetry ? "#dc2626" : undefined,
+                fontWeight: isErrorMsg || canRetry ? "bold" : undefined,
                 marginBottom: canRetry ? 8 : 0,
               }}
             >
