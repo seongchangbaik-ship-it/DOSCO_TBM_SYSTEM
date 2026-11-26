@@ -12,6 +12,10 @@ const PRE_WORK_LABELS: Record<string, { hazard: string; measure: string }> = {
   "6": { hazard: "지게차, 화물차량 사람 또는 타물체와 충돌 위험", measure: "보행통로 이동 및 주변 확인 철저" },
 };
 
+function isReturnedStatus(status?: string | null) {
+  return status === "반납완료" || status === "확인완료" || status === "반납확인";
+}
+
 function escapeHtml(value: any) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -161,13 +165,14 @@ export default function ForkliftAdminPage() {
     const rowsHtml = filtered
       .map((item, idx) => {
         const chk = item.checklist || {};
+        const returned = isReturnedStatus(item.status);
         const pickedStr = item.picked_up_at
           ? new Date(item.picked_up_at).toLocaleString("ko-KR")
           : "-";
         const returnedStr =
-          item.status === "반납완료" && item.returned_at
+          returned && item.returned_at
             ? new Date(item.returned_at).toLocaleString("ko-KR")
-            : item.status === "반납완료"
+            : returned
             ? "-"
             : "미반납";
 
@@ -188,7 +193,7 @@ export default function ForkliftAdminPage() {
           item.has_license || "-",
           item.pickup_location || "-",
           pickedStr,
-          item.status === "반납완료" ? item.return_location || "-" : "미반납",
+          returned ? item.return_location || "-" : "미반납",
           returnedStr,
           chk.work_rules_agreed ? "준수 동의" : "미기록",
           chk["1"] || "-",
@@ -197,7 +202,7 @@ export default function ForkliftAdminPage() {
           chk["4"] || "-",
           chk["5"] || "-",
           chk["6"] || "-",
-          item.status === "반납완료" ? item.return_issue_status || "없음" : "-",
+          returned ? item.return_issue_status || "없음" : "-",
           item.return_note || "-",
         ]
           .map(
@@ -250,13 +255,14 @@ export default function ForkliftAdminPage() {
     }
 
     const chk = item.checklist || {};
+    const returned = isReturnedStatus(item.status);
     const pickedStr = item.picked_up_at
       ? new Date(item.picked_up_at).toLocaleString("ko-KR")
       : "-";
     const returnedStr =
-      item.status === "반납완료" && item.returned_at
+      returned && item.returned_at
         ? new Date(item.returned_at).toLocaleString("ko-KR")
-        : item.status === "반납완료"
+        : returned
         ? "-"
         : "미반납";
 
@@ -369,14 +375,14 @@ export default function ForkliftAdminPage() {
           </tr>
           <tr>
             <th>반납장소</th>
-            <td>${escapeHtml(item.status === "반납완료" ? item.return_location || "-" : "미반납")}</td>
+            <td>${escapeHtml(returned ? item.return_location || "-" : "미반납")}</td>
             <th>반납일시</th>
             <td>${escapeHtml(returnedStr)}</td>
           </tr>
           <tr>
             <th>반납 특이사항</th>
             <td>${escapeHtml(
-              item.status === "반납완료" ? item.return_issue_status || "없음" : "-"
+              returned ? item.return_issue_status || "없음" : "-"
             )}</td>
             <th>특이사항 메모</th>
             <td>${escapeHtml(item.return_note || "-")}</td>
@@ -582,109 +588,112 @@ export default function ForkliftAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <span className={`pill ${item.status === "반납완료" ? "ok" : "wait"}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td>
-                    <b>{item.forklift_type}</b>
-                  </td>
-                  <td>{item.company_name}</td>
-                  <td>{item.user_name}</td>
-                  <td>{item.has_license}</td>
-                  <td>
-                    <div>{item.pickup_location}</div>
-                    <small className="muted">
-                      {new Date(item.picked_up_at).toLocaleString("ko-KR")}
-                    </small>
-                  </td>
-                  <td>
-                    {item.status === "반납완료" ? (
-                      <>
-                        <div>{item.return_location || "-"}</div>
-                        <small className="muted">
-                          {item.returned_at
-                            ? new Date(item.returned_at).toLocaleString("ko-KR")
-                            : "-"}
-                        </small>
-                      </>
-                    ) : (
-                      <span className="muted">미반납</span>
-                    )}
-                  </td>
-                  <td>
-                    {item.return_photo_data ? (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewPhoto(item.return_photo_data)}
-                        style={{
-                          padding: 0,
-                          border: "none",
-                          background: "transparent",
-                          cursor: "pointer",
-                        }}
-                        title="사진 크게 보기"
-                      >
-                        <img
-                          src={item.return_photo_data}
-                          alt="반납 사진"
-                          style={{
-                            width: 44,
-                            height: 44,
-                            objectFit: "cover",
-                            borderRadius: 6,
-                            border: "1px solid #cbd5e1",
-                            display: "block",
-                          }}
-                        />
-                      </button>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
-                  </td>
-                  <td>
-                    {item.status === "반납완료" ? (
-                      <span
-                        className="pill"
-                        style={{
-                          background: item.return_issue_status === "있음" ? "#fee2e2" : "#dcfce7",
-                          color: item.return_issue_status === "있음" ? "#dc2626" : "#15803d",
-                        }}
-                      >
-                        {item.return_issue_status || "없음"}
+              {filtered.map((item) => {
+                const returned = isReturnedStatus(item.status);
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <span className={`pill ${returned ? "ok" : "wait"}`}>
+                        {item.status}
                       </span>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        className="btn secondary"
-                        onClick={() => setSelectedLog(item)}
-                      >
-                        상세
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary"
-                        style={{
-                          color: "#ef4444",
-                          background: "#fee2e2",
-                          borderColor: "#fca5a5",
-                        }}
-                        onClick={() => deleteLog(item.id)}
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <b>{item.forklift_type}</b>
+                    </td>
+                    <td>{item.company_name}</td>
+                    <td>{item.user_name}</td>
+                    <td>{item.has_license}</td>
+                    <td>
+                      <div>{item.pickup_location}</div>
+                      <small className="muted">
+                        {new Date(item.picked_up_at).toLocaleString("ko-KR")}
+                      </small>
+                    </td>
+                    <td>
+                      {returned ? (
+                        <>
+                          <div>{item.return_location || "-"}</div>
+                          <small className="muted">
+                            {item.returned_at
+                              ? new Date(item.returned_at).toLocaleString("ko-KR")
+                              : "-"}
+                          </small>
+                        </>
+                      ) : (
+                        <span className="muted">미반납</span>
+                      )}
+                    </td>
+                    <td>
+                      {item.return_photo_data ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPhoto(item.return_photo_data)}
+                          style={{
+                            padding: 0,
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
+                          }}
+                          title="사진 크게 보기"
+                        >
+                          <img
+                            src={item.return_photo_data}
+                            alt="반납 사진"
+                            style={{
+                              width: 44,
+                              height: 44,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              border: "1px solid #cbd5e1",
+                              display: "block",
+                            }}
+                          />
+                        </button>
+                      ) : (
+                        <span className="muted">-</span>
+                      )}
+                    </td>
+                    <td>
+                      {returned ? (
+                        <span
+                          className="pill"
+                          style={{
+                            background: item.return_issue_status === "있음" ? "#fee2e2" : "#dcfce7",
+                            color: item.return_issue_status === "있음" ? "#dc2626" : "#15803d",
+                          }}
+                        >
+                          {item.return_issue_status || "없음"}
+                        </span>
+                      ) : (
+                        <span className="muted">-</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => setSelectedLog(item)}
+                        >
+                          상세
+                        </button>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          style={{
+                            color: "#ef4444",
+                            background: "#fee2e2",
+                            borderColor: "#fca5a5",
+                          }}
+                          onClick={() => deleteLog(item.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {!filtered.length && (
                 <tr>
                   <td colSpan={10} className="empty">
@@ -788,14 +797,14 @@ export default function ForkliftAdminPage() {
               {selectedLog.checklist?.work_rules_agreed ? "준수 동의" : "미기록"}
               <br />
               <b>반납:</b>{" "}
-              {selectedLog.status === "반납완료"
+              {isReturnedStatus(selectedLog.status)
                 ? `${selectedLog.return_location || "-"} (${
                     selectedLog.returned_at
                       ? new Date(selectedLog.returned_at).toLocaleString("ko-KR")
                       : "-"
                   })`
                 : "미반납"}
-              {selectedLog.status === "반납완료" && (
+              {isReturnedStatus(selectedLog.status) && (
                 <>
                   <br />
                   <b>반납 특이사항 유무:</b> {selectedLog.return_issue_status || "없음"}
