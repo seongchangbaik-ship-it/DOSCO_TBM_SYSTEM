@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
@@ -460,6 +460,7 @@ export default function TbmStatusPage() {
           <small>TBM 실시 현황 (정기 · 수시 통합)</small>
         </div>
         <nav className="nav">
+          <Link href="/tbm-main">← TBM 메뉴</Link>
           <Link href="/">전체 홈</Link>
           <Link href="/tbm">정기 TBM</Link>
           <Link href="/tbm/spot">수시 TBM 작성</Link>

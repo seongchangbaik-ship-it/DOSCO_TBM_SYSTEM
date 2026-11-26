@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
@@ -189,8 +189,8 @@ export default function LeaderPage() {
   return (
     <main className="mobile">
       <div style={{ marginBottom: 10 }}>
-        <Link href="/" className="btn secondary">
-          ← 홈으로
+        <Link href="/tbm-main" className="btn secondary">
+          ← TBM 메뉴
         </Link>
       </div>
       <div className="mobilehero">

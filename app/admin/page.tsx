@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
@@ -889,6 +889,7 @@ export default function Admin() {
           <small>관리자 대시보드</small>
         </div>
         <nav className="nav">
+          <Link href="/tbm-main">← TBM 메뉴</Link>
           <Link href="/">홈</Link>
           <Link href="/tbm">근로자 화면</Link>
           <Link href="/leader">조장 화면</Link>
