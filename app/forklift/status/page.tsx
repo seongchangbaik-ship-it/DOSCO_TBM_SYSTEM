@@ -34,6 +34,8 @@ export default function ForkliftStatusPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+
   const [returningTargets, setReturningTargets] = useState<ForkliftLog[]>([]);
   const [returnType, setReturnType] = useState<string>("1공장 출하사무실");
   const [customReturnLocation, setCustomReturnLocation] = useState("");
@@ -380,7 +382,17 @@ export default function ForkliftStatusPage() {
                       </td>
                       <td>
                         {item.return_photo_data ? (
-                          <a href={item.return_photo_data} target="_blank" rel="noreferrer">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewPhoto(item.return_photo_data)}
+                            style={{
+                              padding: 0,
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                            }}
+                            title="사진 크게 보기"
+                          >
                             <img
                               src={item.return_photo_data}
                               alt="반납 사진"
@@ -390,9 +402,10 @@ export default function ForkliftStatusPage() {
                                 objectFit: "cover",
                                 borderRadius: 6,
                                 border: "1px solid #cbd5e1",
+                                display: "block",
                               }}
                             />
-                          </a>
+                          </button>
                         ) : (
                           <span className="muted">-</span>
                         )}
@@ -436,6 +449,51 @@ export default function ForkliftStatusPage() {
           </div>
         )}
       </div>
+
+      {previewPhoto && (
+        <div
+          onClick={() => setPreviewPhoto(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.72)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            className="card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 640, width: "100%", background: "#fff" }}
+          >
+            <div className="row between" style={{ marginBottom: 10 }}>
+              <h3 style={{ margin: 0 }}>반납 사진</h3>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setPreviewPhoto(null)}
+              >
+                닫기
+              </button>
+            </div>
+            <img
+              src={previewPhoto}
+              alt="반납 사진 확대"
+              style={{
+                width: "100%",
+                maxHeight: "75vh",
+                objectFit: "contain",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                display: "block",
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {returningTargets.length > 0 && (
         <div
