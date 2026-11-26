@@ -234,7 +234,7 @@ function LeaderForm() {
     setHasDrawn(false);
   };
 
-  function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
+function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
     const trimmed = workerName.trim();
 
     if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
@@ -242,7 +242,7 @@ function LeaderForm() {
       return null;
     }
 
-    if (requireName && !trimmed) {
+    if (requireName && !individualScheduled && !trimmed) {
       setNotice("근로자 이름을 입력해 주세요.", true);
       return null;
     }
@@ -346,7 +346,7 @@ function LeaderForm() {
       return;
     }
 
-    const pendingEntries: WorkerEntry[] = [...workerEntries];
+const pendingEntries: WorkerEntry[] = [...workerEntries];
     const hasAnyWorkerInput =
       workerName.trim().length > 0 ||
       individualScheduled ||
@@ -359,9 +359,11 @@ function LeaderForm() {
     }
 
     if (hasAnyWorkerInput) {
-      const draftEntry = validateAndBuildDraftEntry(true);
+      const draftEntry = validateAndBuildDraftEntry(!individualScheduled);
       if (!draftEntry) return;
-      pendingEntries.push(draftEntry);
+      if (draftEntry.worker_name) {
+        pendingEntries.push(draftEntry);
+      }
     }
 
     setSubmitting(true);
