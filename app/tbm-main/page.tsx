@@ -5,6 +5,37 @@ import { CalendarCheck, Wrench, ClipboardCheck, ClipboardList, QrCode } from "lu
 export default function TBMMainPage() {
   return (
     <>
+      <style>{`
+        .tbm-main-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 18px;
+          align-items: stretch;
+        }
+        .tbm-main-card {
+          display: flex;
+          flex-direction: column;
+        }
+        .tbm-main-card .btn {
+          margin-top: auto;
+          text-align: center;
+          text-decoration: none;
+          justify-content: center;
+        }
+        @media (max-width: 768px) {
+          .tbm-main-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+          .tbm-main-card {
+            padding: 20px;
+          }
+          .tbm-main-card .btn {
+            width: 100%;
+          }
+        }
+      `}</style>
+
       <header className="topbar no-print">
         <div className="brand">
           DOSCO TBM SYSTEM
@@ -29,30 +60,19 @@ export default function TBMMainPage() {
           </div>
         </div>
 
-        <div
-          className="grid section"
-          style={{
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: 18,
-            alignItems: "stretch",
-          }}
-        >
-          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+        <div className="tbm-main-grid section">
+          <div className="card tbm-main-card">
             <CalendarCheck />
             <h3>정기 TBM</h3>
             <p className="muted">누적 교육자료 열람 현황판 및 우측 실시등록(조장등록·근로자등록)</p>
-            <Link
-              className="btn"
-              href="/tbm/regular"
-              style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}
-            >
+            <Link className="btn" href="/tbm/regular">
               정기 TBM 입장
             </Link>
           </div>
 
           <div
-            className="card"
-            style={{ display: "flex", flexDirection: "column", borderColor: "#99f6e4", background: "#f0fdfa" }}
+            className="card tbm-main-card"
+            style={{ borderColor: "#99f6e4", background: "#f0fdfa" }}
           >
             <Wrench color="#0f766e" />
             <h3 style={{ color: "#0f766e" }}>수시 작업 TBM 작성</h3>
@@ -61,9 +81,6 @@ export default function TBMMainPage() {
               className="btn"
               href="/tbm/spot"
               style={{
-                marginTop: "auto",
-                textAlign: "center",
-                textDecoration: "none",
                 background: "#0f766e",
                 borderColor: "#0f766e",
               }}
@@ -72,28 +89,20 @@ export default function TBMMainPage() {
             </Link>
           </div>
 
-          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+          <div className="card tbm-main-card">
             <ClipboardCheck />
             <h3>TBM 실시 현황</h3>
             <p className="muted">정기·수시 TBM 통합 현황 조회 및 A4 일지 출력</p>
-            <Link
-              className="btn secondary"
-              href="/tbm/status"
-              style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}
-            >
+            <Link className="btn secondary" href="/tbm/status">
               실시 현황 보기
             </Link>
           </div>
 
-          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+          <div className="card tbm-main-card">
             <ClipboardList />
             <h3>교육자료 및 실적 관리</h3>
             <p className="muted">주간 교육자료 게시, 라인별 QR 액자 및 교육실적 출력</p>
-            <Link
-              className="btn secondary"
-              href="/admin"
-              style={{ marginTop: "auto", textAlign: "center", textDecoration: "none" }}
-            >
+            <Link className="btn secondary" href="/admin">
               관리자 대시보드
             </Link>
           </div>
