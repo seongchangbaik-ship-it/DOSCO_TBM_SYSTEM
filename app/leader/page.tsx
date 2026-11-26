@@ -1,11 +1,25 @@
 ﻿"use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
 
 type Company = { id: string; name: string };
 type Team = { id: string; name: string; company_id: string };
-type Week = { id: string; week_label: string; topic: string };
+type Week = {
+  id: string;
+  week_label: string;
+  topic: string;
+  title?: string;
+  content?: string;
+  photo_paths?: string[];
+};
+type WorkerEntry = {
+  id: string;
+  worker_name: string;
+  individual_scheduled: boolean;
+  signature_data: string | null;
+  has_drawn: boolean;
+};
 
 export default function LeaderPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -22,8 +36,20 @@ export default function LeaderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
 
-  const [submittedWorkers, setSubmittedWorkers] = useState<{ id: string; worker_name: string; acknowledged_at: string }[]>([]);
+  // 사진 첨부 아래 추가할 근로자 이름·서명·개별진행 입력 상태
+  const [workerName, setWorkerName] = useState("");
+  const [individualScheduled, setIndividualScheduled] = useState(false);
+  const [workerEntries, setWorkerEntries] = useState<WorkerEntry[]>([]);
+  const [hasDrawn, setHasDrawn] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [submittedWorkers, setSubmittedWorkers] = useState<
+    { id: string; worker_name: string; status?: string; is_individual_scheduled?: boolean; acknowledged_at?: string | null }[]
+  >([]);
   const [loadingWorkers, setLoadingWorkers] = useState(false);
+
+  const selectedWeekObj = weeks.find((w) => w.id === week) || null;
 
   async function loadSubmittedWorkers(targetWeek: string, targetCompany: string, targetTeam: string) {
     if (!configured || !targetWeek || !targetCompany || !targetTeam) {
@@ -33,11 +59,11 @@ export default function LeaderPage() {
     setLoadingWorkers(true);
     const { data } = await supabase
       .from("tbm_acknowledgements")
-      .select("id, worker_name, acknowledged_at")
+      .select("id, worker_name, status, is_individual_scheduled, acknowledged_at")
       .eq("week_id", targetWeek)
       .eq("company_id", targetCompany)
       .eq("team_id", targetTeam)
-      .order("acknowledged_at", { ascending: true });
+      .order("id", { ascending: true });
     setSubmittedWorkers(data || []);
     setLoadingWorkers(false);
   }
@@ -52,7 +78,11 @@ export default function LeaderPage() {
       const [c, t, w] = await Promise.all([
         supabase.from("companies").select("id,name").eq("active", true).order("name"),
         supabase.from("teams").select("id,name,company_id").eq("active", true).order("name"),
-        supabase.from("tbm_weeks").select("id,week_label,topic").eq("is_published", true).order("starts_at", { ascending: false })
+        supabase
+          .from("tbm_weeks")
+          .select("id,week_label,topic,title,content,photo_paths")
+          .eq("is_published", true)
+          .order("starts_at", { ascending: false }),
       ]);
 
       const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
@@ -62,24 +92,106 @@ export default function LeaderPage() {
         )
       );
       setTeams(t.data || []);
-      setWeeks(w.data || []);
+      setWeeks((w.data as Week[]) || []);
       if (w.data?.[0]) setWeek(w.data[0].id);
     })();
   }, []);
 
-  const filtered = teams.filter(t => t.company_id === company);
-  const selectedCompanyName = companies.find(c => c.id === company)?.name;
+  const filtered = teams.filter((t) => t.company_id === company);
+  const selectedCompanyName = companies.find((c) => c.id === company)?.name;
   const teamOrder: Record<string, string[]> = {
-    "동아스틸": ["전기파트", "품질파트", "기타부서"],
-    "다인스틸": ["P5", "P9", "P10"],
-    "나로스틸": ["C1", "P1", "P7", "P8"],
-    "세현스틸": ["SL2", "SL5", "SCP1", "SCP2", "1공무", "2공무", "1품질", "2품질"],
-    "에스로지스": ["1출하", "2출하"]
+    동아스틸: ["전기파트", "품질파트", "기타부서"],
+    다인스틸: ["P5", "P9", "P10"],
+    나로스틸: ["C1", "P1", "P7", "P8"],
+    세현스틸: ["SL2", "SL5", "SCP1", "SCP2", "1공무", "2공무", "1품질", "2품질"],
+    에스로지스: ["1출하", "2출하"],
   };
   const orderedTeams = [...filtered].sort((a, b) => {
     const order = teamOrder[selectedCompanyName || ""] || [];
     return order.indexOf(a.name) - order.indexOf(b.name);
   });
+
+  const getCoords = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    if (individualScheduled) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const { x, y } = getCoords(e, canvas);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+    setHasDrawn(true);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing || !canvasRef.current || individualScheduled) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getCoords(e, canvas);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => setIsDrawing(false);
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
+  };
+
+  function addWorkerEntry() {
+    const trimmed = workerName.trim();
+    if (!trimmed) {
+      setMsg("근로자 이름을 입력해 주세요.");
+      return;
+    }
+    if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
+      setMsg("개별진행이 아닌 경우 근로자 서명을 입력하거나 [개별진행]을 체크해 주세요.");
+      return;
+    }
+
+    const sig = individualScheduled || !canvasRef.current ? null : canvasRef.current.toDataURL("image/png");
+    setWorkerEntries((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        worker_name: trimmed,
+        individual_scheduled: individualScheduled,
+        signature_data: sig,
+        has_drawn: !individualScheduled && hasDrawn,
+      },
+    ]);
+    setWorkerName("");
+    setIndividualScheduled(false);
+    clearCanvas();
+    setMsg("");
+  }
+
+  function removeWorkerEntry(id: string) {
+    setWorkerEntries((prev) => prev.filter((item) => item.id !== id));
+  }
 
   async function compressImage(rawFile: File): Promise<Blob | File> {
     if (!rawFile.type.startsWith("image/")) return rawFile;
@@ -141,13 +253,29 @@ export default function LeaderPage() {
       return;
     }
 
+    // 현재 입력 중인 근로자 행이 있으면 자동 포함 여부 확인
+    const pendingEntries: WorkerEntry[] = [...workerEntries];
+    if (workerName.trim()) {
+      if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
+        setMsg("입력 중인 근로자의 서명을 완료하거나 [개별진행]을 체크해 주세요.");
+        return;
+      }
+      pendingEntries.push({
+        id: "current-draft",
+        worker_name: workerName.trim(),
+        individual_scheduled: individualScheduled,
+        signature_data: individualScheduled || !canvasRef.current ? null : canvasRef.current.toDataURL("image/png"),
+        has_drawn: !individualScheduled && hasDrawn,
+      });
+    }
+
     setSubmitting(true);
     setMsg("사진 용량을 최적화하여 업로드 중입니다...");
 
     try {
       const compressed = await compressImage(file);
       const isJpeg = compressed !== file;
-      const ext = isJpeg ? "jpg" : (file.name.split(".").pop() || "jpg");
+      const ext = isJpeg ? "jpg" : file.name.split(".").pop() || "jpg";
       const path = `${week}/${team}/${Date.now()}.${ext}`;
       const up = await supabase.storage.from("tbm-photos").upload(path, compressed, {
         upsert: false,
@@ -174,7 +302,30 @@ export default function LeaderPage() {
         throw new Error("제출 기록 저장 실패: " + error.message);
       }
 
-      setMsg("조별 TBM 일지 및 현장 사진이 제출되었습니다.");
+      if (pendingEntries.length > 0) {
+        const rows = pendingEntries.map((entry) => ({
+          week_id: week,
+          company_id: company,
+          team_id: team,
+          worker_name: entry.worker_name,
+          selected_rules: [],
+          signature_data: entry.individual_scheduled ? null : entry.signature_data,
+          status: entry.individual_scheduled ? "개별진행" : "완료",
+          is_individual_scheduled: entry.individual_scheduled,
+          acknowledged_at: entry.individual_scheduled ? null : new Date().toISOString(),
+        }));
+        const { error: ackError } = await supabase.from("tbm_acknowledgements").insert(rows);
+        if (ackError) {
+          throw new Error("근로자 서명/개별진행 저장 실패: " + ackError.message);
+        }
+      }
+
+      setWorkerEntries([]);
+      setWorkerName("");
+      setIndividualScheduled(false);
+      clearCanvas();
+      await loadSubmittedWorkers(week, company, team);
+      setMsg("조별 TBM 일지, 현장 사진 및 근로자 등록이 저장되었습니다.");
     } catch (err: any) {
       setMsg(
         (err?.message || "전송 중 오류가 발생했습니다.") +
@@ -188,45 +339,99 @@ export default function LeaderPage() {
 
   return (
     <main className="mobile">
-      <div style={{ marginBottom: 10 }}>
+      <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+        <Link href="/tbm/regular" className="btn secondary">
+          ← 정기 TBM
+        </Link>
         <Link href="/tbm-main" className="btn secondary">
-          ← TBM 메뉴
+          TBM 메뉴
         </Link>
       </div>
+
       <div className="mobilehero">
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · LEADER</div>
-        <h1>조별 TBM 사진 제출</h1>
-        <div style={{ fontSize: 13, opacity: 0.85 }}>조장 또는 지정 담당자용</div>
+        <h1>조장등록 (조별 TBM 사진 제출)</h1>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>교육자료 확인 · 사진 첨부 · 근로자 서명 / 개별진행</div>
       </div>
+
+      {/* 최상단 교육자료 표시 영역 */}
+      {selectedWeekObj && (
+        <div className="card" style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #cbd5e1" }}>
+          <div className="row between" style={{ marginBottom: 6 }}>
+            <b style={{ fontSize: 13.5, color: "#1e3a8a" }}>
+              금주 교육자료 · {selectedWeekObj.week_label}
+            </b>
+            <span className="pill ok" style={{ fontSize: 11.5 }}>
+              교육 진행용
+            </span>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>
+            {selectedWeekObj.topic} {selectedWeekObj.title ? `— ${selectedWeekObj.title}` : ""}
+          </div>
+          {selectedWeekObj.content && (
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "#334155" }}>
+              {selectedWeekObj.content}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card">
         {!configured && <p className="muted">Supabase 연결 후 사용할 수 있습니다.</p>}
         <div className="field">
           <label>교육 회차</label>
-          <select value={week} onChange={e => setWeek(e.target.value)}>
+          <select value={week} onChange={(e) => setWeek(e.target.value)}>
             <option value="">회차 선택</option>
-            {weeks.map(w => <option key={w.id} value={w.id}>{w.week_label} · {w.topic}</option>)}
+            {weeks.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.week_label} · {w.topic}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field">
           <label>소속 회사</label>
-          <select value={company} onChange={e => { setCompany(e.target.value); setTeam(""); }}>
+          <select
+            value={company}
+            onChange={(e) => {
+              setCompany(e.target.value);
+              setTeam("");
+            }}
+          >
             <option value="">회사 선택</option>
-            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field">
           <label>소속 조</label>
-          <select value={team} onChange={e => setTeam(e.target.value)}>
+          <select value={team} onChange={(e) => setTeam(e.target.value)}>
             <option value="">조 선택</option>
-            {orderedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {orderedTeams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
           </select>
         </div>
 
         {week && company && team && (
-          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 12, marginTop: 12, marginBottom: 14 }}>
+          <div
+            style={{
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
+              borderRadius: 10,
+              padding: 12,
+              marginTop: 12,
+              marginBottom: 14,
+            }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <b style={{ fontSize: 13.5, color: "#166534" }}>
-                우리 조 실시간 서명 완료 현황 ({submittedWorkers.length}명)
+                우리 조 서명/개별진행 현황 ({submittedWorkers.length}명)
               </b>
               <button
                 type="button"
@@ -239,26 +444,29 @@ export default function LeaderPage() {
             </div>
             {submittedWorkers.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {submittedWorkers.map((w, idx) => (
-                  <span
-                    key={w.id}
-                    style={{
-                      background: "#fff",
-                      border: "1px solid #86efac",
-                      color: "#15803d",
-                      borderRadius: 999,
-                      padding: "3px 10px",
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {idx + 1}. {w.worker_name} ✓
-                  </span>
-                ))}
+                {submittedWorkers.map((w, idx) => {
+                  const isPending = w.is_individual_scheduled || w.status === "개별진행";
+                  return (
+                    <span
+                      key={w.id}
+                      style={{
+                        background: "#fff",
+                        border: isPending ? "1px solid #fcd34d" : "1px solid #86efac",
+                        color: isPending ? "#b45309" : "#15803d",
+                        borderRadius: 999,
+                        padding: "3px 10px",
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {idx + 1}. {w.worker_name} {isPending ? "(개별진행)" : "✓"}
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               <div style={{ fontSize: 12.5, color: "#4b5563" }}>
-                아직 서명을 완료한 조원이 없습니다. 조원들이 QR로 서명을 마치면 위 [새로고침]으로 바로 확인할 수 있습니다.
+                아직 등록된 조원 내역이 없습니다.
               </div>
             )}
           </div>
@@ -266,12 +474,17 @@ export default function LeaderPage() {
 
         <div className="field">
           <label>제출자(조장) 이름</label>
-          <input className="input" value={leader} onChange={e => setLeader(e.target.value)} placeholder="이름 입력" />
+          <input
+            className="input"
+            value={leader}
+            onChange={(e) => setLeader(e.target.value)}
+            placeholder="이름 입력"
+          />
         </div>
 
         <div className="field">
           <label>작업자 건강 및 보호구 상태 점검</label>
-          <select value={healthStatus} onChange={e => setHealthStatus(e.target.value)}>
+          <select value={healthStatus} onChange={(e) => setHealthStatus(e.target.value)}>
             <option value="이상없음">전원 이상없음 (보호구 착용 및 건강 양호)</option>
             <option value="보호구 보완 조치 완료">보호구 미비자 보완 조치 후 작업 투입</option>
             <option value="건강 이상자 작업 조정">건강 이상자(음주·피로 등) 작업 제외/조정</option>
@@ -283,7 +496,7 @@ export default function LeaderPage() {
           <input
             className="input"
             value={dailyHazard}
-            onChange={e => setDailyHazard(e.target.value)}
+            onChange={(e) => setDailyHazard(e.target.value)}
             placeholder="예: 크레인 인양 하부 출입 통제 및 전선 피복 점검"
           />
         </div>
@@ -291,18 +504,158 @@ export default function LeaderPage() {
         <div className="field">
           <label>TBM 실시 사진</label>
           <div className="upload">
-            <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
             <p className="muted">{file ? file.name : "현장에서 사진을 촬영하거나 선택해 주세요."}</p>
           </div>
         </div>
 
+        {/* 사진 첨부 밑 근로자 이름 입력 + 서명 + 개별진행 체크 */}
+        <div
+          style={{
+            marginTop: 14,
+            marginBottom: 16,
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #cbd5e1",
+            background: "#f8fafc",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
+            참석 근로자 이름 · 서명 / 개별진행
+          </div>
+
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>근로자 이름</label>
+            <input
+              className="input"
+              value={workerName}
+              onChange={(e) => setWorkerName(e.target.value)}
+              placeholder="근로자 이름 입력"
+            />
+          </div>
+
+          <label className="checkrow" style={{ marginTop: 6, marginBottom: 10 }}>
+            <input
+              type="checkbox"
+              checked={individualScheduled}
+              onChange={(e) => {
+                setIndividualScheduled(e.target.checked);
+                if (e.target.checked) clearCanvas();
+              }}
+            />
+            <span>
+              <b>개별진행</b> (체크 시 서명 없이 저장되며, 근로자가 직접 들어가 교육 확인 후 서명)
+            </span>
+          </label>
+
+          {!individualScheduled && (
+            <div className="field" style={{ marginTop: 0, marginBottom: 10 }}>
+              <label>근로자 서명</label>
+              <div style={{ border: "2px dashed #cbd5e1", borderRadius: 8, background: "#fff" }}>
+                <canvas
+                  ref={canvasRef}
+                  width={360}
+                  height={120}
+                  style={{ width: "100%", height: 120, touchAction: "none", display: "block" }}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "6px 10px",
+                    borderTop: "1px solid #e5e7eb",
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: "#64748b" }}>서명란에 서명해 주세요</span>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                    onClick={clearCanvas}
+                  >
+                    지우기
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="btn secondary"
+            style={{ width: "100%" }}
+            onClick={addWorkerEntry}
+          >
+            + 근로자 명단에 추가
+          </button>
+
+          {workerEntries.length > 0 && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              {workerEntries.map((entry, idx) => (
+                <div
+                  key={entry.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                  }}
+                >
+                  <div>
+                    <b>
+                      {idx + 1}. {entry.worker_name}
+                    </b>{" "}
+                    <span
+                      className={`pill ${entry.individual_scheduled ? "wait" : "ok"}`}
+                      style={{ fontSize: 11.5, marginLeft: 4 }}
+                    >
+                      {entry.individual_scheduled ? "개별진행 예정" : "서명 완료"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    style={{ padding: "3px 8px", fontSize: 11.5 }}
+                    onClick={() => removeWorkerEntry(entry.id)}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button className="btn" style={{ width: "100%" }} onClick={upload} disabled={submitting}>
-          {submitting ? "제출 중..." : "사진 제출"}
+          {submitting ? "제출 중..." : "사진 및 근로자 등록 제출"}
         </button>
 
         {msg && (
           <div style={{ marginTop: 10, textAlign: "center" }}>
-            <p className="muted" style={{ color: canRetry ? "#b91c1c" : undefined, fontWeight: canRetry ? "bold" : undefined, marginBottom: canRetry ? 8 : 0 }}>
+            <p
+              className="muted"
+              style={{
+                color: canRetry ? "#b91c1c" : undefined,
+                fontWeight: canRetry ? "bold" : undefined,
+                marginBottom: canRetry ? 8 : 0,
+              }}
+            >
               {msg}
             </p>
             {canRetry && (
@@ -323,4 +676,3 @@ export default function LeaderPage() {
     </main>
   );
 }
-
