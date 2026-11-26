@@ -30,9 +30,10 @@ export default function ForkliftStatusPage() {
   const [logs, setLogs] = useState<ForkliftLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<"전체" | "사용중" | "반납완료">("전체");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
-  const [returningLog, setReturningLog] = useState<ForkliftLog | null>(null);
+  const [returningTargets, setReturningTargets] = useState<ForkliftLog[]>([]);
   const [returnType, setReturnType] = useState<string>("1공장 출하사무실");
   const [customReturnLocation, setCustomReturnLocation] = useState("");
   const [returnConfirmed, setReturnConfirmed] = useState(false);
@@ -55,7 +56,12 @@ export default function ForkliftStatusPage() {
     if (error) {
       setMsg("현황 조회 오류: " + error.message);
     } else {
-      setLogs(data || []);
+      const nextLogs = data || [];
+      setLogs(nextLogs);
+      const activeIdSet = new Set(
+        nextLogs.filter((l) => l.status === "사용중").map((l) => l.id)
+      );
+      setSelectedIds((prev) => prev.filter((id) => activeIdSet.has(id)));
     }
     setLoading(false);
   }
@@ -64,14 +70,22 @@ export default function ForkliftStatusPage() {
     loadLogs();
   }, []);
 
-  function openReturnModal(item: ForkliftLog) {
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function openReturnModal(targets: ForkliftLog[]) {
+    if (!targets.length) return;
     setMsg("");
-    setReturningLog(item);
+    setReturningTargets(targets);
+    const firstPickup = targets[0].pickup_location;
     setReturnType(
-      item.pickup_location === "1공장 출하사무실" ||
-        item.pickup_location === "2공장 협력사 사무실" ||
-        item.pickup_location === "2공장 동아스틸 사무실"
-        ? item.pickup_location
+      firstPickup === "1공장 출하사무실" ||
+        firstPickup === "2공장 협력사 사무실" ||
+        firstPickup === "2공장 동아스틸 사무실"
+        ? firstPickup
         : "1공장 출하사무실"
     );
     setCustomReturnLocation("");
@@ -94,7 +108,7 @@ export default function ForkliftStatusPage() {
   }
 
   async function confirmReturn() {
-    if (!returningLog || savingReturn) return;
+    if (!returningTargets.length || savingReturn) return;
     setMsg("");
 
     if (returnType === "기타장소" && !customReturnLocation.trim()) {
@@ -112,6 +126,7 @@ export default function ForkliftStatusPage() {
     try {
       const finalReturnLocation =
         returnType === "기타장소" ? customReturnLocation.trim() : returnType;
+      const targetIds = returningTargets.map((t) => t.id);
 
       const { error } = await supabase
         .from("forklift_logs")
@@ -122,16 +137,16 @@ export default function ForkliftStatusPage() {
           return_note: returnNote.trim() || null,
           return_photo_data: returnPhotoData,
         })
-        .eq("id", returningLog.id);
+        .in("id", targetIds);
 
       if (error) {
         throw new Error(error.message);
       }
 
-      setMsg(
-        `${returningLog.forklift_type} (${returningLog.user_name}님) 키가 [${finalReturnLocation}]에 반납 처리되었습니다.`
-      );
-      setReturningLog(null);
+      const targetNames = returningTargets.map((t) => t.forklift_type).join(", ");
+      setMsg(`${targetNames} (${returningTargets.length}건)이 [${finalReturnLocation}]에 반납 처리되었습니다.`);
+      setReturningTargets([]);
+      setSelectedIds((prev) => prev.filter((id) => !targetIds.includes(id)));
       await loadLogs();
     } catch (err: any) {
       setMsg("반납 처리 오류: " + (err?.message || "잠시 후 다시 시도해 주세요."));
@@ -150,6 +165,24 @@ export default function ForkliftStatusPage() {
     return item.status === filterStatus;
   });
 
+  const activeLogs = filteredLogs.filter((l) => l.status === "사용중");
+  const allActiveSelected =
+    activeLogs.length > 0 && activeLogs.every((l) => selectedIds.includes(l.id));
+
+  function toggleSelectAllActive() {
+    if (allActiveSelected) {
+      const activeIdSet = new Set(activeLogs.map((l) => l.id));
+      setSelectedIds((prev) => prev.filter((id) => !activeIdSet.has(id)));
+    } else {
+      const merged = new Set([...selectedIds, ...activeLogs.map((l) => l.id)]);
+      setSelectedIds(Array.from(merged));
+    }
+  }
+
+  const selectedActiveLogs = logs.filter(
+    (l) => l.status === "사용중" && selectedIds.includes(l.id)
+  );
+
   const activeCount = logs.filter((l) => l.status === "사용중").length;
   const returnedCount = logs.filter((l) => l.status === "반납완료").length;
 
@@ -158,11 +191,11 @@ export default function ForkliftStatusPage() {
       <div className="pagehead">
         <div>
           <h1>지게차 사용 현황</h1>
-          <div className="muted">실시간 키 수령·반납 상태 확인 및 키 반납 처리</div>
+          <div className="muted">실시간 키 수령·반납 상태 확인 및 단건/복수 반납 처리</div>
         </div>
         <div className="row">
-          <Link href="/" className="btn secondary">
-            ← 홈으로
+          <Link href="/forklift-main" className="btn secondary">
+            ← 지게차 메뉴
           </Link>
           <Link href="/forklift" className="btn">
             + 지게차 사용 신청
@@ -185,7 +218,7 @@ export default function ForkliftStatusPage() {
         </div>
       </div>
 
-      {msg && !returningLog && (
+      {msg && returningTargets.length === 0 && (
         <div className="card section" style={{ padding: 12 }}>
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{msg}</p>
         </div>
@@ -202,7 +235,20 @@ export default function ForkliftStatusPage() {
             marginBottom: 12,
           }}
         >
-          <h2 style={{ margin: 0 }}>수령 / 반납 목록</h2>
+          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0 }}>수령 / 반납 목록</h2>
+            {selectedActiveLogs.length > 0 && (
+              <button
+                type="button"
+                className="btn"
+                style={{ padding: "7px 14px", fontSize: 13 }}
+                onClick={() => openReturnModal(selectedActiveLogs)}
+              >
+                선택 반납 ({selectedActiveLogs.length}건)
+              </button>
+            )}
+          </div>
+
           <div style={{ display: "flex", gap: 6 }}>
             {(["전체", "사용중", "반납완료"] as const).map((tab) => (
               <button
@@ -228,6 +274,15 @@ export default function ForkliftStatusPage() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 38 }}>
+                    <input
+                      type="checkbox"
+                      checked={allActiveSelected}
+                      disabled={activeLogs.length === 0}
+                      onChange={toggleSelectAllActive}
+                      title="사용중 전체 선택"
+                    />
+                  </th>
                   <th>상태</th>
                   <th>지게차</th>
                   <th>소속 / 사용자</th>
@@ -242,10 +297,22 @@ export default function ForkliftStatusPage() {
               <tbody>
                 {filteredLogs.map((item) => {
                   const abnCnt = countAbnormal(item.checklist);
+                  const isActive = item.status === "사용중";
                   return (
                     <tr key={item.id}>
                       <td>
-                        <span className={`pill ${item.status === "반납완료" ? "ok" : "wait"}`}>
+                        {isActive ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={() => toggleSelect(item.id)}
+                          />
+                        ) : (
+                          <span className="muted">-</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`pill ${isActive ? "wait" : "ok"}`}>
                           {item.status}
                         </span>
                       </td>
@@ -263,7 +330,7 @@ export default function ForkliftStatusPage() {
                         </small>
                       </td>
                       <td>
-                        {item.status === "반납완료" ? (
+                        {!isActive ? (
                           <>
                             <div>{item.return_location || "-"}</div>
                             <small className="muted">
@@ -305,12 +372,12 @@ export default function ForkliftStatusPage() {
                         )}
                       </td>
                       <td>
-                        {item.status === "사용중" ? (
+                        {isActive ? (
                           <button
                             type="button"
                             className="btn"
                             style={{ padding: "6px 12px", fontSize: 12.5 }}
-                            onClick={() => openReturnModal(item)}
+                            onClick={() => openReturnModal([item])}
                           >
                             반납
                           </button>
@@ -324,7 +391,7 @@ export default function ForkliftStatusPage() {
 
                 {!filteredLogs.length && (
                   <tr>
-                    <td colSpan={9} className="empty">
+                    <td colSpan={10} className="empty">
                       표시할 지게차 사용 기록이 없습니다.
                     </td>
                   </tr>
@@ -335,7 +402,7 @@ export default function ForkliftStatusPage() {
         )}
       </div>
 
-      {returningLog && (
+      {returningTargets.length > 0 && (
         <div
           style={{
             position: "fixed",
@@ -359,10 +426,16 @@ export default function ForkliftStatusPage() {
               overflowY: "auto",
             }}
           >
-            <h3 style={{ marginTop: 0 }}>지게차 키 반납</h3>
-            <p className="muted" style={{ marginTop: 4 }}>
-              <b>{returningLog.forklift_type}</b> · {returningLog.company_name}{" "}
-              {returningLog.user_name}님
+            <h3 style={{ marginTop: 0 }}>
+              지게차 키 반납 {returningTargets.length > 1 ? `(${returningTargets.length}건)` : ""}
+            </h3>
+            <p className="muted" style={{ marginTop: 4, lineHeight: 1.5 }}>
+              {returningTargets.map((t, idx) => (
+                <span key={t.id}>
+                  {idx > 0 && <br />}
+                  <b>{t.forklift_type}</b> · {t.company_name} {t.user_name}님
+                </span>
+              ))}
             </p>
 
             <div className="field">
@@ -488,7 +561,7 @@ export default function ForkliftStatusPage() {
                 type="button"
                 className="btn secondary"
                 disabled={savingReturn}
-                onClick={() => setReturningLog(null)}
+                onClick={() => setReturningTargets([])}
               >
                 취소
               </button>
@@ -498,7 +571,11 @@ export default function ForkliftStatusPage() {
                 disabled={savingReturn}
                 onClick={confirmReturn}
               >
-                {savingReturn ? "반납 처리 중..." : "반납"}
+                {savingReturn
+                  ? "반납 처리 중..."
+                  : returningTargets.length > 1
+                  ? `반납 (${returningTargets.length}건)`
+                  : "반납"}
               </button>
             </div>
           </div>

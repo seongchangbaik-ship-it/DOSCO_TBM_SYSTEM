@@ -151,7 +151,7 @@ const STAGES: { key: ChecklistItem["stage"]; title: string; guide: string }[] = 
 ];
 
 export default function ForkliftPage() {
-  const [forkliftType, setForkliftType] = useState<string>("1공장 7톤");
+  const [selectedForklifts, setSelectedForklifts] = useState<string[]>(["1공장 7톤"]);
   const [companyType, setCompanyType] = useState<string>("동아스틸");
   const [customCompanyName, setCustomCompanyName] = useState("");
   const [userName, setUserName] = useState("");
@@ -173,10 +173,16 @@ export default function ForkliftPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
 
+  function toggleForklift(type: string) {
+    setSelectedForklifts((prev) =>
+      prev.includes(type) ? prev.filter((item) => item !== type) : [...prev, type]
+    );
+  }
+
   function handlePickupClick() {
     setMsg("");
-    if (!forkliftType) {
-      setMsg("지게차 종류를 선택해 주세요.");
+    if (selectedForklifts.length === 0) {
+      setMsg("지게차 종류를 1대 이상 선택해 주세요.");
       return;
     }
     if (companyType === "기타업체" && !customCompanyName.trim()) {
@@ -255,13 +261,19 @@ export default function ForkliftPage() {
       return;
     }
 
+    if (selectedForklifts.length === 0) {
+      setMsg("지게차 종류를 1대 이상 선택해 주세요.");
+      return;
+    }
+
     if (!checklistOpen) {
       setMsg("먼저 [수령] 버튼을 눌러 TBM 체크리스트를 확인해 주세요.");
       return;
     }
 
     const missingItem = TBM_CHECKLIST.find(
-      (item) => checklist[String(item.no)] !== "적정 ○" && checklist[String(item.no)] !== "부적정 △"
+      (item) =>
+        checklist[String(item.no)] !== "적정 ○" && checklist[String(item.no)] !== "부적정 △"
     );
     if (missingItem) {
       setMsg(`${missingItem.no}번 항목(${missingItem.hazard})의 적정 ○ / 부적정 △을 선택해 주세요.`);
@@ -282,11 +294,12 @@ export default function ForkliftPage() {
       companyType === "기타업체" ? customCompanyName.trim() : companyType;
     const finalPickupLocation =
       pickupType === "기타장소" ? customPickupLocation.trim() : pickupType;
+    const pickedUpAt = new Date().toISOString();
 
     setSubmitting(true);
     try {
       const signatureData = canvasRef.current.toDataURL("image/png");
-      const { error } = await supabase.from("forklift_logs").insert({
+      const rows = selectedForklifts.map((forkliftType) => ({
         forklift_type: forkliftType,
         company_name: finalCompanyName,
         company_type: companyType,
@@ -298,8 +311,10 @@ export default function ForkliftPage() {
         pledge_agreed: true,
         signature_data: signatureData,
         status: "사용중",
-        picked_up_at: new Date().toISOString(),
-      });
+        picked_up_at: pickedUpAt,
+      }));
+
+      const { error } = await supabase.from("forklift_logs").insert(rows);
 
       if (error) {
         throw new Error(error.message);
@@ -321,8 +336,8 @@ export default function ForkliftPage() {
   return (
     <main className="mobile">
       <div className="row between" style={{ marginBottom: 10 }}>
-        <Link href="/" className="btn secondary">
-          ← 홈으로
+        <Link href="/forklift-main" className="btn secondary">
+          ← 지게차 메뉴
         </Link>
         <Link href="/forklift/status" className="btn secondary">
           지게차 사용 현황 →
@@ -333,7 +348,7 @@ export default function ForkliftPage() {
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · FORKLIFT TBM</div>
         <h1>지게차 사용 신청</h1>
         <div style={{ fontSize: 13, opacity: 0.85 }}>
-          키 수령 · 작업전/중/후 TBM 체크리스트 · 서명
+          키 수령(복수 선택 가능) · 작업전/중/후 TBM 체크리스트 · 서명
         </div>
       </div>
 
@@ -343,30 +358,37 @@ export default function ForkliftPage() {
             <h3 style={{ marginTop: 0 }}>1. 지게차 · 사용자 · 키 수령 장소</h3>
 
             <div className="field">
-              <label>지게차 종류</label>
+              <label>지게차 종류 (복수 선택 가능)</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
-                {FORKLIFT_TYPES.map((type) => (
-                  <label
-                    key={type}
-                    className="checkrow"
-                    style={{
-                      margin: 0,
-                      padding: "10px 12px",
-                      borderRadius: 8,
-                      border: forkliftType === type ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
-                      background: forkliftType === type ? "#eff6ff" : "#fff",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="forkliftType"
-                      checked={forkliftType === type}
-                      onChange={() => setForkliftType(type)}
-                    />
-                    <b>{type}</b>
-                  </label>
-                ))}
+                {FORKLIFT_TYPES.map((type) => {
+                  const checked = selectedForklifts.includes(type);
+                  return (
+                    <label
+                      key={type}
+                      className="checkrow"
+                      style={{
+                        margin: 0,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: checked ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                        background: checked ? "#eff6ff" : "#fff",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleForklift(type)}
+                      />
+                      <b>{type}</b>
+                    </label>
+                  );
+                })}
               </div>
+              {selectedForklifts.length > 0 && (
+                <small className="muted" style={{ display: "block", marginTop: 6 }}>
+                  선택됨 ({selectedForklifts.length}대): {selectedForklifts.join(", ")}
+                </small>
+              )}
             </div>
 
             <div className="field">
@@ -488,7 +510,7 @@ export default function ForkliftPage() {
             <div className="card section">
               <div className="row between" style={{ marginBottom: 8 }}>
                 <h3 style={{ margin: 0 }}>2. 지게차 TBM 체크리스트</h3>
-                <span className="pill ok">{forkliftType}</span>
+                <span className="pill ok">{selectedForklifts.join(" · ")}</span>
               </div>
 
               {STAGES.map((stageObj) => (
@@ -622,7 +644,9 @@ export default function ForkliftPage() {
                 disabled={submitting}
                 onClick={handleSubmit}
               >
-                {submitting ? "제출 중..." : "제출 (수령 완료)"}
+                {submitting
+                  ? "제출 중..."
+                  : `제출 (수령 완료 · ${selectedForklifts.length}대)`}
               </button>
             </div>
           )}
@@ -649,8 +673,8 @@ export default function ForkliftPage() {
           <div className="pill ok">수령 완료</div>
           <h2>지게차 키 수령이 등록되었습니다.</h2>
           <p className="muted">
-            {forkliftType} · {companyType === "기타업체" ? customCompanyName : companyType} ·{" "}
-            {userName}님
+            {selectedForklifts.join(", ")} ({selectedForklifts.length}대) ·{" "}
+            {companyType === "기타업체" ? customCompanyName : companyType} · {userName}님
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
             <Link href="/forklift/status" className="btn">
