@@ -37,6 +37,8 @@ function TBMForm() {
   const searchParams = useSearchParams();
   const qrCompanyId = searchParams.get("c") || "";
   const qrTeamId = searchParams.get("t") || "";
+  const qrWeekId = searchParams.get("w") || "";
+  const qrWorkerName = searchParams.get("name") || "";
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -125,9 +127,16 @@ function TBMForm() {
         }
       }
 
+      if (qrWorkerName) {
+        setName(qrWorkerName);
+      }
+
       if (w.data && w.data.length > 0) {
         setWeeks(w.data as Week[]);
-        await selectWeekItem(w.data[0] as Week);
+        const matchedWeek = qrWeekId
+          ? (w.data as Week[]).find((item) => item.id === qrWeekId)
+          : undefined;
+        await selectWeekItem(matchedWeek || (w.data[0] as Week));
       }
     })();
   }, []);
@@ -250,20 +259,45 @@ function TBMForm() {
     setSubmitting(true);
     try {
       const signatureData = canvasRef.current.toDataURL("image/png");
-
-      const { error } = await supabase.from("tbm_acknowledgements").insert({
+      const ackPayload = {
         week_id: week.id,
         company_id: company,
         team_id: team,
         worker_name: name.trim(),
         selected_rules: selectedRules,
         signature_data: signatureData,
+        status: "완료",
+        is_individual_scheduled: false,
         acknowledged_at: new Date().toISOString(),
-      });
+      };
 
-      if (error) {
-        console.error("교육 확인 제출 오류:", error);
-        throw new Error("제출 오류: " + error.message + " (코드: " + error.code + ")");
+      const { data: existingPending } = await supabase
+        .from("tbm_acknowledgements")
+        .select("id")
+        .eq("week_id", week.id)
+        .eq("company_id", company)
+        .eq("team_id", team)
+        .eq("worker_name", name.trim())
+        .or("is_individual_scheduled.eq.true,status.eq.개별진행")
+        .limit(1);
+
+      if (existingPending && existingPending.length > 0) {
+        const { error } = await supabase
+          .from("tbm_acknowledgements")
+          .update(ackPayload)
+          .eq("id", existingPending[0].id);
+
+        if (error) {
+          console.error("개별진행 완료 갱신 오류:", error);
+          throw new Error("제출 오류: " + error.message + " (코드: " + error.code + ")");
+        }
+      } else {
+        const { error } = await supabase.from("tbm_acknowledgements").insert(ackPayload);
+
+        if (error) {
+          console.error("교육 확인 제출 오류:", error);
+          throw new Error("제출 오류: " + error.message + " (코드: " + error.code + ")");
+        }
       }
 
       setDone(true);
@@ -281,9 +315,9 @@ function TBMForm() {
   return (
     <main className="mobile">
       <div style={{ marginBottom: 10 }}>
-<Link className="btn secondary" href="/tbm-main">
-  ← TBM 메뉴
-</Link>
+        <Link className="btn secondary" href="/tbm-main">
+          ← TBM 메뉴
+        </Link>
       </div>
       <div className="mobilehero">
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · SAFETY</div>
