@@ -14,8 +14,9 @@ type WeekItem = {
   photo_paths?: string[];
 };
 
-export default function RegularTBMPage() {
 const PAGE_SIZE = 5;
+
+export default function RegularTBMPage() {
   const [weeks, setWeeks] = useState<WeekItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMaterial, setSelectedMaterial] = useState<WeekItem | null>(null);
@@ -58,9 +59,16 @@ const PAGE_SIZE = 5;
         .order("starts_at", { ascending: false });
 
       setWeeks((data as WeekItem[]) || []);
+      setCurrentPage(1);
       setLoading(false);
     })();
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(weeks.length / PAGE_SIZE));
+  const pagedWeeks = weeks.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   return (
     <>
@@ -111,7 +119,7 @@ const PAGE_SIZE = 5;
           <div>
             <h1>정기 TBM</h1>
             <div className="muted">
-              최신 교육자료가 상단에 표시되며, 각 자료 오른쪽의 조장용·근로자용 버튼으로 바로 실시등록할 수 있습니다.
+              최신 교육자료가 상단에 표시되며, 한 페이지에 최대 5건씩 조회되고 각 행의 조장용·근로자용 버튼으로 바로 실시등록할 수 있습니다.
             </div>
           </div>
           <div className="row">
@@ -127,7 +135,7 @@ const PAGE_SIZE = 5;
             <span className="pill ok">총 {weeks.length}건</span>
           </div>
 
-{loading ? (
+          {loading ? (
             <p className="muted">교육자료를 불러오는 중...</p>
           ) : weeks.length === 0 ? (
             <p className="muted">등록된 교육자료가 없습니다.</p>
@@ -142,20 +150,20 @@ const PAGE_SIZE = 5;
                   </tr>
                 </thead>
                 <tbody>
-                  {weeks
-                    .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-                    .map((w, idx) => {
-                      const isLatestOverall = currentPage === 1 && idx === 0;
-                      const displayTitle = w.title || w.topic;
-                      return (
-                        <tr key={w.id} className="edu-board-row">
-                          <td style={{ whiteSpace: "nowrap", fontWeight: isLatestOverall ? 700 : 500 }}>
-                            {isLatestOverall ? `[최신] ${w.week_label}` : w.week_label}
-                          </td>
+                  {pagedWeeks.map((w, idx) => {
+                    const isLatestOverall = currentPage === 1 && idx === 0;
+                    const displayTitle = w.title || w.topic;
                     return (
                       <tr key={w.id} className="edu-board-row">
-                        <td style={{ whiteSpace: "nowrap", fontWeight: idx === 0 ? 700 : 500 }}>
-                          {idx === 0 ? `[최신] ${w.week_label}` : w.week_label}
+                        <td
+                          style={{
+                            whiteSpace: "nowrap",
+                            fontWeight: isLatestOverall ? 700 : 500,
+                          }}
+                        >
+                          {isLatestOverall
+                            ? `[최신] ${w.week_label}`
+                            : w.week_label}
                         </td>
                         <td>
                           <button
@@ -174,7 +182,14 @@ const PAGE_SIZE = 5;
                           >
                             {displayTitle}
                             {w.topic && w.title && w.title !== w.topic ? (
-                              <span className="muted" style={{ fontWeight: 400, marginLeft: 8, fontSize: 13 }}>
+                              <span
+                                className="muted"
+                                style={{
+                                  fontWeight: 400,
+                                  marginLeft: 8,
+                                  fontSize: 13,
+                                }}
+                              >
                                 ({w.topic})
                               </span>
                             ) : null}
@@ -185,26 +200,34 @@ const PAGE_SIZE = 5;
                             <Link
                               href={`/leader?w=${encodeURIComponent(w.id)}`}
                               className="btn secondary"
-                              style={{ padding: "6px 12px", fontSize: 12.5, textDecoration: "none" }}
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: 12.5,
+                                textDecoration: "none",
+                              }}
                             >
                               조장용
                             </Link>
                             <Link
                               href={`/tbm?w=${encodeURIComponent(w.id)}`}
                               className="btn"
-                              style={{ padding: "6px 12px", fontSize: 12.5, textDecoration: "none" }}
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: 12.5,
+                                textDecoration: "none",
+                              }}
                             >
                               근로자용
                             </Link>
                           </div>
                         </td>
-</tr>
-                      );
-                    })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
-              {Math.ceil(weeks.length / PAGE_SIZE) > 1 && (
+              {totalPages > 1 && (
                 <div
                   style={{
                     display: "flex",
@@ -225,13 +248,19 @@ const PAGE_SIZE = 5;
                     이전
                   </button>
 
-                  {Array.from({ length: Math.ceil(weeks.length / PAGE_SIZE) }, (_, i) => i + 1).map(
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                     (pageNum) => (
                       <button
                         key={pageNum}
                         type="button"
-                        className={pageNum === currentPage ? "btn" : "btn secondary"}
-                        style={{ padding: "6px 11px", fontSize: 12.5, minWidth: 36 }}
+                        className={
+                          pageNum === currentPage ? "btn" : "btn secondary"
+                        }
+                        style={{
+                          padding: "6px 11px",
+                          fontSize: 12.5,
+                          minWidth: 36,
+                        }}
                         onClick={() => setCurrentPage(pageNum)}
                       >
                         {pageNum}
@@ -243,9 +272,9 @@ const PAGE_SIZE = 5;
                     type="button"
                     className="btn secondary"
                     style={{ padding: "6px 12px", fontSize: 12.5 }}
-                    disabled={currentPage === Math.ceil(weeks.length / PAGE_SIZE)}
+                    disabled={currentPage === totalPages}
                     onClick={() =>
-                      setCurrentPage((p) => Math.min(Math.ceil(weeks.length / PAGE_SIZE), p + 1))
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
                   >
                     다음
@@ -267,7 +296,8 @@ const PAGE_SIZE = 5;
             >
               <div className="row between" style={{ marginBottom: 8 }}>
                 <b style={{ fontSize: 15.5, color: "#0f172a" }}>
-                  {selectedMaterial.week_label} — {selectedMaterial.title || selectedMaterial.topic}
+                  {selectedMaterial.week_label} —{" "}
+                  {selectedMaterial.title || selectedMaterial.topic}
                 </b>
                 <button
                   type="button"
@@ -286,7 +316,13 @@ const PAGE_SIZE = 5;
                   주제: {selectedMaterial.topic}
                 </div>
               )}
-              <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.75 }}>
+              <div
+                style={{
+                  whiteSpace: "pre-wrap",
+                  fontSize: 14,
+                  lineHeight: 1.75,
+                }}
+              >
                 {selectedMaterial.content}
               </div>
               {materialPhotos.length > 0 && (
@@ -303,7 +339,12 @@ const PAGE_SIZE = 5;
                       <img
                         src={url}
                         alt={`교육자료 사진 ${i + 1}`}
-                        style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 8 }}
+                        style={{
+                          width: "100%",
+                          height: 150,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                        }}
                       />
                     </a>
                   ))}
