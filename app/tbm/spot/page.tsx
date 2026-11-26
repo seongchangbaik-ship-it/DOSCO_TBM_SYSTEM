@@ -431,7 +431,7 @@ export default function SpotTbmCreatePage() {
         <div className="field">
           <label>현장 TBM 실시 사진 (선택)</label>
           <div className="upload">
-            <input type="file" accept="image/*" capture="environment" onChange={e => setPhotoFile(e.target.files?.[0] || null)} />
+            <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files?.[0] || null)} />
             <p className="muted" style={{ margin: "6px 0 0" }}>
               {photoFile ? `선택됨: ${photoFile.name}` : "작업 전 인원 집합 또는 현장 사진을 촬영·첨부하세요."}
             </p>
@@ -539,5 +539,6 @@ export default function SpotTbmCreatePage() {
     </main>
   );
 }
+
 
 

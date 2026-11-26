@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
@@ -1286,7 +1286,7 @@ export default function PtwStatusPage() {
             ) : (
               <div className="field">
                 <label>안전교육일지 사진 첨부</label>
-                <input type="file" accept="image/*" capture="environment" onChange={e => setTPhoto(e.target.files?.[0] || null)} />
+                <input type="file" accept="image/*" onChange={e => setTPhoto(e.target.files?.[0] || null)} />
               </div>
             )}
 

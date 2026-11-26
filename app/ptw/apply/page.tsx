@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -2197,7 +2197,6 @@ function PtwApplyForm() {
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     onChange={(e) => setTrainingPhoto(e.target.files?.[0] || null)}
                   />
                 </div>

@@ -291,7 +291,7 @@ export default function LeaderPage() {
         <div className="field">
           <label>TBM 실시 사진</label>
           <div className="upload">
-            <input type="file" accept="image/*" capture="environment" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
             <p className="muted">{file ? file.name : "현장에서 사진을 촬영하거나 선택해 주세요."}</p>
           </div>
         </div>
@@ -323,3 +323,4 @@ export default function LeaderPage() {
     </main>
   );
 }
+
