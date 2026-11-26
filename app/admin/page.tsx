@@ -1130,77 +1130,7 @@ export default function Admin() {
           {msg && <p className="muted">{msg}</p>}
         </div>
 
-        {/* 1. 수시 작업 TBM 현황 */}
-        <div className="section card">
-          <h2>🛠️ 수시 작업 TBM 실시 현황 (R/C · 정비 · 돌발작업)</h2>
-          <div className="tablewrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>작업일자</th>
-                  <th>작업구분</th>
-                  <th>소속 / 조</th>
-                  <th>작업명</th>
-                  <th>책임자</th>
-                  <th>서명인원</th>
-                  <th>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {spotLogs.map((s: any) => (
-                  <tr key={s.id}>
-                    <td>{s.work_date}</td>
-                    <td>
-                      <span className="pill" style={{ background: "#ccfbf1", color: "#0f766e" }}>
-                        {s.work_category}
-                      </span>
-                    </td>
-                    <td>
-                      <b>{s.companies?.name || "-"}</b> / {s.teams?.name || "-"}
-                    </td>
-                    <td>{s.work_title}</td>
-                    <td>{s.leader_name}</td>
-                    <td>
-                      <span className="pill ok">
-                        {(s.tbm_spot_signatures || []).length}명 서명
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn secondary"
-                          onClick={() => openAdminTbmDetail("spot", s)}
-                        >
-                          상세/출력
-                        </button>
-                        <button
-                          className="btn secondary"
-                          style={{
-                            color: "#ef4444",
-                            background: "#fee2e2",
-                            borderColor: "#fca5a5",
-                          }}
-                          onClick={() => deleteSpotLog(s.id)}
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!spotLogs.length && (
-                  <tr>
-                    <td colSpan={7} className="empty">
-                      등록된 수시 작업 TBM이 없습니다.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* 2. 정기 안전교육 조별 통합 현황 */}
+{/* 1. 정기 안전교육 조별 통합 현황 */}
         <div className="section card">
           <h2>📘 정기 안전교육 조별 통합 현황 (조장 사진·일지 + 근로자 서명)</h2>
           <div className="tablewrap">
@@ -1266,6 +1196,76 @@ export default function Admin() {
                   <tr>
                     <td colSpan={6} className="empty">
                       정기 안전교육 기록이 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 2. 수시 작업 TBM 현황 */}
+        <div className="section card">
+          <h2>🛠️ 수시 작업 TBM 실시 현황 (R/C · 정비 · 돌발작업)</h2>
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>작업일자</th>
+                  <th>작업구분</th>
+                  <th>소속 / 조</th>
+                  <th>작업명</th>
+                  <th>책임자</th>
+                  <th>서명인원</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                {spotLogs.map((s: any) => (
+                  <tr key={s.id}>
+                    <td>{s.work_date}</td>
+                    <td>
+                      <span className="pill" style={{ background: "#ccfbf1", color: "#0f766e" }}>
+                        {s.work_category}
+                      </span>
+                    </td>
+                    <td>
+                      <b>{s.companies?.name || "-"}</b> / {s.teams?.name || "-"}
+                    </td>
+                    <td>{s.work_title}</td>
+                    <td>{s.leader_name}</td>
+                    <td>
+                      <span className="pill ok">
+                        {(s.tbm_spot_signatures || []).length}명 서명
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className="btn secondary"
+                          onClick={() => openAdminTbmDetail("spot", s)}
+                        >
+                          상세/출력
+                        </button>
+                        <button
+                          className="btn secondary"
+                          style={{
+                            color: "#ef4444",
+                            background: "#fee2e2",
+                            borderColor: "#fca5a5",
+                          }}
+                          onClick={() => deleteSpotLog(s.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!spotLogs.length && (
+                  <tr>
+                    <td colSpan={7} className="empty">
+                      등록된 수시 작업 TBM이 없습니다.
                     </td>
                   </tr>
                 )}
