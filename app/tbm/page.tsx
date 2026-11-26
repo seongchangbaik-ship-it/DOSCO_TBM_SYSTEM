@@ -619,11 +619,11 @@ function TBMForm() {
         </div>
       )}
 
-      <div className="section card">
-        <b>조장 전용 사진 제출</b>
-        <p className="muted">조별 TBM 실시 사진은 조장 페이지에서 제출해 주세요.</p>
-        <Link className="btn secondary" href="/leader">
-          조장 페이지 이동
+<div className="section card">
+        <b>홈 화면 이동</b>
+        <p className="muted">메인 홈 화면으로 돌아갑니다.</p>
+        <Link className="btn secondary" href="/">
+          홈으로
         </Link>
       </div>
 
