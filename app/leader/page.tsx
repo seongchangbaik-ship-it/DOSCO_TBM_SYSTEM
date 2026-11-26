@@ -234,15 +234,16 @@ const selectedTeamObj = teams.find((t) => t.id === team);
     setHasDrawn(false);
   };
 
-  function validateAndBuildDraftEntry(): WorkerEntry | null {
+function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
     const trimmed = workerName.trim();
-    if (!trimmed) {
-      setNotice("근로자 이름을 입력해 주세요.", true);
-      return null;
-    }
 
     if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
       setNotice("개별 제출인 경우 체크 후 제출해주세요", true);
+      return null;
+    }
+
+    if (requireName && !trimmed) {
+      setNotice("근로자 이름을 입력해 주세요.", true);
       return null;
     }
 
@@ -345,18 +346,41 @@ const selectedTeamObj = teams.find((t) => t.id === team);
       return;
     }
 
-    const pendingEntries: WorkerEntry[] = [...workerEntries];
-    const hasDraftInput =
-      workerName.trim().length > 0 ||
-      individualScheduled ||
-      hasDrawn ||
-      workerSelectedRules.length > 0;
+function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
+    const trimmed = workerName.trim();
 
-    if (hasDraftInput) {
-      const draftEntry = validateAndBuildDraftEntry();
-      if (!draftEntry) return;
-      pendingEntries.push(draftEntry);
+    if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
+      setNotice("개별 제출인 경우 체크 후 제출해주세요", true);
+      return null;
     }
+
+    if (requireName && !trimmed) {
+      setNotice("근로자 이름을 입력해 주세요.", true);
+      return null;
+    }
+
+    if (!individualScheduled && minRequiredRules > 0 && workerSelectedRules.length < minRequiredRules) {
+      setNotice(
+        `위험요인(안전수칙)을 ${minRequiredRules}개 이상 선택해 주세요.`,
+        true
+      );
+      return null;
+    }
+
+    const sig =
+      individualScheduled || !canvasRef.current
+        ? null
+        : canvasRef.current.toDataURL("image/png");
+
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      worker_name: trimmed,
+      individual_scheduled: individualScheduled,
+      selected_rules: individualScheduled ? [] : workerSelectedRules,
+      signature_data: sig,
+      has_drawn: !individualScheduled && hasDrawn,
+    };
+  }
 
     setSubmitting(true);
     setNotice("사진 용량을 최적화하여 업로드 중입니다...", false);
