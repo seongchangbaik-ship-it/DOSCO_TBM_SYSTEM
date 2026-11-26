@@ -46,7 +46,7 @@ export default function ForkliftStatusPage() {
   const [returnPhotoData, setReturnPhotoData] = useState<string | null>(null);
   const [savingReturn, setSavingReturn] = useState(false);
 
-  // 2단계: 협력업체 대표 확인 모달 상태
+  // 2단계: 반납 확인 모달 상태
   const [confirmTarget, setConfirmTarget] = useState<ForkliftLog | null>(null);
   const [confirmerName, setConfirmerName] = useState("");
   const [savingConfirm, setSavingConfirm] = useState(false);
@@ -172,13 +172,13 @@ export default function ForkliftStatusPage() {
     }
   }
 
-  function openCeoConfirmModal(item: ForkliftLog) {
+  function openConfirmModal(item: ForkliftLog) {
     setMsg("");
     setConfirmTarget(item);
     setConfirmerName("");
   }
 
-  async function submitCeoConfirm() {
+  async function submitConfirm() {
     if (!confirmTarget || savingConfirm) return;
     setMsg("");
 
@@ -192,10 +192,10 @@ export default function ForkliftStatusPage() {
 
     try {
       const nowStr = new Date().toLocaleString("ko-KR");
-      const confirmTag = `[대표확인: ${trimmedName} (${nowStr})]`;
+      const confirmTag = `[반납확인: ${trimmedName} (${nowStr})]`;
       const baseNote = (confirmTarget.return_note || "").trim();
-      const nextNote = baseNote.includes("[대표확인:")
-        ? baseNote.replace(/\[대표확인:[^\]]*\]/, confirmTag)
+      const nextNote = /\[(대표확인|반납확인):[^\]]*\]/.test(baseNote)
+        ? baseNote.replace(/\[(대표확인|반납확인):[^\]]*\]/, confirmTag)
         : baseNote
         ? `${baseNote} / ${confirmTag}`
         : confirmTag;
@@ -269,7 +269,7 @@ export default function ForkliftStatusPage() {
       <div className="pagehead">
         <div>
           <h1>지게차 사용 현황</h1>
-          <div className="muted">실시간 키 수령·반납 및 협력업체 대표 최종 확인</div>
+          <div className="muted">실시간 키 수령·반납 및 반납 확인 처리</div>
         </div>
         <div className="row">
           <Link href="/forklift-main" className="btn secondary">
@@ -511,7 +511,7 @@ export default function ForkliftStatusPage() {
                             type="button"
                             className="btn"
                             style={{ padding: "6px 12px", fontSize: 12.5, background: "#0f766e" }}
-                            onClick={() => openCeoConfirmModal(item)}
+                            onClick={() => openConfirmModal(item)}
                           >
                             확인
                           </button>
@@ -788,7 +788,7 @@ export default function ForkliftStatusPage() {
         </div>
       )}
 
-      {/* 2단계: 협력업체 대표 확인 모달 */}
+      {/* 2단계: 반납 확인 모달 */}
       {confirmTarget && (
         <div
           style={{
@@ -819,10 +819,10 @@ export default function ForkliftStatusPage() {
                 className="input"
                 value={confirmerName}
                 onChange={(e) => setConfirmerName(e.target.value)}
-                placeholder="협력업체 대표 성함 입력"
+                placeholder="확인자 성함을 입력하세요"
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") submitCeoConfirm();
+                  if (e.key === "Enter") submitConfirm();
                 }}
               />
             </div>
@@ -858,7 +858,7 @@ export default function ForkliftStatusPage() {
                 className="btn"
                 style={{ background: "#0f766e" }}
                 disabled={savingConfirm}
-                onClick={submitCeoConfirm}
+                onClick={submitConfirm}
               >
                 {savingConfirm ? "확인 중..." : "확인"}
               </button>
