@@ -30,7 +30,7 @@ type ForkliftLog = {
 export default function ForkliftStatusPage() {
   const [logs, setLogs] = useState<ForkliftLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<"전체" | "사용중" | "반납완료">("전체");
+  const [filterStatus, setFilterStatus] = useState<"전체" | "사용중" | "반납확인">("전체");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
@@ -43,6 +43,9 @@ export default function ForkliftStatusPage() {
   const [issueStatus, setIssueStatus] = useState<"없음" | "있음">("없음");
   const [returnNote, setReturnNote] = useState("");
   const [returnPhotoData, setReturnPhotoData] = useState<string | null>(null);
+
+  const [awaitingCeoConfirm, setAwaitingCeoConfirm] = useState(false);
+  const [ceoChecked, setCeoChecked] = useState(false);
   const [savingReturn, setSavingReturn] = useState(false);
 
   async function loadLogs() {
@@ -80,6 +83,12 @@ export default function ForkliftStatusPage() {
     );
   }
 
+  function closeReturnModal() {
+    setReturningTargets([]);
+    setAwaitingCeoConfirm(false);
+    setCeoChecked(false);
+  }
+
   function openReturnModal(targets: ForkliftLog[]) {
     if (!targets.length) return;
     setMsg("");
@@ -97,6 +106,8 @@ export default function ForkliftStatusPage() {
     setIssueStatus("없음");
     setReturnNote("");
     setReturnPhotoData(null);
+    setAwaitingCeoConfirm(false);
+    setCeoChecked(false);
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -112,8 +123,8 @@ export default function ForkliftStatusPage() {
     reader.readAsDataURL(file);
   }
 
-  async function confirmReturn() {
-    if (!returningTargets.length || savingReturn) return;
+  function handleReturnButtonClick() {
+    if (!returningTargets.length) return;
     setMsg("");
 
     if (returnType === "기타장소" && !customReturnLocation.trim()) {
@@ -131,6 +142,19 @@ export default function ForkliftStatusPage() {
       return;
     }
 
+    setCeoChecked(false);
+    setAwaitingCeoConfirm(true);
+  }
+
+  async function confirmByCeo() {
+    if (!returningTargets.length || savingReturn) return;
+    setMsg("");
+
+    if (!ceoChecked) {
+      setMsg("협력업체 대표 확인 체크박스를 선택한 뒤 확인 버튼을 눌러 주세요.");
+      return;
+    }
+
     setSavingReturn(true);
 
     try {
@@ -141,7 +165,7 @@ export default function ForkliftStatusPage() {
       const { error } = await supabase
         .from("forklift_logs")
         .update({
-          status: "반납완료",
+          status: "반납확인",
           returned_at: new Date().toISOString(),
           return_location: finalReturnLocation,
           return_issue_status: issueStatus,
@@ -156,13 +180,13 @@ export default function ForkliftStatusPage() {
 
       const targetNames = returningTargets.map((t) => t.forklift_type).join(", ");
       setMsg(
-        `${targetNames} (${returningTargets.length}건)이 [${finalReturnLocation}]에 반납 처리되었습니다.`
+        `${targetNames} (${returningTargets.length}건)이 협력업체 대표 확인을 거쳐 [반납확인] 처리되었습니다.`
       );
-      setReturningTargets([]);
+      closeReturnModal();
       setSelectedIds((prev) => prev.filter((id) => !targetIds.includes(id)));
       await loadLogs();
     } catch (err: any) {
-      setMsg("반납 처리 오류: " + (err?.message || "잠시 후 다시 시도해 주세요."));
+      setMsg("반납확인 처리 오류: " + (err?.message || "잠시 후 다시 시도해 주세요."));
     } finally {
       setSavingReturn(false);
     }
@@ -175,8 +199,12 @@ export default function ForkliftStatusPage() {
       .filter(([, val]) => val === "부적정 △").length;
   }
 
+  const isConfirmedStatus = (status: string) =>
+    status === "반납확인" || status === "반납완료";
+
   const filteredLogs = logs.filter((item) => {
     if (filterStatus === "전체") return true;
+    if (filterStatus === "반납확인") return isConfirmedStatus(item.status);
     return item.status === filterStatus;
   });
 
@@ -199,14 +227,16 @@ export default function ForkliftStatusPage() {
   );
 
   const activeCount = logs.filter((l) => l.status === "사용중").length;
-  const returnedCount = logs.filter((l) => l.status === "반납완료").length;
+  const confirmedCount = logs.filter((l) => isConfirmedStatus(l.status)).length;
+  const finalReturnLocationPreview =
+    returnType === "기타장소" ? customReturnLocation.trim() : returnType;
 
   return (
     <main className="shell">
       <div className="pagehead">
         <div>
           <h1>지게차 사용 현황</h1>
-          <div className="muted">실시간 키 수령·반납 상태 확인 및 단건/복수 반납 처리</div>
+          <div className="muted">실시간 키 수령·반납 상태 확인 및 협력업체 대표 반납확인</div>
         </div>
         <div className="row">
           <Link href="/forklift-main" className="btn secondary">
@@ -224,8 +254,8 @@ export default function ForkliftStatusPage() {
           <div className="metric">{activeCount}</div>
         </div>
         <div className="card">
-          <div className="muted">반납 완료</div>
-          <div className="metric green">{returnedCount}</div>
+          <div className="muted">반납확인</div>
+          <div className="metric green">{confirmedCount}</div>
         </div>
         <div className="card">
           <div className="muted">전체 기록</div>
@@ -265,7 +295,7 @@ export default function ForkliftStatusPage() {
           </div>
 
           <div style={{ display: "flex", gap: 6 }}>
-            {(["전체", "사용중", "반납완료"] as const).map((tab) => (
+            {(["전체", "사용중", "반납확인"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -314,6 +344,7 @@ export default function ForkliftStatusPage() {
                 {filteredLogs.map((item) => {
                   const abnCnt = countAbnormal(item.checklist);
                   const isActive = item.status === "사용중";
+                  const isConfirmed = isConfirmedStatus(item.status);
                   const hasIssue = item.return_issue_status === "있음";
                   return (
                     <tr key={item.id}>
@@ -330,7 +361,7 @@ export default function ForkliftStatusPage() {
                       </td>
                       <td>
                         <span className={`pill ${isActive ? "wait" : "ok"}`}>
-                          {item.status}
+                          {isConfirmed ? "반납확인" : item.status}
                         </span>
                       </td>
                       <td>
@@ -430,7 +461,7 @@ export default function ForkliftStatusPage() {
                             반납
                           </button>
                         ) : (
-                          <span className="pill ok">반납</span>
+                          <span className="pill ok">반납확인</span>
                         )}
                       </td>
                     </tr>
@@ -550,6 +581,7 @@ export default function ForkliftStatusPage() {
                       type="radio"
                       name="returnType"
                       checked={returnType === loc}
+                      disabled={awaitingCeoConfirm}
                       onChange={() => setReturnType(loc)}
                     />
                     <span>{loc}</span>
@@ -564,6 +596,7 @@ export default function ForkliftStatusPage() {
                 <input
                   className="input"
                   value={customReturnLocation}
+                  disabled={awaitingCeoConfirm}
                   onChange={(e) => setCustomReturnLocation(e.target.value)}
                   placeholder="반납한 장소를 입력하세요"
                 />
@@ -586,6 +619,7 @@ export default function ForkliftStatusPage() {
                 <input
                   type="checkbox"
                   checked={returnConfirmed}
+                  disabled={awaitingCeoConfirm}
                   onChange={(e) => setReturnConfirmed(e.target.checked)}
                 />
                 <span style={{ fontWeight: 600 }}>예</span>
@@ -601,6 +635,7 @@ export default function ForkliftStatusPage() {
                       type="radio"
                       name="issueStatus"
                       checked={issueStatus === opt}
+                      disabled={awaitingCeoConfirm}
                       onChange={() => setIssueStatus(opt)}
                     />
                     <span
@@ -620,6 +655,7 @@ export default function ForkliftStatusPage() {
                   <input
                     className="input"
                     value={returnNote}
+                    disabled={awaitingCeoConfirm}
                     onChange={(e) => setReturnNote(e.target.value)}
                     placeholder="이상·고장·접촉 등 특이사항 메모를 입력해 주세요"
                   />
@@ -633,6 +669,7 @@ export default function ForkliftStatusPage() {
                 type="file"
                 accept="image/*"
                 capture="environment"
+                disabled={awaitingCeoConfirm}
                 onChange={handlePhotoChange}
                 style={{ marginTop: 6, fontSize: 13 }}
               />
@@ -649,17 +686,48 @@ export default function ForkliftStatusPage() {
                       border: "1px solid #cbd5e1",
                     }}
                   />
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    style={{ marginTop: 6, padding: "4px 10px", fontSize: 12 }}
-                    onClick={() => setReturnPhotoData(null)}
-                  >
-                    사진 제거
-                  </button>
+                  {!awaitingCeoConfirm && (
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      style={{ marginTop: 6, padding: "4px 10px", fontSize: 12 }}
+                      onClick={() => setReturnPhotoData(null)}
+                    >
+                      사진 제거
+                    </button>
+                  )}
                 </div>
               )}
             </div>
+
+            {awaitingCeoConfirm && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: "#fef3c7",
+                  border: "1.5px solid #f59e0b",
+                }}
+              >
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#92400e", marginBottom: 6 }}>
+                  협력업체 대표 반납 확인
+                </div>
+                <div style={{ fontSize: 12.5, color: "#78350f", marginBottom: 8 }}>
+                  반납장소: <b>{finalReturnLocationPreview}</b> · 특이사항: <b>{issueStatus}</b>
+                </div>
+                <label className="checkrow" style={{ margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={ceoChecked}
+                    onChange={(e) => setCeoChecked(e.target.checked)}
+                  />
+                  <span style={{ fontWeight: 600, color: "#0f172a" }}>
+                    협력업체 대표가 키 반납 및 상태를 확인했습니다.
+                  </span>
+                </label>
+              </div>
+            )}
 
             {msg && (
               <p style={{ color: "#dc2626", fontSize: 13, marginTop: 8, marginBottom: 0 }}>
@@ -675,26 +743,49 @@ export default function ForkliftStatusPage() {
                 marginTop: 14,
               }}
             >
+              {awaitingCeoConfirm && (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={savingReturn}
+                  onClick={() => {
+                    setAwaitingCeoConfirm(false);
+                    setCeoChecked(false);
+                    setMsg("");
+                  }}
+                >
+                  이전
+                </button>
+              )}
               <button
                 type="button"
                 className="btn secondary"
                 disabled={savingReturn}
-                onClick={() => setReturningTargets([])}
+                onClick={closeReturnModal}
               >
                 취소
               </button>
-              <button
-                type="button"
-                className="btn"
-                disabled={savingReturn}
-                onClick={confirmReturn}
-              >
-                {savingReturn
-                  ? "반납 처리 중..."
-                  : returningTargets.length > 1
-                  ? `반납 (${returningTargets.length}건)`
-                  : "반납"}
-              </button>
+              {!awaitingCeoConfirm ? (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleReturnButtonClick}
+                >
+                  {returningTargets.length > 1
+                    ? `반납 (${returningTargets.length}건)`
+                    : "반납"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ background: "#0f766e" }}
+                  disabled={savingReturn}
+                  onClick={confirmByCeo}
+                >
+                  {savingReturn ? "확인 처리 중..." : "확인"}
+                </button>
+              )}
             </div>
           </div>
         </div>
