@@ -15,7 +15,9 @@ type WeekItem = {
 };
 
 export default function RegularTBMPage() {
+const PAGE_SIZE = 5;
   const [weeks, setWeeks] = useState<WeekItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedMaterial, setSelectedMaterial] = useState<WeekItem | null>(null);
   const [materialPhotos, setMaterialPhotos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function RegularTBMPage() {
             <span className="pill ok">총 {weeks.length}건</span>
           </div>
 
-          {loading ? (
+{loading ? (
             <p className="muted">교육자료를 불러오는 중...</p>
           ) : weeks.length === 0 ? (
             <p className="muted">등록된 교육자료가 없습니다.</p>
@@ -140,9 +142,16 @@ export default function RegularTBMPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {weeks.map((w, idx) => {
-                    const isOpen = selectedMaterial?.id === w.id;
-                    const displayTitle = w.title || w.topic;
+                  {weeks
+                    .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+                    .map((w, idx) => {
+                      const isLatestOverall = currentPage === 1 && idx === 0;
+                      const displayTitle = w.title || w.topic;
+                      return (
+                        <tr key={w.id} className="edu-board-row">
+                          <td style={{ whiteSpace: "nowrap", fontWeight: isLatestOverall ? 700 : 500 }}>
+                            {isLatestOverall ? `[최신] ${w.week_label}` : w.week_label}
+                          </td>
                     return (
                       <tr key={w.id} className="edu-board-row">
                         <td style={{ whiteSpace: "nowrap", fontWeight: idx === 0 ? 700 : 500 }}>
@@ -189,11 +198,60 @@ export default function RegularTBMPage() {
                             </Link>
                           </div>
                         </td>
-                      </tr>
-                    );
-                  })}
+</tr>
+                      );
+                    })}
                 </tbody>
               </table>
+
+              {Math.ceil(weeks.length / PAGE_SIZE) > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 14,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    style={{ padding: "6px 12px", fontSize: 12.5 }}
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    이전
+                  </button>
+
+                  {Array.from({ length: Math.ceil(weeks.length / PAGE_SIZE) }, (_, i) => i + 1).map(
+                    (pageNum) => (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        className={pageNum === currentPage ? "btn" : "btn secondary"}
+                        style={{ padding: "6px 11px", fontSize: 12.5, minWidth: 36 }}
+                        onClick={() => setCurrentPage(pageNum)}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    style={{ padding: "6px 12px", fontSize: 12.5 }}
+                    disabled={currentPage === Math.ceil(weeks.length / PAGE_SIZE)}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(Math.ceil(weeks.length / PAGE_SIZE), p + 1))
+                    }
+                  >
+                    다음
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
