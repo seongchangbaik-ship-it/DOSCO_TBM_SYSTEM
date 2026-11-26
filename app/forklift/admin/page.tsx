@@ -193,7 +193,7 @@ export default function ForkliftAdminPage() {
       <div className="pagehead">
         <div>
           <h1>지게차 관리자 대시보드</h1>
-          <div className="muted">수령·반납 이력, TBM 체크리스트 결과, 서명 조회 및 관리</div>
+          <div className="muted">수령·반납 이력, TBM 체크리스트 결과, 반납사진 및 서명 조회</div>
         </div>
         <div className="row">
           <Link href="/" className="btn secondary">
@@ -427,6 +427,26 @@ export default function ForkliftAdminPage() {
                 );
               })}
             </div>
+
+            {selectedLog.return_photo_data && (
+              <div style={{ marginTop: 16 }}>
+                <h4>반납 사진</h4>
+                <a href={selectedLog.return_photo_data} target="_blank" rel="noreferrer">
+                  <img
+                    src={selectedLog.return_photo_data}
+                    alt="반납 사진"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: 280,
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      padding: 4,
+                      background: "#fafafa",
+                    }}
+                  />
+                </a>
+              </div>
+            )}
 
             {selectedLog.signature_data && (
               <div style={{ marginTop: 16 }}>
