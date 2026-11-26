@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, configured } from "@/lib/supabase";
@@ -717,13 +717,12 @@ export default function ForkliftStatusPage() {
 
             <div className="field" style={{ marginTop: 12 }}>
               <label>반납 사진 첨부 (선택)</label>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoChange}
-                style={{ marginTop: 6, fontSize: 13 }}
-              />
+<input
+  type="file"
+  accept="image/*"
+  onChange={handlePhotoChange}
+  style={{ marginTop: 6, fontSize: 13 }}
+/>
               {returnPhotoData && (
                 <div style={{ marginTop: 8 }}>
                   <img
