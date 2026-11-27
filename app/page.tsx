@@ -86,7 +86,24 @@ useEffect(() => {
           padding-left: 100%;
           animation: safety-marquee 18s linear infinite;
           font-size: 13.5px;
+          font-weight: 600;.safety-ticker-track {
+          display: inline-flex;
+          align-items: center;
+          padding-left: 100%;
+          animation: safety-marquee 14s linear infinite;
+          font-size: 13.5px;
           font-weight: 600;
+        }
+        .safety-ticker-wrap:hover .safety-ticker-track {
+          animation-play-state: paused;
+        }
+        @keyframes safety-marquee {
+          0% {
+            transform: translateX(0%);
+          }
+          100% {
+            transform: translateX(calc(-100% - 100vw));
+          }
         }
         .safety-ticker-wrap:hover .safety-ticker-track {
           animation-play-state: paused;
@@ -115,8 +132,7 @@ useEffect(() => {
         >
           <span className="safety-ticker-badge">안전 POINT</span>
           <div className="safety-ticker-viewport">
-            <div className="safety-ticker-track">
-              <span>{safetyPoint}</span>
+<div className="safety-ticker-track">
               <span>{safetyPoint}</span>
             </div>
           </div>
