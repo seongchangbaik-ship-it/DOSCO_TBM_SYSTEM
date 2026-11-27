@@ -10,40 +10,15 @@ export default function Home() {
     "설비 점검·정비 전 반드시 정지 및 전원 차단(LOTO)을 확인하고, 작업 전 주변 인원 안전을 살피세요."
   );
 
-  useEffect(() => {
+useEffect(() => {
     try {
       const savedPoint = window.localStorage.getItem("dosco_main_safety_point");
       if (savedPoint && savedPoint.trim()) {
         setSafetyPoint(savedPoint.trim());
-        return;
       }
     } catch {
       // ignore storage read error
     }
-
-    if (!configured) return;
-    let active = true;
-    (async () => {
-      const { data } = await supabase
-        .from("tbm_weeks")
-        .select("title,topic,week_label")
-        .eq("is_published", true)
-        .order("starts_at", { ascending: false })
-        .limit(1);
-
-      const latest = data?.[0];
-      if (active && latest) {
-        const headline = latest.topic || latest.title;
-        if (headline) {
-          setSafetyPoint(
-            `[${latest.week_label}] ${headline} — 작업 전 위험요인을 한 번 더 확인하고 안전수칙을 준수하세요.`
-          );
-        }
-      }
-    })();
-    return () => {
-      active = false;
-    };
   }, []);
 
   return (

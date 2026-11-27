@@ -1005,8 +1005,8 @@ const DEFAULT_SAFETY_POINT =
           <div className="row between" style={{ marginBottom: 8 }}>
             <div>
               <h2 style={{ margin: 0 }}>📢 메인 화면 ‘안전 POINT’ 전광판 문구</h2>
-              <div className="muted" style={{ fontSize: 13 }}>
-                여기에 입력한 문구가 메인 홈(/) 상단 흐르는 전광판에 우선 표시됩니다. (비우거나 초기화 시 최신 TBM 주제 연동)
+<div className="muted" style={{ fontSize: 13 }}>
+                여기에 입력한 문구가 메인 홈(/) 상단 ‘안전 POINT’ 영역에 표시됩니다. (현재 브라우저 저장소 기준)
               </div>
             </div>
           </div>
