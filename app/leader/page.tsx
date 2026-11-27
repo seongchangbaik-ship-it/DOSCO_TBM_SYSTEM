@@ -924,12 +924,34 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
                 onClick={upload}
                 disabled={submitting}
               >
-                {submitting ? "재전송 중..." : "다시 시도"}
+{submitting ? "재전송 중..." : "다시 시도"}
               </button>
             )}
           </div>
         )}
       </div>
+
+      <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+          제출을 완료하셨나요?
+        </div>
+        <p className="muted" style={{ fontSize: 12.5, margin: "0 0 10px 0" }}>
+          메인 홈 화면으로 돌아가 다른 메뉴를 이용할 수 있습니다.
+        </p>
+        <Link
+          href="/"
+          className="btn secondary"
+          style={{
+            display: "block",
+            width: "100%",
+            textAlign: "center",
+            textDecoration: "none",
+          }}
+        >
+          홈으로
+        </Link>
+      </div>
+
       <div className="footer">
         사진에는 교육 참여 현장이 확인되도록 촬영해 주세요.
       </div>
