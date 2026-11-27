@@ -78,16 +78,17 @@ export default function RegularTBMPage() {
           border-collapse: collapse;
           font-size: 14px;
         }
-        .edu-board-table th {
+.edu-board-table th {
           text-align: left;
-          padding: 10px 12px;
+          padding: 10px 8px;
           border-bottom: 1.5px solid #cbd5e1;
           color: #334155;
           font-weight: 700;
           background: #f8fafc;
+          white-space: nowrap;
         }
         .edu-board-table td {
-          padding: 12px;
+          padding: 10px 8px;
           border-bottom: 1px solid #e2e8f0;
           vertical-align: middle;
         }
@@ -96,8 +97,20 @@ export default function RegularTBMPage() {
         }
         .edu-action-group {
           display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
+          flex-direction: column;
+          gap: 5px;
+          align-items: stretch;
+        }
+        @media (min-width: 640px) {
+          .edu-board-table th,
+          .edu-board-table td {
+            padding: 12px;
+          }
+          .edu-action-group {
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+          }
         }
       `}</style>
 
@@ -141,12 +154,12 @@ export default function RegularTBMPage() {
             <p className="muted">등록된 교육자료가 없습니다.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table className="edu-board-table">
+<table className="edu-board-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 170 }}>교육일자</th>
+                    <th style={{ width: 92 }}>실시등록</th>
+                    <th style={{ width: 150 }}>교육일자</th>
                     <th>교육명</th>
-                    <th style={{ width: 210 }}>실시등록</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,10 +168,41 @@ export default function RegularTBMPage() {
                     const displayTitle = w.title || w.topic;
                     return (
                       <tr key={w.id} className="edu-board-row">
+                        <td>
+                          <div className="edu-action-group">
+                            <Link
+                              href={`/leader?w=${encodeURIComponent(w.id)}`}
+                              className="btn secondary"
+                              style={{
+                                padding: "5px 8px",
+                                fontSize: 12,
+                                textAlign: "center",
+                                textDecoration: "none",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              조장용
+                            </Link>
+                            <Link
+                              href={`/tbm?w=${encodeURIComponent(w.id)}`}
+                              className="btn"
+                              style={{
+                                padding: "5px 8px",
+                                fontSize: 12,
+                                textAlign: "center",
+                                textDecoration: "none",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              근로자용
+                            </Link>
+                          </div>
+                        </td>
                         <td
                           style={{
-                            whiteSpace: "nowrap",
                             fontWeight: isLatestOverall ? 700 : 500,
+                            fontSize: 13,
+                            lineHeight: 1.4,
                           }}
                         >
                           {isLatestOverall
@@ -177,7 +221,8 @@ export default function RegularTBMPage() {
                               cursor: "pointer",
                               color: "#0f172a",
                               fontWeight: 600,
-                              fontSize: 14.5,
+                              fontSize: 14,
+                              lineHeight: 1.45,
                             }}
                           >
                             {displayTitle}
@@ -186,40 +231,14 @@ export default function RegularTBMPage() {
                                 className="muted"
                                 style={{
                                   fontWeight: 400,
-                                  marginLeft: 8,
-                                  fontSize: 13,
+                                  marginLeft: 6,
+                                  fontSize: 12.5,
                                 }}
                               >
                                 ({w.topic})
                               </span>
                             ) : null}
                           </button>
-                        </td>
-                        <td>
-                          <div className="edu-action-group">
-                            <Link
-                              href={`/leader?w=${encodeURIComponent(w.id)}`}
-                              className="btn secondary"
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: 12.5,
-                                textDecoration: "none",
-                              }}
-                            >
-                              조장용
-                            </Link>
-                            <Link
-                              href={`/tbm?w=${encodeURIComponent(w.id)}`}
-                              className="btn"
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: 12.5,
-                                textDecoration: "none",
-                              }}
-                            >
-                              근로자용
-                            </Link>
-                          </div>
                         </td>
                       </tr>
                     );
