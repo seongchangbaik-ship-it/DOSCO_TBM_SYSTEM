@@ -39,7 +39,7 @@ export default function Admin() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [editingRuleText, setEditingRuleText] = useState("");
 
-const PAGE_SIZE = 5;
+  const PAGE_SIZE = 5;
   const [selectedWeekId, setSelectedWeekId] = useState<string>("all");
   const [regularPage, setRegularPage] = useState<number>(1);
   const [spotPage, setSpotPage] = useState<number>(1);
@@ -49,9 +49,6 @@ const PAGE_SIZE = 5;
   }, [selectedWeekId]);
 
   const filteredAcks =
-    selectedWeekId === "all" ? acks : acks.filter((a) => a.week_id === selectedWeekId);
-  const filteredPhotos =
-    selectedWeekId === "all" ? photos : photos.filter((p) => p.week_id === selectedWeekId);  const filteredAcks =
     selectedWeekId === "all" ? acks : acks.filter((a) => a.week_id === selectedWeekId);
   const filteredPhotos =
     selectedWeekId === "all" ? photos : photos.filter((p) => p.week_id === selectedWeekId);
@@ -859,7 +856,7 @@ const PAGE_SIZE = 5;
       });
     }
   });
-const mergedRegular = Array.from(mergedMap.values());
+  const mergedRegular = Array.from(mergedMap.values());
 
   const totalRegularPages = Math.max(1, Math.ceil(mergedRegular.length / PAGE_SIZE));
   const currentRegularPage = Math.min(regularPage, totalRegularPages);
@@ -1155,7 +1152,7 @@ const mergedRegular = Array.from(mergedMap.values());
           {msg && <p className="muted">{msg}</p>}
         </div>
 
-{/* 1. 정기 안전교육 조별 통합 현황 */}
+        {/* 1. 정기 안전교육 조별 통합 현황 */}
         <div className="section card">
           <h2>📘 정기 안전교육 조별 통합 현황 (조장 사진·일지 + 근로자 서명)</h2>
 
@@ -1318,7 +1315,7 @@ const mergedRegular = Array.from(mergedMap.values());
           )}
         </div>
 
-{/* 2. 수시 작업 TBM 현황 */}
+        {/* 2. 수시 작업 TBM 현황 */}
         <div className="section card">
           <h2>🛠️ 수시 작업 TBM 실시 현황 (R/C · 정비 · 돌발작업)</h2>
           <div className="tablewrap">
