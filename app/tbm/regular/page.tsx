@@ -80,15 +80,16 @@ export default function RegularTBMPage() {
         }
 .edu-board-table th {
           text-align: left;
-          padding: 10px 8px;
+          padding: 9px 6px;
           border-bottom: 1.5px solid #cbd5e1;
           color: #334155;
           font-weight: 700;
           background: #f8fafc;
           white-space: nowrap;
+          font-size: 13px;
         }
         .edu-board-table td {
-          padding: 10px 8px;
+          padding: 10px 6px;
           border-bottom: 1px solid #e2e8f0;
           vertical-align: middle;
         }
@@ -97,19 +98,38 @@ export default function RegularTBMPage() {
         }
         .edu-action-group {
           display: flex;
-          flex-direction: column;
-          gap: 5px;
-          align-items: stretch;
+          flex-direction: row;
+          gap: 6px;
+          align-items: center;
+        }
+        .edu-sq-btn {
+          width: 58px;
+          height: 58px;
+          padding: 4px;
+          font-size: 12.5px;
+          font-weight: 700;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          text-decoration: none;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         @media (min-width: 640px) {
           .edu-board-table th,
           .edu-board-table td {
             padding: 12px;
+            font-size: 14px;
           }
           .edu-action-group {
-            flex-direction: row;
             gap: 8px;
-            align-items: center;
+          }
+          .edu-sq-btn {
+            width: 64px;
+            height: 64px;
+            font-size: 13px;
           }
         }
       `}</style>
@@ -157,8 +177,8 @@ export default function RegularTBMPage() {
 <table className="edu-board-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 92 }}>실시등록</th>
-                    <th style={{ width: 150 }}>교육일자</th>
+                    <th>실시등록</th>
+                    <th>교육일자</th>
                     <th>교육명</th>
                   </tr>
                 </thead>
@@ -172,27 +192,13 @@ export default function RegularTBMPage() {
                           <div className="edu-action-group">
                             <Link
                               href={`/leader?w=${encodeURIComponent(w.id)}`}
-                              className="btn secondary"
-                              style={{
-                                padding: "5px 8px",
-                                fontSize: 12,
-                                textAlign: "center",
-                                textDecoration: "none",
-                                whiteSpace: "nowrap",
-                              }}
+                              className="btn secondary edu-sq-btn"
                             >
                               조장용
                             </Link>
                             <Link
                               href={`/tbm?w=${encodeURIComponent(w.id)}`}
-                              className="btn"
-                              style={{
-                                padding: "5px 8px",
-                                fontSize: 12,
-                                textAlign: "center",
-                                textDecoration: "none",
-                                whiteSpace: "nowrap",
-                              }}
+                              className="btn edu-sq-btn"
                             >
                               근로자용
                             </Link>
@@ -201,15 +207,23 @@ export default function RegularTBMPage() {
                         <td
                           style={{
                             fontWeight: isLatestOverall ? 700 : 500,
-                            fontSize: 13,
-                            lineHeight: 1.4,
+                            fontSize: 12.5,
+                            lineHeight: 1.35,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {isLatestOverall
-                            ? `[최신] ${w.week_label}`
-                            : w.week_label}
+                          {isLatestOverall ? (
+                            <>
+                              <span style={{ display: "block", color: "#1d4ed8", fontSize: 11.5 }}>
+                                [최신]
+                              </span>
+                              <span>{w.week_label}</span>
+                            </>
+                          ) : (
+                            w.week_label
+                          )}
                         </td>
-                        <td>
+                        <td style={{ minWidth: 0 }}>
                           <button
                             type="button"
                             onClick={() => openMaterial(w)}
@@ -221,8 +235,9 @@ export default function RegularTBMPage() {
                               cursor: "pointer",
                               color: "#0f172a",
                               fontWeight: 600,
-                              fontSize: 14,
-                              lineHeight: 1.45,
+                              fontSize: 13.5,
+                              lineHeight: 1.4,
+                              wordBreak: "keep-all",
                             }}
                           >
                             {displayTitle}
@@ -230,9 +245,10 @@ export default function RegularTBMPage() {
                               <span
                                 className="muted"
                                 style={{
+                                  display: "block",
                                   fontWeight: 400,
-                                  marginLeft: 6,
-                                  fontSize: 12.5,
+                                  marginTop: 2,
+                                  fontSize: 12,
                                 }}
                               >
                                 ({w.topic})
