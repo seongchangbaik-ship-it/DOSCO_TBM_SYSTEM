@@ -39,8 +39,19 @@ export default function Admin() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [editingRuleText, setEditingRuleText] = useState("");
 
+const PAGE_SIZE = 5;
   const [selectedWeekId, setSelectedWeekId] = useState<string>("all");
+  const [regularPage, setRegularPage] = useState<number>(1);
+  const [spotPage, setSpotPage] = useState<number>(1);
+
+  useEffect(() => {
+    setRegularPage(1);
+  }, [selectedWeekId]);
+
   const filteredAcks =
+    selectedWeekId === "all" ? acks : acks.filter((a) => a.week_id === selectedWeekId);
+  const filteredPhotos =
+    selectedWeekId === "all" ? photos : photos.filter((p) => p.week_id === selectedWeekId);  const filteredAcks =
     selectedWeekId === "all" ? acks : acks.filter((a) => a.week_id === selectedWeekId);
   const filteredPhotos =
     selectedWeekId === "all" ? photos : photos.filter((p) => p.week_id === selectedWeekId);
@@ -848,7 +859,21 @@ export default function Admin() {
       });
     }
   });
-  const mergedRegular = Array.from(mergedMap.values());
+const mergedRegular = Array.from(mergedMap.values());
+
+  const totalRegularPages = Math.max(1, Math.ceil(mergedRegular.length / PAGE_SIZE));
+  const currentRegularPage = Math.min(regularPage, totalRegularPages);
+  const pagedRegular = mergedRegular.slice(
+    (currentRegularPage - 1) * PAGE_SIZE,
+    currentRegularPage * PAGE_SIZE
+  );
+
+  const totalSpotPages = Math.max(1, Math.ceil(spotLogs.length / PAGE_SIZE));
+  const currentSpotPage = Math.min(spotPage, totalSpotPages);
+  const pagedSpotLogs = spotLogs.slice(
+    (currentSpotPage - 1) * PAGE_SIZE,
+    currentSpotPage * PAGE_SIZE
+  );
 
   return (
     <>
@@ -1133,6 +1158,36 @@ export default function Admin() {
 {/* 1. 정기 안전교육 조별 통합 현황 */}
         <div className="section card">
           <h2>📘 정기 안전교육 조별 통합 현황 (조장 사진·일지 + 근로자 서명)</h2>
+
+          <div style={{ margin: "12px 0 16px" }}>
+            <select
+              className="input"
+              value={selectedWeekId}
+              onChange={(e) => {
+                setSelectedWeekId(e.target.value);
+                setRegularPage(1);
+              }}
+              style={{
+                width: "100%",
+                maxWidth: 560,
+                padding: "10px 14px",
+                fontSize: 15,
+                fontWeight: 700,
+                borderRadius: 10,
+                border: "1px solid #cbd5e1",
+                backgroundColor: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <option value="all">전체 (모든 정기 안전교육)</option>
+              {weeks.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.week_label} · {w.topic}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="tablewrap">
             <table>
               <thead>
@@ -1146,7 +1201,7 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody>
-                {mergedRegular.map((m: any) => (
+                {pagedRegular.map((m: any) => (
                   <tr key={m.key}>
                     <td>{m.weekLabel}</td>
                     <td>
@@ -1202,9 +1257,68 @@ export default function Admin() {
               </tbody>
             </table>
           </div>
+
+          {totalRegularPages > 1 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={currentRegularPage === 1}
+                onClick={() => setRegularPage(Math.max(1, currentRegularPage - 1))}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  opacity: currentRegularPage === 1 ? 0.5 : 1,
+                }}
+              >
+                이전
+              </button>
+              {Array.from({ length: totalRegularPages }, (_, idx) => idx + 1).map((pageNum) => {
+                const isActive = pageNum === currentRegularPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    className={isActive ? "btn" : "btn secondary"}
+                    onClick={() => setRegularPage(pageNum)}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 13,
+                      minWidth: 36,
+                      fontWeight: isActive ? "bold" : "normal",
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={currentRegularPage === totalRegularPages}
+                onClick={() => setRegularPage(Math.min(totalRegularPages, currentRegularPage + 1))}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  opacity: currentRegularPage === totalRegularPages ? 0.5 : 1,
+                }}
+              >
+                다음
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 2. 수시 작업 TBM 현황 */}
+{/* 2. 수시 작업 TBM 현황 */}
         <div className="section card">
           <h2>🛠️ 수시 작업 TBM 실시 현황 (R/C · 정비 · 돌발작업)</h2>
           <div className="tablewrap">
@@ -1221,7 +1335,7 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody>
-                {spotLogs.map((s: any) => (
+                {pagedSpotLogs.map((s: any) => (
                   <tr key={s.id}>
                     <td>{s.work_date}</td>
                     <td>
@@ -1272,6 +1386,65 @@ export default function Admin() {
               </tbody>
             </table>
           </div>
+
+          {totalSpotPages > 1 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={currentSpotPage === 1}
+                onClick={() => setSpotPage(Math.max(1, currentSpotPage - 1))}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  opacity: currentSpotPage === 1 ? 0.5 : 1,
+                }}
+              >
+                이전
+              </button>
+              {Array.from({ length: totalSpotPages }, (_, idx) => idx + 1).map((pageNum) => {
+                const isActive = pageNum === currentSpotPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    className={isActive ? "btn" : "btn secondary"}
+                    onClick={() => setSpotPage(pageNum)}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 13,
+                      minWidth: 36,
+                      fontWeight: isActive ? "bold" : "normal",
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={currentSpotPage === totalSpotPages}
+                onClick={() => setSpotPage(Math.min(totalSpotPages, currentSpotPage + 1))}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  opacity: currentSpotPage === totalSpotPages ? 0.5 : 1,
+                }}
+              >
+                다음
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 3. 공정별 안전수칙 풀 관리 (최하단 배치) */}
