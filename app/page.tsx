@@ -49,19 +49,18 @@ export default function Home() {
   return (
     <>
       <style>{`
-        .safety-ticker-wrap {
+        .safety-point-bar {
           display: flex;
           align-items: center;
           gap: 10px;
           background: #0f172a;
           color: #f8fafc;
           border-radius: 10px;
-          padding: 8px 12px;
+          padding: 10px 14px;
           margin-bottom: 22px;
-          overflow: hidden;
           border: 1px solid #1e293b;
         }
-        .safety-ticker-badge {
+        .safety-point-badge {
           background: #ef4444;
           color: #ffffff;
           font-size: 12px;
@@ -72,37 +71,12 @@ export default function Home() {
           flex-shrink: 0;
           letter-spacing: 0.3px;
         }
-        .safety-ticker-viewport {
-          position: relative;
-          overflow: hidden;
-          flex: 1;
-          min-width: 0;
-          white-space: nowrap;
-        }
-        .safety-ticker-track {
-          display: inline-flex;
-          align-items: center;
-          width: max-content;
-          animation: safety-marquee 16s linear infinite;
+        .safety-point-text {
           font-size: 13.5px;
           font-weight: 600;
+          line-height: 1.45;
           color: #f8fafc;
-        }
-        .safety-ticker-item {
-          display: inline-block;
-          white-space: nowrap;
-          padding-right: 64px;
-        }
-        .safety-ticker-wrap:hover .safety-ticker-track {
-          animation-play-state: paused;
-        }
-        @keyframes safety-marquee {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
+          min-width: 0;
         }
       `}</style>
 
@@ -114,17 +88,12 @@ export default function Home() {
       </header>
       <main className="shell" style={{ maxWidth: 1080, paddingTop: 28 }}>
         <div
-          className="safety-ticker-wrap"
+          className="safety-point-bar"
           role="region"
-          aria-label="안전 POINT 전광판"
+          aria-label="안전 POINT"
         >
-          <span className="safety-ticker-badge">안전 POINT</span>
-          <div className="safety-ticker-viewport">
-            <div className="safety-ticker-track">
-              <span className="safety-ticker-item">{safetyPoint}</span>
-              <span className="safety-ticker-item">{safetyPoint}</span>
-            </div>
-          </div>
+          <span className="safety-point-badge">안전 POINT</span>
+          <span className="safety-point-text">{safetyPoint}</span>
         </div>
 
         <div className="pagehead">
