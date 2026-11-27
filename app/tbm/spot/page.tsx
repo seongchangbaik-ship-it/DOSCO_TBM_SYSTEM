@@ -45,10 +45,12 @@ export default function SpotTbmCreatePage() {
   const [workCategory, setWorkCategory] = useState("R/C (롤 교체)");
   const [workTitle, setWorkTitle] = useState("");
   const [leaderName, setLeaderName] = useState("");
-  const [healthStatus, setHealthStatus] = useState("전원 이상없음 (보호구 착용 및 건강 양호)");
+const [healthStatus, setHealthStatus] = useState("전원 이상없음 (보호구 착용 및 건강 양호)");
   const [hazardFactors, setHazardFactors] = useState(WORK_PRESETS["R/C (롤 교체)"].hazards);
   const [safetyMeasures, setSafetyMeasures] = useState(WORK_PRESETS["R/C (롤 교체)"].measures);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
+  const [photoInputKey, setPhotoInputKey] = useState(0);
 
   const [signatures, setSignatures] = useState<{ name: string; data: string }[]>([]);
   const [showSignModal, setShowSignModal] = useState(false);
@@ -208,6 +210,25 @@ export default function SpotTbmCreatePage() {
     clearCanvas();
   }
 
+function handlePhotoFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files || []);
+    if (picked.length === 0) return;
+
+    const newUrls = picked.map((f) => URL.createObjectURL(f));
+    setPhotoFiles((prev) => [...prev, ...picked]);
+    setPhotoPreviewUrls((prev) => [...prev, ...newUrls]);
+    setMsg("");
+    setPhotoInputKey((k) => k + 1);
+  }
+
+  function handleRemovePhotoFile(index: number) {
+    setPhotoPreviewUrls((prev) => {
+      if (prev[index]) URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, idx) => idx !== index);
+    });
+    setPhotoFiles((prev) => prev.filter((_, idx) => idx !== index));
+  }
+
   async function handleSubmit() {
     if (submitting) return;
     setMsg("");
@@ -224,21 +245,24 @@ export default function SpotTbmCreatePage() {
 
     setSubmitting(true);
     try {
-      let photoPath: string | null = null;
+      const uploadedPaths: string[] = [];
 
-      if (photoFile) {
-        const compressed = await compressImage(photoFile);
-        const isJpeg = compressed !== photoFile;
-        const ext = isJpeg ? "jpg" : (photoFile.name.split(".").pop() || "jpg");
-        const path = `spot-tbm/${workDate}/${crypto.randomUUID()}.${ext}`;
+      for (let i = 0; i < photoFiles.length; i++) {
+        const currentFile = photoFiles[i];
+        const compressed = await compressImage(currentFile);
+        const isJpeg = compressed !== currentFile;
+        const ext = isJpeg ? "jpg" : (currentFile.name.split(".").pop() || "jpg");
+        const path = `spot-tbm/${workDate}/${crypto.randomUUID()}_${i}.${ext}`;
         const { error: upErr } = await supabase.storage.from("tbm-photos").upload(path, compressed, {
-          contentType: isJpeg ? "image/jpeg" : photoFile.type,
+          contentType: isJpeg ? "image/jpeg" : currentFile.type,
         });
         if (upErr) {
-          throw new Error("사진 업로드 실패: " + upErr.message);
+          throw new Error(`사진(${i + 1}번째) 업로드 실패: ` + upErr.message);
         }
-        photoPath = path;
+        uploadedPaths.push(path);
       }
+
+      const photoPath: string | null = uploadedPaths[0] || null;
 
       const { data: spotData, error } = await supabase
         .from("tbm_spot_logs")
@@ -253,6 +277,7 @@ export default function SpotTbmCreatePage() {
           hazard_factors: hazardFactors,
           safety_measures: safetyMeasures,
           photo_path: photoPath,
+          photo_paths: uploadedPaths,
         })
         .select("id")
         .single();
@@ -428,14 +453,82 @@ export default function SpotTbmCreatePage() {
           <textarea value={safetyMeasures} onChange={e => setSafetyMeasures(e.target.value)} style={{ height: 95 }} />
         </div>
 
-        <div className="field">
-          <label>현장 TBM 실시 사진 (선택)</label>
+<div className="field">
+          <label>현장 TBM 실시 사진 (선택 · 여러 장 가능)</label>
           <div className="upload">
-            <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files?.[0] || null)} />
+            <input
+              key={photoInputKey}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePhotoFilesChange}
+            />
             <p className="muted" style={{ margin: "6px 0 0" }}>
-              {photoFile ? `선택됨: ${photoFile.name}` : "작업 전 인원 집합 또는 현장 사진을 촬영·첨부하세요."}
+              {photoFiles.length > 0
+                ? `총 ${photoFiles.length}장 선택됨 (사진 추가 또는 우측 상단 ×로 삭제 가능)`
+                : "작업 전 인원 집합 또는 현장 사진을 촬영하거나 여러 장 선택하세요."}
             </p>
           </div>
+
+          {photoPreviewUrls.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              {photoPreviewUrls.map((url, idx) => (
+                <div
+                  key={url}
+                  style={{
+                    position: "relative",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    border: "1px solid #cbd5e1",
+                    aspectRatio: "1 / 1",
+                    background: "#f8fafc",
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt={`현장 사진 미리보기 ${idx + 1}`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`현장 사진 ${idx + 1} 삭제`}
+                    onClick={() => handleRemovePhotoFile(idx)}
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      right: 4,
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "rgba(15, 23, 42, 0.78)",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: "bold",
+                      lineHeight: "24px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
