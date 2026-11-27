@@ -10,7 +10,7 @@ export default function Home() {
     "설비 점검·정비 전 반드시 정지 및 전원 차단(LOTO)을 확인하고, 작업 전 주변 인원 안전을 살피세요."
   );
 
-useEffect(() => {
+  useEffect(() => {
     try {
       const savedPoint = window.localStorage.getItem("dosco_main_safety_point");
       if (savedPoint && savedPoint.trim()) {
@@ -82,13 +82,6 @@ useEffect(() => {
         .safety-ticker-track {
           display: inline-flex;
           align-items: center;
-          gap: 48px;
-          padding-left: 100%;
-          animation: safety-marquee 18s linear infinite;
-          font-size: 13.5px;
-          font-weight: 600;.safety-ticker-track {
-          display: inline-flex;
-          align-items: center;
           width: max-content;
           animation: safety-marquee 16s linear infinite;
           font-size: 13.5px;
@@ -111,17 +104,6 @@ useEffect(() => {
             transform: translateX(-50%);
           }
         }
-        .safety-ticker-wrap:hover .safety-ticker-track {
-          animation-play-state: paused;
-        }
-        @keyframes safety-marquee {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
       `}</style>
 
       <header className="topbar">
@@ -138,7 +120,7 @@ useEffect(() => {
         >
           <span className="safety-ticker-badge">안전 POINT</span>
           <div className="safety-ticker-viewport">
-<div className="safety-ticker-track">
+            <div className="safety-ticker-track">
               <span className="safety-ticker-item">{safetyPoint}</span>
               <span className="safety-ticker-item">{safetyPoint}</span>
             </div>
