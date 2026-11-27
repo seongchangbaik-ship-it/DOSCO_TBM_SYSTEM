@@ -41,7 +41,8 @@ function PtwApplyForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [existingStatus, setExistingStatus] = useState("pending");
-  const [existingTrainingPhotoPath, setExistingTrainingPhotoPath] = useState<string | null>(null);
+const [existingTrainingPhotoPath, setExistingTrainingPhotoPath] = useState<string | null>(null);
+  const [existingPledgePaths, setExistingPledgePaths] = useState<string[]>([]);
   const [existingFirePaths, setExistingFirePaths] = useState<string[]>([]);
   const [existingHeavyPaths, setExistingHeavyPaths] = useState<string[]>([]);
   const [deletedSigIds, setDeletedSigIds] = useState<string[]>([]);
@@ -67,8 +68,9 @@ function PtwApplyForm() {
     workTypes: [] as string[],
     specialEnv: "",
     specialSafety: "",
-    trainingPending: false,
+trainingPending: false,
     pledgePending: false,
+    pledgeType: "form" as "form" | "photo",
     trainingType: "form",
     trainingInstructor: "",
     trainingContent:
@@ -169,6 +171,9 @@ const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
 const [trainingPhotos, setTrainingPhotos] = useState<File[]>([]);
   const [trainingPreviewUrls, setTrainingPreviewUrls] = useState<string[]>([]);
   const [trainingInputKey, setTrainingInputKey] = useState(0);
+  const [pledgePhotos, setPledgePhotos] = useState<File[]>([]);
+  const [pledgePreviewUrls, setPledgePreviewUrls] = useState<string[]>([]);
+  const [pledgeInputKey, setPledgeInputKey] = useState(0);
   const [signatures, setSignatures] = useState<{ id?: string; name: string; type: string; data: string }[]>([]);
 
   const [showSignModal, setShowSignModal] = useState(false);
@@ -239,8 +244,9 @@ const [trainingPhotos, setTrainingPhotos] = useState<File[]>([]);
             workTypes: data.work_types || [],
             specialEnv: common.specialEnv || "",
             specialSafety: common.specialSafety || "",
-            trainingPending: Boolean(common.trainingPending),
+trainingPending: Boolean(common.trainingPending),
             pledgePending: Boolean(common.pledgePending),
+            pledgeType: common.pledgeType === "photo" ? "photo" : "form",
             trainingType: data.training_type || "form",
             trainingInstructor: data.training_instructor || "",
             trainingContent: data.training_content || prev.trainingContent,
@@ -254,7 +260,10 @@ const [trainingPhotos, setTrainingPhotos] = useState<File[]>([]);
             setAttendees(parsed.length > 0 ? parsed : [""]);
           }
 
-          setVehicles(common.vehicles || []);
+   setVehicles(common.vehicles || []);
+          setExistingPledgePaths(
+            common.pledgePhotoPaths || (common.pledgePhotoPath ? [common.pledgePhotoPath] : [])
+          );
 
           if (data.fire_work_details) {
             const f = data.fire_work_details;
@@ -499,9 +508,16 @@ const [trainingPhotos, setTrainingPhotos] = useState<File[]>([]);
       setMsg("작업 종류를 1개 이상 선택하세요.");
       return;
     }
-    if (!form.pledgePending && signatures.length === 0) {
-      setMsg("서약 및 서명을 입력하거나, 당일 실시 시 '당일 실시 예정'을 체크해 주세요.");
-      return;
+const hasPledgePhoto = existingPledgePaths.length + pledgePhotos.length > 0;
+    if (!form.pledgePending) {
+      if (form.pledgeType === "photo" && !hasPledgePhoto) {
+        setMsg("종이 서약서 사진을 첨부하거나, 당일 실시 시 '당일 실시 예정'을 체크해 주세요.");
+        return;
+      }
+      if (form.pledgeType !== "photo" && signatures.length === 0) {
+        setMsg("서약 및 서명을 입력하거나, 당일 실시 시 '당일 실시 예정'을 체크해 주세요.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -519,10 +535,18 @@ try {
         : [];
       const mergedFirePaths = [...existingFirePaths, ...fireAttachPaths];
 
-      const heavyDrawPaths = form.workTypes.includes("중량물취급작업")
+const heavyDrawPaths = form.workTypes.includes("중량물취급작업")
         ? await uploadMultipleFiles(heavyFiles, "ptw-heavy")
         : [];
       const mergedHeavyPaths = [...existingHeavyPaths, ...heavyDrawPaths];
+
+      const uploadedPledgePaths =
+        !form.pledgePending && form.pledgeType === "photo" && pledgePhotos.length > 0
+          ? await uploadMultipleFiles(pledgePhotos, "ptw-pledge")
+          : [];
+      const mergedPledgePaths = form.pledgePending
+        ? []
+        : [...existingPledgePaths, ...uploadedPledgePaths];
 
       const firePayload = {
         ...(form.workTypes.includes("화기작업")
@@ -541,6 +565,9 @@ try {
           specialSafety: form.specialSafety,
           trainingPending: form.trainingPending,
           pledgePending: form.pledgePending,
+          pledgeType: form.pledgeType,
+          pledgePhotoPaths: mergedPledgePaths,
+          pledgePhotoPath: mergedPledgePaths[0] || "",
           trainingAttendees: form.trainingPending
             ? ""
             : attendees
@@ -621,8 +648,8 @@ try {
         }
       }
 
-      const newSigs = signatures.filter((s) => !s.id);
-      if (!form.pledgePending && newSigs.length > 0) {
+const newSigs = signatures.filter((s) => !s.id);
+      if (!form.pledgePending && form.pledgeType !== "photo" && newSigs.length > 0) {
         const sigInserts = newSigs.map((sig) => ({
           ptw_id: targetPtwId,
           worker_type: sig.type,
@@ -2478,19 +2505,272 @@ try {
             </div>
           )}
 
-          <div
-            style={{
-              background: "#f8f9fa",
-              padding: 16,
-              borderRadius: 8,
-              fontSize: 13,
-              lineHeight: 1.6,
-              maxHeight: 160,
-              overflowY: "auto",
-              marginBottom: 16,
-              border: "1px solid #ddd",
-            }}
-          >
+{!form.pledgePending && (
+            <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+              <label className="checkrow">
+                <input
+                  type="radio"
+                  checked={form.pledgeType !== "photo"}
+                  onChange={() => setForm({ ...form, pledgeType: "form" })}
+                />{" "}
+                화면 직접 작성
+              </label>
+              <label className="checkrow">
+                <input
+                  type="radio"
+                  checked={form.pledgeType === "photo"}
+                  onChange={() => setForm({ ...form, pledgeType: "photo" })}
+                />{" "}
+                종이일지 사진 촬영
+              </label>
+            </div>
+          )}
+
+          {!form.pledgePending && form.pledgeType === "photo" ? (
+            <div className="field">
+              <label>안전관리 준수 서약서 사진 첨부 (카메라 촬영·보관함 / 여러 장 선택 가능)</label>
+              <input
+                key={pledgeInputKey}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files || []);
+                  if (picked.length === 0) return;
+                  const urls = picked.map((f) => URL.createObjectURL(f));
+                  setPledgePhotos((prev) => [...prev, ...picked]);
+                  setPledgePreviewUrls((prev) => [...prev, ...urls]);
+                  setPledgeInputKey((k) => k + 1);
+                }}
+              />
+              {(existingPledgePaths.length > 0 || pledgePhotos.length > 0) && (
+                <div style={{ fontSize: 12, color: "#15803d", marginTop: 6, fontWeight: 600 }}>
+                  선택된 사진: {existingPledgePaths.length + pledgePhotos.length}장
+                </div>
+              )}
+              {existingPledgePaths.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                  {existingPledgePaths.map((path, idx) => (
+                    <div
+                      key={path}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "5px 10px",
+                        borderRadius: 6,
+                        border: "1px solid #cbd5e1",
+                        background: "#f8fafc",
+                        fontSize: 12,
+                      }}
+                    >
+                      <span>기존 서약서 사진 {idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExistingPledgePaths((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#ef4444",
+                          fontWeight: "bold",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {pledgePreviewUrls.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {pledgePreviewUrls.map((url, idx) => (
+                    <div
+                      key={url}
+                      style={{
+                        position: "relative",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        border: "1px solid #cbd5e1",
+                        aspectRatio: "1 / 1",
+                        background: "#f8fafc",
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`서약서 사진 미리보기 ${idx + 1}`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`서약서 사진 ${idx + 1} 삭제`}
+                        onClick={() => {
+                          setPledgePreviewUrls((prev) => {
+                            if (prev[idx]) URL.revokeObjectURL(prev[idx]);
+                            return prev.filter((_, i) => i !== idx);
+                          });
+                          setPledgePhotos((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          border: "none",
+                          background: "rgba(15, 23, 42, 0.78)",
+                          color: "#fff",
+                          fontSize: 13,
+                          fontWeight: "bold",
+                          lineHeight: "22px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  background: "#f8f9fa",
+                  padding: 16,
+                  borderRadius: 8,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  maxHeight: 160,
+                  overflowY: "auto",
+                  marginBottom: 16,
+                  border: "1px solid #ddd",
+                }}
+              >
+                <b>
+                  상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의
+                  불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이
+                  일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을
+                  서약합니다.
+                </b>
+                <br />
+                1. 도급공사 관련 작업허가신청서를 작성·제출하여 공장장의 승인을 득한 후 작업한다.
+                <br />
+                2. 작업자에 필요한 안전보건교육을 실시 후 작업한다.
+                <br />
+                3. 작업현장 내 작업 시 보호구(안전헬멧, 안전화) 착용하여 작업한다.
+                <br />
+                4. 고소작업, 전기작업, 화기작업(용접, 절단 등)의 안전수칙 준수하여 작업한다.
+                <br />
+                5. 작업 전에는 반드시 작업준비 상태를 점검 및 위험예지훈련(TBM)을 실시한다.
+                <br />
+                6. 작업현장 내 모든 위험작업의 수행은 위험성평가를 실시한 후 작업한다.
+                <br />
+                7. 사다리 작업 시 최상부에는 올라가서 작업하지 않는다.
+                <br />
+                8. 작업현장에 대한 안전점검을 실시하고 안전점검표 작성·보관한다.
+                <br />
+                9. 밀폐공간출입, 중량물 취급, 굴착작업은 안전수칙을 준수하여 작업한다.
+                <br />
+                10. 중장비 사용 시 사용승인을 받고, 신호수 배치하여 작업한다.
+                <br />
+                11. 작업현장 내 작업 시 안전장치나 안전시설물은 임의로 해체하지 않는다.
+                <br />
+                12. 작업현장 정리정돈 철저, 흡연구역 이외의 흡연행위 금지한다.
+                <br />
+                13. 작업 시 산업안전보건법, 중대재해처벌법 등 기타 관련법규를 준수하여 작업한다.
+                <br />
+                14. 안전보건공단에서 Guide하는 안전수칙 준수한다.
+                <br />
+                15. 귀사 안전·보건에 관한 요구사항 준수하여 이행한다.
+                <br />
+                16. 상기 내용을 지키지 않을 경우 작업을 중지한다.
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {signatures.map((sig, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      position: "relative",
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                      padding: 8,
+                      textAlign: "center",
+                      width: 120,
+                      background: "#fff",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      title="서명 삭제"
+                      onClick={() => {
+                        if (sig.id) setDeletedSigIds([...deletedSigIds, sig.id]);
+                        setSignatures(signatures.filter((_, i) => i !== idx));
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        border: "1px solid #dc2626",
+                        background: "#ef4444",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: "bold",
+                        lineHeight: "20px",
+                        textAlign: "center",
+                        padding: 0,
+                        cursor: "pointer",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }}
+                    >
+                      ✕
+                    </button>
+                    <img
+                      src={sig.data}
+                      alt="서명"
+                      style={{
+                        width: "100%",
+                        height: 60,
+                        objectFit: "contain",
+                        background: "#f1f1f1",
+                        borderRadius: 4,
+                      }}
+                    />
+                    <div style={{ marginTop: 4, fontSize: 12 }}>
+                      <b>{sig.name}</b> ({sig.type})
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  className="btn secondary"
+                  style={{ width: 120, height: 95 }}
+                  onClick={() => setShowSignModal(true)}
+                >
+                  + 서명 추가
+                </button>
+              </div>
+            </>
+          )}
             <b>
               상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의
               불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이
