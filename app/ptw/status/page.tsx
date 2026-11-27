@@ -61,8 +61,9 @@ const PLEDGE_ITEMS = [
 export default function PtwStatusPage() {
   const [items, setItems] = useState<PtwApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<PtwApplication | null>(null);
+const [selectedItem, setSelectedItem] = useState<PtwApplication | null>(null);
   const [trainingPhotoUrl, setTrainingPhotoUrl] = useState<string>("");
+  const [pledgePhotoUrls, setPledgePhotoUrls] = useState<string[]>([]);
   const [fireAttachUrls, setFireAttachUrls] = useState<string[]>([]);
   const [heavyDrawingUrls, setHeavyDrawingUrls] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
@@ -384,14 +385,23 @@ export default function PtwStatusPage() {
     return pub?.publicUrl || "";
   }
 
-  async function openDetail(item: PtwApplication) {
+async function openDetail(item: PtwApplication) {
     setSelectedItem(item);
     setTrainingPhotoUrl("");
+    setPledgePhotoUrls([]);
     setFireAttachUrls([]);
     setHeavyDrawingUrls([]);
 
     if (item.training_type === "photo" && item.training_photo_path) {
       setTrainingPhotoUrl(await getSignedFileUrl(item.training_photo_path));
+    }
+
+    const common = item.fire_work_details?._common || {};
+    const pPaths: string[] =
+      common.pledgePhotoPaths || (common.pledgePhotoPath ? [common.pledgePhotoPath] : []);
+    if (common.pledgeType === "photo" && pPaths.length > 0) {
+      const urls = await Promise.all(pPaths.map((p) => getSignedFileUrl(p)));
+      setPledgePhotoUrls(urls.filter(Boolean));
     }
 
     const fPaths: string[] = item.fire_work_details?.attachmentPaths ||
@@ -1158,34 +1168,56 @@ export default function PtwStatusPage() {
                     )
                   )}
 
-                  {!commonExtra.pledgePending && (
-                    <>
-                      <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "8px 10px", marginBottom: 12, fontSize: 11, lineHeight: 1.5, overflowWrap: "anywhere" }}>
-                        <div style={{ fontWeight: "bold", fontSize: 12.5, textAlign: "center", marginBottom: 6 }}>
-                          [안전관리 준수 서약서]
+{!commonExtra.pledgePending && (
+                    commonExtra.pledgeType === "photo" ? (
+                      <div style={{ borderTop: "1px solid #000", paddingTop: 10 }}>
+                        <div style={{ fontWeight: "bold", fontSize: 12, marginBottom: 6 }}>
+                          [안전관리 준수 서약서 - 종이일지 첨부]
                         </div>
-                        <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
-                          상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
-                        </p>
-                        <div>
-                          {PLEDGE_ITEMS.map((line, i) => (
-                            <div key={i}>{line}</div>
+                        {pledgePhotoUrls.length > 0 ? (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {pledgePhotoUrls.map((url, idx) => (
+                              <img
+                                key={idx}
+                                src={url}
+                                alt={`서약서 종이일지 ${idx + 1}`}
+                                style={{ maxHeight: 220, border: "1px solid #ccc" }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="muted">첨부된 서약서 사진 없음</span>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ borderTop: "1px solid #000", borderBottom: "1px solid #000", background: "#f9fafb", padding: "8px 10px", marginBottom: 12, fontSize: 11, lineHeight: 1.5, overflowWrap: "anywhere" }}>
+                          <div style={{ fontWeight: "bold", fontSize: 12.5, textAlign: "center", marginBottom: 6 }}>
+                            [안전관리 준수 서약서]
+                          </div>
+                          <p style={{ margin: "0 0 6px 0", fontWeight: "bold" }}>
+                            상기 본인은 귀 작업장에서 작업하는 기간 중 본인의 관리책임 및 지휘·감독 근로자의 불안전행동 또는 귀사에서 요구하는 준수사항 위반으로 발생되는 제반사고에 대하여 본인이 일체의 책임을 지겠으며, 아울러 안전사고 예방을 위해 아래사항을 성실히 이행할 것을 서약합니다.
+                          </p>
+                          <div>
+                            {PLEDGE_ITEMS.map((line, i) => (
+                              <div key={i}>{line}</div>
+                            ))}
+                          </div>
+                          <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
+                            서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {(selectedItem.ptw_signatures || []).map(sig => (
+                            <div key={sig.id} className="ptw-status-sig-card">
+                              <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 42, objectFit: "contain" }} />
+                              <div style={{ fontSize: 11 }}>{sig.worker_name} ({sig.worker_type})</div>
+                            </div>
                           ))}
                         </div>
-                        <div style={{ marginTop: 8, textAlign: "right", fontWeight: "bold" }}>
-                          서명에 앞서 위 서약사항을 세심히 읽어보았음을 확인 합니다. &nbsp;&nbsp; 동아스틸(주) 귀하
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {(selectedItem.ptw_signatures || []).map(sig => (
-                          <div key={sig.id} className="ptw-status-sig-card">
-                            <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 42, objectFit: "contain" }} />
-                            <div style={{ fontSize: 11 }}>{sig.worker_name} ({sig.worker_type})</div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
+                      </>
+                    )
                   )}
                 </div>
               )}
