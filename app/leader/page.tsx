@@ -49,10 +49,11 @@ function LeaderForm() {
   const [company, setCompany] = useState("");
   const [team, setTeam] = useState("");
   const [week, setWeek] = useState("");
-  const [leader, setLeader] = useState("");
+const [leader, setLeader] = useState("");
   const [healthStatus, setHealthStatus] = useState("이상없음");
   const [dailyHazard, setDailyHazard] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [msg, setMsg] = useState("");
   const [isErrorMsg, setIsErrorMsg] = useState(false);
@@ -338,17 +339,46 @@ function LeaderForm() {
     });
   }
 
+function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files || []);
+    if (picked.length === 0) return;
+
+    const oversized = picked.find((f) => f.size > 20 * 1024 * 1024);
+    if (oversized) {
+      setNotice("사진 한 장당 20MB 이하로 올려 주세요.", true);
+      setFileInputKey((k) => k + 1);
+      return;
+    }
+
+    const newUrls = picked.map((f) => URL.createObjectURL(f));
+    setFiles((prev) => [...prev, ...picked]);
+    setPreviewUrls((prev) => [...prev, ...newUrls]);
+    setNotice("", false);
+    setFileInputKey((k) => k + 1);
+  }
+
+  function handleRemovePhoto(index: number) {
+    setPreviewUrls((prev) => {
+      if (prev[index]) URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, idx) => idx !== index);
+    });
+    setFiles((prev) => prev.filter((_, idx) => idx !== index));
+  }
+
+  function clearPhotos() {
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setPreviewUrls([]);
+    setFiles([]);
+    setFileInputKey((k) => k + 1);
+  }
+
   async function upload() {
     if (submitting) return;
     setNotice("", false);
     setCanRetry(false);
 
-    if (!company || !team || !week || !leader.trim() || !file) {
-      setNotice("모든 항목과 사진을 입력해 주세요.", true);
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      setNotice("사진은 20MB 이하로 올려 주세요.", true);
+    if (!company || !team || !week || !leader.trim() || files.length === 0) {
+      setNotice("모든 항목과 사진을 1장 이상 첨부해 주세요.", true);
       return;
     }
 
@@ -356,17 +386,25 @@ function LeaderForm() {
     setNotice("사진 용량을 최적화하여 업로드 중입니다...", false);
 
     try {
-      const compressed = await compressImage(file);
-      const isJpeg = compressed !== file;
-      const ext = isJpeg ? "jpg" : file.name.split(".").pop() || "jpg";
-      const path = `${week}/${team}/${Date.now()}.${ext}`;
-      const up = await supabase.storage.from("tbm-photos").upload(path, compressed, {
-        upsert: false,
-        contentType: isJpeg ? "image/jpeg" : file.type,
-      });
-      if (up.error) {
-        throw new Error("사진 업로드 실패: " + up.error.message);
+      const uploadedPaths: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const currentFile = files[i];
+        const compressed = await compressImage(currentFile);
+        const isJpeg = compressed !== currentFile;
+        const ext = isJpeg ? "jpg" : currentFile.name.split(".").pop() || "jpg";
+        const path = `${week}/${team}/${Date.now()}_${i}.${ext}`;
+        const up = await supabase.storage.from("tbm-photos").upload(path, compressed, {
+          upsert: false,
+          contentType: isJpeg ? "image/jpeg" : currentFile.type,
+        });
+        if (up.error) {
+          throw new Error(`사진(${i + 1}번째) 업로드 실패: ` + up.error.message);
+        }
+        uploadedPaths.push(path);
       }
+
+      const primaryPath = uploadedPaths[0];
 
       const { error } = await supabase.from("tbm_team_submissions").upsert(
         {
@@ -376,7 +414,8 @@ function LeaderForm() {
           leader_name: leader.trim(),
           health_status: healthStatus,
           daily_hazard: dailyHazard.trim() || "특이사항 없음",
-          photo_path: path,
+          photo_path: primaryPath,
+          photo_paths: uploadedPaths,
           submitted_at: new Date().toISOString(),
         },
         { onConflict: "week_id,team_id" }
@@ -428,12 +467,11 @@ function LeaderForm() {
     }
   }
 
-  function handleContinueNextWorker() {
+function handleContinueNextWorker() {
     setSubmittedDone(false);
     setNotice("", false);
     setCanRetry(false);
-    setFile(null);
-    setFileInputKey((k) => k + 1);
+    clearPhotos();
     setDailyHazard("");
     setWorkerName("");
     setWorkerSelectedRules([]);
@@ -445,11 +483,10 @@ function LeaderForm() {
     setSubmittedDone(false);
     setNotice("", false);
     setCanRetry(false);
-    setLeader("");
+setLeader("");
     setHealthStatus("이상없음");
     setDailyHazard("");
-    setFile(null);
-    setFileInputKey((k) => k + 1);
+    clearPhotos();
     setWorkerEntries([]);
     setWorkerName("");
     setIndividualScheduled(true);
@@ -668,19 +705,82 @@ function LeaderForm() {
           />
         </div>
 
-        <div className="field">
-          <label>TBM 실시 사진</label>
+<div className="field">
+          <label>TBM 실시 사진 (여러 장 선택 가능)</label>
           <div className="upload">
             <input
               key={fileInputKey}
               type="file"
               accept="image/*"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              multiple
+              onChange={handleFilesChange}
             />
             <p className="muted">
-              {file ? file.name : "현장에서 사진을 촬영하거나 선택해 주세요."}
+              {files.length > 0
+                ? `총 ${files.length}장 선택됨 (사진을 추가하거나 우측 상단 ×로 삭제 가능)`
+                : "현장에서 사진을 촬영하거나 여러 장 선택해 주세요."}
             </p>
           </div>
+
+          {previewUrls.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              {previewUrls.map((url, idx) => (
+                <div
+                  key={url}
+                  style={{
+                    position: "relative",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    border: "1px solid #cbd5e1",
+                    aspectRatio: "1 / 1",
+                    background: "#f8fafc",
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt={`첨부 미리보기 ${idx + 1}`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`사진 ${idx + 1} 삭제`}
+                    onClick={() => handleRemovePhoto(idx)}
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      right: 4,
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "rgba(15, 23, 42, 0.78)",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: "bold",
+                      lineHeight: "24px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 기본: 개별진행 상태 안내 + [한꺼번에 진행] 서명 창 열기 */}
