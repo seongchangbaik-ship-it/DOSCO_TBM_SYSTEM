@@ -72,7 +72,7 @@ const [leader, setLeader] = useState("");
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [submittedWorkers, setSubmittedWorkers] = useState<
+const [submittedWorkers, setSubmittedWorkers] = useState<
     {
       id: string;
       worker_name: string;
@@ -82,8 +82,33 @@ const [leader, setLeader] = useState("");
     }[]
   >([]);
   const [loadingWorkers, setLoadingWorkers] = useState(false);
+  const [weekPhotoUrls, setWeekPhotoUrls] = useState<string[]>([]);
 
   const selectedWeekObj = weeks.find((w) => w.id === week) || null;
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const paths = selectedWeekObj?.photo_paths || [];
+      if (!configured || paths.length === 0) {
+        if (active) setWeekPhotoUrls([]);
+        return;
+      }
+      const urls: string[] = [];
+      for (const path of paths) {
+        const { data, error } = await supabase.storage
+          .from("tbm-education-photos")
+          .createSignedUrl(path, 3600);
+        if (!error && data?.signedUrl) {
+          urls.push(data.signedUrl);
+        }
+      }
+      if (active) setWeekPhotoUrls(urls);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [selectedWeekObj]);
 
   function setNotice(text: string, isError = false) {
     setMsg(text);
@@ -536,7 +561,7 @@ setLeader("");
             {selectedWeekObj.topic}{" "}
             {selectedWeekObj.title ? `— ${selectedWeekObj.title}` : ""}
           </div>
-          {selectedWeekObj.content && (
+{selectedWeekObj.content && (
             <div
               style={{
                 whiteSpace: "pre-wrap",
@@ -546,6 +571,40 @@ setLeader("");
               }}
             >
               {selectedWeekObj.content}
+            </div>
+          )}
+          {weekPhotoUrls.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1e3a8a", marginBottom: 6 }}>
+                교육 사진
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: 8,
+                }}
+              >
+                {weekPhotoUrls.map((url, index) => (
+                  <a key={index} href={url} target="_blank" rel="noreferrer" style={{ display: "block" }}>
+                    <img
+                      src={url}
+                      alt={`교육 사진 ${index + 1}`}
+                      style={{
+                        width: "100%",
+                        height: 140,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        border: "1px solid #cbd5e1",
+                        display: "block",
+                      }}
+                    />
+                  </a>
+                ))}
+              </div>
+              <p className="muted" style={{ fontSize: 11.5, margin: "6px 0 0 0" }}>
+                사진을 누르면 크게 볼 수 있습니다.
+              </p>
             </div>
           )}
         </div>
