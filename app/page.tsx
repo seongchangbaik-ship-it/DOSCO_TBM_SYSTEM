@@ -87,8 +87,8 @@ useEffect(() => {
           animation: safety-marquee 18s linear infinite;
           font-size: 13.5px;
           font-weight: 600;.safety-ticker-track {
-          display: inline-flex;
-          align-items: center;
+          display: inline-block;
+          white-space: nowrap;
           padding-left: 100%;
           animation: safety-marquee 14s linear infinite;
           font-size: 13.5px;
@@ -102,7 +102,7 @@ useEffect(() => {
             transform: translateX(0%);
           }
           100% {
-            transform: translateX(calc(-100% - 100vw));
+            transform: translateX(-100%);
           }
         }
         .safety-ticker-wrap:hover .safety-ticker-track {
