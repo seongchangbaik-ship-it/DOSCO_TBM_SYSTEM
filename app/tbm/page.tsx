@@ -225,6 +225,32 @@ function TBMForm() {
     }
   }
 
+  function handleContinueNextWorker() {
+    setDone(false);
+    setMsg("");
+    setCanRetry(false);
+    setName("");
+    setSelectedRules([]);
+    setAck([false, false, false]);
+    setHasDrawn(false);
+    setTimeout(() => clearCanvas(), 0);
+  }
+
+  function handleResetAll() {
+    setDone(false);
+    setMsg("");
+    setCanRetry(false);
+    setCompany("");
+    setTeam("");
+    setQrApplied(false);
+    setName("");
+    setSelectedRules([]);
+    setAck([false, false, false]);
+    setHasDrawn(false);
+    setTimeout(() => clearCanvas(), 0);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function submit() {
     if (submitting) return;
     setMsg("");
@@ -616,10 +642,28 @@ function TBMForm() {
           <div className="pill ok">제출 완료</div>
           <h2>교육 확인이 등록되었습니다.</h2>
           <p className="muted">참여해 주셔서 감사합니다.</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ flex: 1 }}
+              onClick={handleContinueNextWorker}
+            >
+              다른 조원 이어서 등록
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ flex: 1 }}
+              onClick={handleResetAll}
+            >
+              처음부터 다시
+            </button>
+          </div>
         </div>
       )}
 
-<div className="card" style={{ marginTop: 12, textAlign: "center" }}>
+      <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
           제출을 완료하셨나요?
         </div>

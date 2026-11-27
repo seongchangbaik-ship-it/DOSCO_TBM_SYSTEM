@@ -53,13 +53,18 @@ function LeaderForm() {
   const [healthStatus, setHealthStatus] = useState("이상없음");
   const [dailyHazard, setDailyHazard] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [msg, setMsg] = useState("");
   const [isErrorMsg, setIsErrorMsg] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
+  const [submittedDone, setSubmittedDone] = useState(false);
 
+  // 다같이 서명 모달 및 개별진행 상태 (기본값: 개별진행 체크)
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [modalMsg, setModalMsg] = useState("");
   const [workerName, setWorkerName] = useState("");
-  const [individualScheduled, setIndividualScheduled] = useState(false);
+  const [individualScheduled, setIndividualScheduled] = useState(true);
   const [workerSelectedRules, setWorkerSelectedRules] = useState<string[]>([]);
   const [workerEntries, setWorkerEntries] = useState<WorkerEntry[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -120,9 +125,7 @@ function LeaderForm() {
           .select("id,week_label,topic,title,content,photo_paths")
           .eq("is_published", true)
           .order("starts_at", { ascending: false }),
-        supabase
-          .from("tbm_process_rules")
-          .select("id,process_name,rule_text"),
+        supabase.from("tbm_process_rules").select("id,process_name,rule_text"),
       ]);
 
       const companyOrder = ["동아스틸", "다인스틸", "나로스틸", "세현스틸", "에스로지스"];
@@ -234,25 +237,34 @@ function LeaderForm() {
     setHasDrawn(false);
   };
 
-function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
-    const trimmed = workerName.trim();
+  function openBatchSignatureModal() {
+    setModalMsg("");
+    setIndividualScheduled(false);
+    setBatchModalOpen(true);
+  }
 
-    if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
-      setNotice("개별 제출인 경우 체크 후 제출해주세요", true);
-      return null;
+  function closeBatchSignatureModal() {
+    setModalMsg("");
+    setBatchModalOpen(false);
+  }
+
+  function addWorkerEntry() {
+    const trimmed = workerName.trim();
+    setModalMsg("");
+
+    if (!trimmed) {
+      setModalMsg("근로자 이름을 입력해 주세요.");
+      return;
     }
 
-    if (requireName && !individualScheduled && !trimmed) {
-      setNotice("근로자 이름을 입력해 주세요.", true);
-      return null;
+    if (!individualScheduled && (!hasDrawn || !canvasRef.current)) {
+      setModalMsg("서명란에 서명해 주세요. (또는 개별진행을 체크해 주세요)");
+      return;
     }
 
     if (!individualScheduled && minRequiredRules > 0 && workerSelectedRules.length < minRequiredRules) {
-      setNotice(
-        `위험요인(안전수칙)을 ${minRequiredRules}개 이상 선택해 주세요.`,
-        true
-      );
-      return null;
+      setModalMsg(`위험요인·안전수칙을 ${minRequiredRules}개 이상 선택해 주세요.`);
+      return;
     }
 
     const sig =
@@ -260,7 +272,7 @@ function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
         ? null
         : canvasRef.current.toDataURL("image/png");
 
-    return {
+    const entry: WorkerEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       worker_name: trimmed,
       individual_scheduled: individualScheduled,
@@ -268,18 +280,12 @@ function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
       signature_data: sig,
       has_drawn: !individualScheduled && hasDrawn,
     };
-  }
-
-  function addWorkerEntry() {
-    const entry = validateAndBuildDraftEntry();
-    if (!entry) return;
 
     setWorkerEntries((prev) => [...prev, entry]);
     setWorkerName("");
-    setIndividualScheduled(false);
     setWorkerSelectedRules([]);
     clearCanvas();
-    setNotice("", false);
+    setModalMsg(`${trimmed}님이 명단에 추가되었습니다.`);
   }
 
   function removeWorkerEntry(id: string) {
@@ -346,26 +352,6 @@ function validateAndBuildDraftEntry(requireName = true): WorkerEntry | null {
       return;
     }
 
-const pendingEntries: WorkerEntry[] = [...workerEntries];
-    const hasAnyWorkerInput =
-      workerName.trim().length > 0 ||
-      individualScheduled ||
-      hasDrawn ||
-      workerSelectedRules.length > 0;
-
-    if (!individualScheduled && !hasDrawn && pendingEntries.length === 0) {
-      setNotice("개별 제출인 경우 체크 후 제출해주세요", true);
-      return;
-    }
-
-    if (hasAnyWorkerInput) {
-      const draftEntry = validateAndBuildDraftEntry(!individualScheduled);
-      if (!draftEntry) return;
-      if (draftEntry.worker_name) {
-        pendingEntries.push(draftEntry);
-      }
-    }
-
     setSubmitting(true);
     setNotice("사진 용량을 최적화하여 업로드 중입니다...", false);
 
@@ -399,8 +385,8 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
         throw new Error("제출 기록 저장 실패: " + error.message);
       }
 
-      if (pendingEntries.length > 0) {
-        const rows = pendingEntries.map((entry) => ({
+      if (workerEntries.length > 0) {
+        const rows = workerEntries.map((entry) => ({
           week_id: week,
           company_id: company,
           team_id: team,
@@ -423,10 +409,12 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
 
       setWorkerEntries([]);
       setWorkerName("");
-      setIndividualScheduled(false);
+      setIndividualScheduled(true);
       setWorkerSelectedRules([]);
       clearCanvas();
+      setBatchModalOpen(false);
       await loadSubmittedWorkers(week, company, team);
+      setSubmittedDone(true);
       setNotice("조별 TBM 일지, 현장 사진 및 근로자 등록이 저장되었습니다.", false);
     } catch (err: any) {
       setNotice(
@@ -438,6 +426,37 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleContinueNextWorker() {
+    setSubmittedDone(false);
+    setNotice("", false);
+    setCanRetry(false);
+    setFile(null);
+    setFileInputKey((k) => k + 1);
+    setDailyHazard("");
+    setWorkerName("");
+    setWorkerSelectedRules([]);
+    clearCanvas();
+    openBatchSignatureModal();
+  }
+
+  function handleResetAll() {
+    setSubmittedDone(false);
+    setNotice("", false);
+    setCanRetry(false);
+    setLeader("");
+    setHealthStatus("이상없음");
+    setDailyHazard("");
+    setFile(null);
+    setFileInputKey((k) => k + 1);
+    setWorkerEntries([]);
+    setWorkerName("");
+    setIndividualScheduled(true);
+    setWorkerSelectedRules([]);
+    clearCanvas();
+    setBatchModalOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -455,7 +474,7 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
         <div style={{ fontSize: 12, opacity: 0.8 }}>DONG-A STEEL · LEADER</div>
         <h1>조장등록 (조별 TBM 사진 제출)</h1>
         <div style={{ fontSize: 13, opacity: 0.85 }}>
-          교육자료 확인 · 사진 첨부 · 근로자 서명 / 개별진행
+          교육자료 확인 · 사진 첨부 · 개별진행 / 한꺼번에 진행
         </div>
       </div>
 
@@ -653,6 +672,7 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
           <label>TBM 실시 사진</label>
           <div className="upload">
             <input
+              key={fileInputKey}
               type="file"
               accept="image/*"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -663,6 +683,7 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
           </div>
         </div>
 
+        {/* 기본: 개별진행 상태 안내 + [한꺼번에 진행] 서명 창 열기 */}
         <div
           style={{
             marginTop: 14,
@@ -673,170 +694,43 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
             background: "#f8fafc",
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
-            참석 근로자 이름 · 서명 / 개별진행
-          </div>
-
-          <label className="checkrow" style={{ marginTop: 4, marginBottom: 10 }}>
-            <input
-              type="checkbox"
-              checked={individualScheduled}
-              onChange={(e) => {
-                setIndividualScheduled(e.target.checked);
-                if (e.target.checked) {
-                  clearCanvas();
-                  setWorkerSelectedRules([]);
-                }
-              }}
-            />
-            <span>
-              <b>개별진행</b> (체크 시 서명 없이 저장되며, 근로자가 직접 들어가
-              교육 확인 후 서명)
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 6,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              근로자 진행 방식
+            </div>
+            <span className="pill ok" style={{ fontSize: 11.5 }}>
+              {workerEntries.length > 0
+                ? `합동 서명 ${workerEntries.length}명 준비됨`
+                : "기본: 개별진행"}
             </span>
-          </label>
-
-          <div className="field" style={{ marginTop: 0 }}>
-            <label>근로자 이름</label>
-            <input
-              className="input"
-              value={workerName}
-              onChange={(e) => setWorkerName(e.target.value)}
-              placeholder="근로자 이름 입력"
-            />
           </div>
 
-          {!individualScheduled && applicableRules.length > 0 && (
-            <div
-              style={{
-                background: "#eff6ff",
-                border: "1.5px solid #93c5fd",
-                borderRadius: 10,
-                padding: 11,
-                marginTop: 10,
-                marginBottom: 10,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 6,
-                  marginBottom: 6,
-                }}
-              >
-                <b style={{ fontSize: 13, color: "#1e3a8a" }}>
-                  [{currentProcess} 공정] 위험요인·중점 안전수칙 선택
-                </b>
-                <span
-                  className={`pill ${
-                    workerSelectedRules.length >= minRequiredRules ? "ok" : "wait"
-                  }`}
-                  style={{ fontSize: 11 }}
-                >
-                  {workerSelectedRules.length}개 선택 (최소 {minRequiredRules}개)
-                </span>
-              </div>
-              <p style={{ fontSize: 12, color: "#1d4ed8", margin: "0 0 8px 0" }}>
-                근로자 본인이 확인한 위험요인·안전수칙을{" "}
-                <b>{minRequiredRules}개 이상</b> 선택해 주세요.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {applicableRules.map((rule) => {
-                  const checked = workerSelectedRules.includes(rule.rule_text);
-                  return (
-                    <label
-                      key={rule.id}
-                      className="checkrow"
-                      style={{
-                        margin: 0,
-                        padding: "7px 9px",
-                        borderRadius: 8,
-                        border: checked
-                          ? "1.5px solid #2563eb"
-                          : "1px solid #cbd5e1",
-                        background: checked ? "#dbeafe" : "#fff",
-                        fontSize: 12.5,
-                        lineHeight: 1.4,
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) =>
-                          toggleWorkerRule(rule.rule_text, e.target.checked)
-                        }
-                        style={{ marginTop: 2 }}
-                      />
-                      <span>{rule.rule_text}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {!individualScheduled && (
-            <div className="field" style={{ marginTop: 10, marginBottom: 10 }}>
-              <label>근로자 서명</label>
-              <div
-                style={{
-                  border: "2px dashed #cbd5e1",
-                  borderRadius: 8,
-                  background: "#fff",
-                }}
-              >
-                <canvas
-                  ref={canvasRef}
-                  width={360}
-                  height={120}
-                  style={{
-                    width: "100%",
-                    height: 120,
-                    touchAction: "none",
-                    display: "block",
-                  }}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "6px 10px",
-                    borderTop: "1px solid #e5e7eb",
-                  }}
-                >
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
-                    서명란에 서명해 주세요
-                  </span>
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    style={{ padding: "4px 10px", fontSize: 12 }}
-                    onClick={clearCanvas}
-                  >
-                    지우기
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <p style={{ fontSize: 12.5, color: "#475569", margin: "0 0 10px 0", lineHeight: 1.5 }}>
+            기본값은 <b>개별진행</b>이며, 근로자가 직접 접속해 확인·서명합니다. 현장에서 조원 서명을 한꺼번에 받을 때만 아래 버튼을 눌러 창을 여세요.
+          </p>
 
           <button
             type="button"
             className="btn secondary"
-            style={{ width: "100%" }}
-            onClick={addWorkerEntry}
+            style={{
+              width: "100%",
+              background: "#eff6ff",
+              borderColor: "#93c5fd",
+              color: "#1e3a8a",
+              fontWeight: 700,
+            }}
+            onClick={openBatchSignatureModal}
           >
-            + 근로자 명단에 추가
+            한꺼번에 진행 (이름 · 안전수칙 · 서명 창 열기)
           </button>
 
           {workerEntries.length > 0 && (
@@ -924,12 +818,306 @@ const pendingEntries: WorkerEntry[] = [...workerEntries];
                 onClick={upload}
                 disabled={submitting}
               >
-{submitting ? "재전송 중..." : "다시 시도"}
+                {submitting ? "재전송 중..." : "다시 시도"}
               </button>
             )}
           </div>
         )}
+
+        {submittedDone && (
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: "1px solid #e2e8f0",
+              display: "flex",
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ flex: 1 }}
+              onClick={handleContinueNextWorker}
+            >
+              다른 조원 이어서 등록
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ flex: 1 }}
+              onClick={handleResetAll}
+            >
+              처음부터 다시
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* 한꺼번에 진행 (이름 · 안전수칙 체크 · 서명) 전용 모달 */}
+      {batchModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.65)",
+            zIndex: 999,
+            overflowY: "auto",
+            padding: 14,
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 480,
+              margin: "12px auto",
+              background: "#fff",
+              borderRadius: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingBottom: 10,
+                marginBottom: 12,
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>
+                  한꺼번에 진행 (조원 서명 등록)
+                </h3>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  이름 입력 → 안전수칙 {minRequiredRules}개 이상 선택 → 서명 후 명단 추가
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn secondary"
+                style={{ padding: "5px 10px", fontSize: 12 }}
+                onClick={closeBatchSignatureModal}
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="field" style={{ marginTop: 0 }}>
+              <label>근로자 이름</label>
+              <input
+                className="input"
+                value={workerName}
+                onChange={(e) => setWorkerName(e.target.value)}
+                placeholder="근로자 이름 입력"
+              />
+            </div>
+
+            {applicableRules.length > 0 && (
+              <div
+                style={{
+                  background: "#eff6ff",
+                  border: "1.5px solid #93c5fd",
+                  borderRadius: 10,
+                  padding: 11,
+                  marginTop: 10,
+                  marginBottom: 10,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 6,
+                  }}
+                >
+                  <b style={{ fontSize: 13, color: "#1e3a8a" }}>
+                    [{currentProcess} 공정] 위험요인·중점 안전수칙 선택
+                  </b>
+                  <span
+                    className={`pill ${
+                      workerSelectedRules.length >= minRequiredRules ? "ok" : "wait"
+                    }`}
+                    style={{ fontSize: 11 }}
+                  >
+                    {workerSelectedRules.length}개 선택 (최소 {minRequiredRules}개)
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: "#1d4ed8", margin: "0 0 8px 0" }}>
+                  근로자 본인이 확인한 위험요인·안전수칙을{" "}
+                  <b>{minRequiredRules}개 이상</b> 선택해 주세요.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {applicableRules.map((rule) => {
+                    const checked = workerSelectedRules.includes(rule.rule_text);
+                    return (
+                      <label
+                        key={rule.id}
+                        className="checkrow"
+                        style={{
+                          margin: 0,
+                          padding: "7px 9px",
+                          borderRadius: 8,
+                          border: checked
+                            ? "1.5px solid #2563eb"
+                            : "1px solid #cbd5e1",
+                          background: checked ? "#dbeafe" : "#fff",
+                          fontSize: 12.5,
+                          lineHeight: 1.4,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            toggleWorkerRule(rule.rule_text, e.target.checked)
+                          }
+                          style={{ marginTop: 2 }}
+                        />
+                        <span>{rule.rule_text}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="field" style={{ marginTop: 10, marginBottom: 10 }}>
+              <label>근로자 서명</label>
+              <div
+                style={{
+                  border: "2px dashed #cbd5e1",
+                  borderRadius: 8,
+                  background: "#fff",
+                }}
+              >
+                <canvas
+                  ref={canvasRef}
+                  width={360}
+                  height={120}
+                  style={{
+                    width: "100%",
+                    height: 120,
+                    touchAction: "none",
+                    display: "block",
+                  }}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "6px 10px",
+                    borderTop: "1px solid #e5e7eb",
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    서명란에 서명해 주세요
+                  </span>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                    onClick={clearCanvas}
+                  >
+                    지우기
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn"
+              style={{ width: "100%" }}
+              onClick={addWorkerEntry}
+            >
+              + 근로자 명단에 추가
+            </button>
+
+            {modalMsg && (
+              <p
+                style={{
+                  marginTop: 8,
+                  marginBottom: 0,
+                  fontSize: 12.5,
+                  textAlign: "center",
+                  color: modalMsg.includes("추가되었습니다") ? "#15803d" : "#dc2626",
+                  fontWeight: 700,
+                }}
+              >
+                {modalMsg}
+              </p>
+            )}
+
+            {workerEntries.length > 0 && (
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#334155" }}>
+                  추가된 명단 ({workerEntries.length}명)
+                </div>
+                {workerEntries.map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      padding: "7px 10px",
+                      fontSize: 12.5,
+                    }}
+                  >
+                    <div>
+                      <b>
+                        {idx + 1}. {entry.worker_name}
+                      </b>{" "}
+                      <span style={{ color: "#2563eb", fontSize: 11.5 }}>
+                        (수칙 {entry.selected_rules.length}개 · 서명완료)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      style={{ padding: "3px 8px", fontSize: 11.5 }}
+                      onClick={() => removeWorkerEntry(entry.id)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ width: "100%", marginTop: 12 }}
+              onClick={closeBatchSignatureModal}
+            >
+              명단 확정 후 조장 화면으로 돌아가기
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
