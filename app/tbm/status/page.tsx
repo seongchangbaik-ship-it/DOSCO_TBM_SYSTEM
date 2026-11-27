@@ -48,11 +48,18 @@ type SpotLogItem = {
   tbm_spot_signatures?: { id: string; worker_name: string; signature_data: string; signed_at: string }[];
 };
 
+const PAGE_SIZE = 5;
+
 export default function TbmStatusPage() {
   const [tab, setTab] = useState<"all" | "regular" | "spot">("all");
   const [loading, setLoading] = useState(true);
   const [regularItems, setRegularItems] = useState<RegularMergedItem[]>([]);
   const [spotItems, setSpotItems] = useState<SpotLogItem[]>([]);
+
+  // 목록 필터 및 페이지네이션 상태
+  const [selectedRegularWeekId, setSelectedRegularWeekId] = useState<string>("all");
+  const [regularPage, setRegularPage] = useState<number>(1);
+  const [spotPage, setSpotPage] = useState<number>(1);
 
   // 정기 TBM 미실시 조 현황판 상태
   const [weeksList, setWeeksList] = useState<{ id: string; week_label: string; topic: string; is_published: boolean }[]>([]);
@@ -251,6 +258,27 @@ export default function TbmStatusPage() {
   const doneTeamCount = allTeamStatuses.filter((t) => t.status === "done").length;
   const partialTeamCount = allTeamStatuses.filter((t) => t.status === "partial").length;
   const missingTeamCount = allTeamStatuses.filter((t) => t.status === "missing").length;
+
+  // 정기 안전교육 교육별 필터 및 5개 단위 페이지네이션 계산
+  const filteredRegularItems =
+    selectedRegularWeekId === "all"
+      ? regularItems
+      : regularItems.filter((item) => item.weekId === selectedRegularWeekId);
+
+  const totalRegularPages = Math.max(1, Math.ceil(filteredRegularItems.length / PAGE_SIZE));
+  const currentRegularPage = Math.min(regularPage, totalRegularPages);
+  const pagedRegularItems = filteredRegularItems.slice(
+    (currentRegularPage - 1) * PAGE_SIZE,
+    currentRegularPage * PAGE_SIZE
+  );
+
+  // 수시 작업 TBM 5개 단위 페이지네이션 계산
+  const totalSpotPages = Math.max(1, Math.ceil(spotItems.length / PAGE_SIZE));
+  const currentSpotPage = Math.min(spotPage, totalSpotPages);
+  const pagedSpotItems = spotItems.slice(
+    (currentSpotPage - 1) * PAGE_SIZE,
+    currentSpotPage * PAGE_SIZE
+  );
 
   async function copyMissingTeamsNotice() {
     const weekTitle = targetWeekObj
@@ -675,24 +703,43 @@ export default function TbmStatusPage() {
           </button>
           <button
             className="btn secondary"
-            onClick={() => setTab("spot")}
-            style={{ background: tab === "spot" ? "#0f766e" : "#fff", color: tab === "spot" ? "#fff" : "#1e293b", fontWeight: "bold" }}
-          >
-            🛠️ 수시 작업 TBM ({spotItems.length})
-          </button>
-          <button
-            className="btn secondary"
             onClick={() => setTab("regular")}
             style={{ background: tab === "regular" ? "#2563eb" : "#fff", color: tab === "regular" ? "#fff" : "#1e293b", fontWeight: "bold" }}
           >
             📘 정기 안전교육 ({regularItems.length})
           </button>
+          <button
+            className="btn secondary"
+            onClick={() => setTab("spot")}
+            style={{ background: tab === "spot" ? "#0f766e" : "#fff", color: tab === "spot" ? "#fff" : "#1e293b", fontWeight: "bold" }}
+          >
+            🛠️ 수시 작업 TBM ({spotItems.length})
+          </button>
         </div>
 
-        {/* 1. 수시 작업 TBM 목록 */}
-        {(tab === "all" || tab === "spot") && (
+        {/* 1. 정기 안전교육 조별 통합 현황 */}
+        {(tab === "all" || tab === "regular") && (
           <div className="card section">
             <h2>📘 정기 안전교육 실시 현황 (조별 통합)</h2>
+
+            <div style={{ margin: "12px 0 16px" }}>
+              <select
+                value={selectedRegularWeekId}
+                onChange={(e) => {
+                  setSelectedRegularWeekId(e.target.value);
+                  setRegularPage(1);
+                }}
+                style={{ width: "100%", maxWidth: 520, fontWeight: "bold" }}
+              >
+                <option value="all">전체 (모든 정기 안전교육)</option>
+                {weeksList.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.week_label} · {w.topic}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="tablewrap tbm-table-scroll">
               <table>
                 <thead>
@@ -708,8 +755,8 @@ export default function TbmStatusPage() {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan={6} className="empty">불러오는 중...</td></tr>
-                  ) : regularItems.length > 0 ? (
-                    regularItems.map(item => (
+                  ) : pagedRegularItems.length > 0 ? (
+                    pagedRegularItems.map((item) => (
                       <tr key={item.key}>
                         <td>{item.weekLabel}</td>
                         <td><b>{item.companyName}</b></td>
@@ -737,11 +784,70 @@ export default function TbmStatusPage() {
                 </tbody>
               </table>
             </div>
+
+            {!loading && totalRegularPages > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 6,
+                  marginTop: 16,
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={currentRegularPage === 1}
+                  onClick={() => setRegularPage(Math.max(1, currentRegularPage - 1))}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    opacity: currentRegularPage === 1 ? 0.5 : 1,
+                  }}
+                >
+                  이전
+                </button>
+                {Array.from({ length: totalRegularPages }, (_, idx) => idx + 1).map((pageNum) => {
+                  const isActive = pageNum === currentRegularPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      className={isActive ? "btn" : "btn secondary"}
+                      onClick={() => setRegularPage(pageNum)}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 13,
+                        minWidth: 36,
+                        fontWeight: isActive ? "bold" : "normal",
+                      }}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={currentRegularPage === totalRegularPages}
+                  onClick={() => setRegularPage(Math.min(totalRegularPages, currentRegularPage + 1))}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    opacity: currentRegularPage === totalRegularPages ? 0.5 : 1,
+                  }}
+                >
+                  다음
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* 2. 정기 안전교육 조별 통합 현황 */}
-        {(tab === "all" || tab === "regular") && (
+        {/* 2. 수시 작업 TBM 목록 */}
+        {(tab === "all" || tab === "spot") && (
           <div className="card section">
             <h2>🛠️ 수시 작업 TBM 현황 (R/C · 정비 · 돌발작업)</h2>
             <div className="tablewrap tbm-table-scroll">
@@ -760,8 +866,8 @@ export default function TbmStatusPage() {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan={7} className="empty">불러오는 중...</td></tr>
-                  ) : spotItems.length > 0 ? (
-                    spotItems.map(item => (
+                  ) : pagedSpotItems.length > 0 ? (
+                    pagedSpotItems.map((item) => (
                       <tr key={item.id}>
                         <td>{item.work_date}</td>
                         <td><span className="pill" style={{ background: "#ccfbf1", color: "#0f766e" }}>{item.work_category}</span></td>
@@ -780,6 +886,65 @@ export default function TbmStatusPage() {
                 </tbody>
               </table>
             </div>
+
+            {!loading && totalSpotPages > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 6,
+                  marginTop: 16,
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={currentSpotPage === 1}
+                  onClick={() => setSpotPage(Math.max(1, currentSpotPage - 1))}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    opacity: currentSpotPage === 1 ? 0.5 : 1,
+                  }}
+                >
+                  이전
+                </button>
+                {Array.from({ length: totalSpotPages }, (_, idx) => idx + 1).map((pageNum) => {
+                  const isActive = pageNum === currentSpotPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      className={isActive ? "btn" : "btn secondary"}
+                      onClick={() => setSpotPage(pageNum)}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 13,
+                        minWidth: 36,
+                        fontWeight: isActive ? "bold" : "normal",
+                      }}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={currentSpotPage === totalSpotPages}
+                  onClick={() => setSpotPage(Math.min(totalSpotPages, currentSpotPage + 1))}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    opacity: currentSpotPage === totalSpotPages ? 0.5 : 1,
+                  }}
+                >
+                  다음
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -854,7 +1019,7 @@ export default function TbmStatusPage() {
                     </th>
                     <td colSpan={3} style={{ padding: 8 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {(selectedSpot.tbm_spot_signatures || []).map(sig => (
+                        {(selectedSpot.tbm_spot_signatures || []).map((sig) => (
                           <div key={sig.id} className="tbm-sig-card">
                             <img src={sig.signature_data} alt="서명" style={{ width: "100%", height: 38, objectFit: "contain" }} />
                             <div style={{ fontSize: 11, fontWeight: "bold" }}>{sig.worker_name}</div>
@@ -874,7 +1039,7 @@ export default function TbmStatusPage() {
             <div className="no-print" style={{ marginTop: 16, padding: 12, border: "1px solid #cbd5e1", borderRadius: 8, background: "#f8fafc" }}>
               <div style={{ fontWeight: "bold", fontSize: 13.5, marginBottom: 8 }}>+ 이 기기에서 참여자 서명 추가하기</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input className="input" placeholder="추가할 작업자 성명" value={addSignName} onChange={e => setAddSignName(e.target.value)} style={{ flex: 1 }} />
+                <input className="input" placeholder="추가할 작업자 성명" value={addSignName} onChange={(e) => setAddSignName(e.target.value)} style={{ flex: 1 }} />
                 <button type="button" className="btn secondary" onClick={clearAddCanvas}>지우기</button>
               </div>
               <div style={{ border: "2px dashed #cbd5e1", borderRadius: 8, background: "#fff", marginBottom: 8 }}>
@@ -971,7 +1136,7 @@ export default function TbmStatusPage() {
                     <th className="tbm-sheet-label" style={{ background: "#f9fafb" }}>개인별 선택<br />안전수칙</th>
                     <td colSpan={3} style={{ lineHeight: 1.6 }}>
                       {selectedRegular.workers.length > 0 ? (
-                        selectedRegular.workers.map(w => (
+                        selectedRegular.workers.map((w) => (
                           <div key={w.id} style={{ marginBottom: 4 }}>
                             <b>{w.worker_name}</b> -{" "}
                             {Array.isArray(w.selected_rules) && w.selected_rules.length > 0
@@ -998,7 +1163,7 @@ export default function TbmStatusPage() {
                     </th>
                     <td colSpan={3} style={{ padding: 8 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {selectedRegular.workers.map(w => (
+                        {selectedRegular.workers.map((w) => (
                           <div key={w.id} className="tbm-sig-card">
                             {w.signature_data ? (
                               <img src={w.signature_data} alt="서명" style={{ width: "100%", height: 38, objectFit: "contain" }} />
