@@ -1,16 +1,117 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, FileText, Truck } from "lucide-react";
+import { supabase, configured } from "@/lib/supabase";
 
 export default function Home() {
+  const [safetyPoint, setSafetyPoint] = useState(
+    "설비 점검·정비 전 반드시 정지 및 전원 차단(LOTO)을 확인하고, 작업 전 주변 인원 안전을 살피세요."
+  );
+
+  useEffect(() => {
+    if (!configured) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from("tbm_weeks")
+        .select("title,topic,week_label")
+        .eq("is_published", true)
+        .order("starts_at", { ascending: false })
+        .limit(1);
+
+      const latest = data?.[0];
+      if (active && latest) {
+        const headline = latest.topic || latest.title;
+        if (headline) {
+          setSafetyPoint(
+            `[${latest.week_label}] ${headline} — 작업 전 위험요인을 한 번 더 확인하고 안전수칙을 준수하세요.`
+          );
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <>
+      <style>{`
+        .safety-ticker-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: #0f172a;
+          color: #f8fafc;
+          border-radius: 10px;
+          padding: 8px 12px;
+          margin-bottom: 22px;
+          overflow: hidden;
+          border: 1px solid #1e293b;
+        }
+        .safety-ticker-badge {
+          background: #ef4444;
+          color: #ffffff;
+          font-size: 12px;
+          font-weight: 800;
+          padding: 4px 9px;
+          border-radius: 6px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          letter-spacing: 0.3px;
+        }
+        .safety-ticker-viewport {
+          position: relative;
+          overflow: hidden;
+          flex: 1;
+          min-width: 0;
+          white-space: nowrap;
+        }
+        .safety-ticker-track {
+          display: inline-flex;
+          align-items: center;
+          gap: 48px;
+          padding-left: 100%;
+          animation: safety-marquee 18s linear infinite;
+          font-size: 13.5px;
+          font-weight: 600;
+        }
+        .safety-ticker-wrap:hover .safety-ticker-track {
+          animation-play-state: paused;
+        }
+        @keyframes safety-marquee {
+          0% {
+            transform: translateX(0%);
+          }
+          100% {
+            transform: translateX(-100%);
+          }
+        }
+      `}</style>
+
       <header className="topbar">
         <div className="brand">
           DOSCO SAFETY SYSTEM
           <small>동아스틸 안전보건 통합 관리</small>
         </div>
       </header>
-      <main className="shell" style={{ maxWidth: 1080, paddingTop: 44 }}>
+      <main className="shell" style={{ maxWidth: 1080, paddingTop: 28 }}>
+        <div
+          className="safety-ticker-wrap"
+          role="region"
+          aria-label="안전 POINT 전광판"
+        >
+          <span className="safety-ticker-badge">안전 POINT</span>
+          <div className="safety-ticker-viewport">
+            <div className="safety-ticker-track">
+              <span>{safetyPoint}</span>
+              <span>{safetyPoint}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="pagehead">
           <div>
             <h1>동아스틸 안전보건 통합 시스템</h1>
@@ -33,7 +134,10 @@ export default function Home() {
             <h2 style={{ marginTop: 12, marginBottom: 6, fontSize: 19 }}>
               TBM 통합관리시스템
             </h2>
-            <p className="muted" style={{ marginBottom: 20, fontSize: 13.5, lineHeight: 1.5 }}>
+            <p
+              className="muted"
+              style={{ marginBottom: 20, fontSize: 13.5, lineHeight: 1.5 }}
+            >
               정기 안전교육 확인, 수시 작업 TBM(R/C·정비) 작성 및 실시 현황 관리
             </p>
             <Link
@@ -60,7 +164,10 @@ export default function Home() {
             <h2 style={{ marginTop: 12, marginBottom: 6, fontSize: 19 }}>
               안전작업허가서 작성
             </h2>
-            <p className="muted" style={{ marginBottom: 20, fontSize: 13.5, lineHeight: 1.5 }}>
+            <p
+              className="muted"
+              style={{ marginBottom: 20, fontSize: 13.5, lineHeight: 1.5 }}
+            >
               위험작업 사전 허가서 작성, 안전조치 확인 및 승인 관리
             </p>
             <Link
@@ -87,7 +194,10 @@ export default function Home() {
             <h2 style={{ marginTop: 12, marginBottom: 6, fontSize: 19 }}>
               지게차 사용
             </h2>
-            <p className="muted" style={{ marginBottom: 20, fontSize: 13.5, lineHeight: 1.5 }}>
+            <p
+              className="muted"
+              style={{ marginBottom: 20, fontSize: 13.5, lineHeight: 1.5 }}
+            >
               지게차 키 수령·반납, 작업전/중/후 TBM 체크리스트 및 사용 현황·관리자 조회
             </p>
             <Link
