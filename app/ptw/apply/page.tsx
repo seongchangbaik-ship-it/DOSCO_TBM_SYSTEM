@@ -95,7 +95,9 @@ function PtwApplyForm() {
       note: "",
     },
   ]);
-  const [fireFiles, setFireFiles] = useState<File[]>([]);
+const [fireFiles, setFireFiles] = useState<File[]>([]);
+  const [firePreviewUrls, setFirePreviewUrls] = useState<string[]>([]);
+  const [fireInputKey, setFireInputKey] = useState(0);
 
   const [heavyDetails, setHeavyDetails] = useState({
     signalMethod: "무전기 및 표준 수신호",
@@ -135,7 +137,9 @@ function PtwApplyForm() {
     { role: "조종(운전)자", name: "", contact: "", location: "장비 운전석", ppe: "지급완료", license: "기중기/지게차" },
     { role: "작업자", name: "", contact: "", location: "줄걸이 및 안착위치", ppe: "지급완료", license: "-" },
   ]);
-  const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
+const [heavyFiles, setHeavyFiles] = useState<File[]>([]);
+  const [heavyPreviewUrls, setHeavyPreviewUrls] = useState<string[]>([]);
+  const [heavyInputKey, setHeavyInputKey] = useState(0);
 
   const [extraDetails, setExtraDetails] = useState({
     highHeight: "",
@@ -162,7 +166,9 @@ function PtwApplyForm() {
     utilMeasure: "메인 밸브 차단(LOTO), 배관 내 잔압·잔류유체 완전 제거(드레인·퍼지), 오조작 방지 표찰 부착",
   });
 
-  const [trainingPhoto, setTrainingPhoto] = useState<File | null>(null);
+const [trainingPhotos, setTrainingPhotos] = useState<File[]>([]);
+  const [trainingPreviewUrls, setTrainingPreviewUrls] = useState<string[]>([]);
+  const [trainingInputKey, setTrainingInputKey] = useState(0);
   const [signatures, setSignatures] = useState<{ id?: string; name: string; type: string; data: string }[]>([]);
 
   const [showSignModal, setShowSignModal] = useState(false);
@@ -501,10 +507,10 @@ function PtwApplyForm() {
     setIsSubmitting(true);
     setMsg("허가서와 첨부자료를 전송하고 있습니다...");
 
-    try {
+try {
       let photoPath: string | null = form.trainingPending ? null : existingTrainingPhotoPath;
-      if (!form.trainingPending && form.trainingType === "photo" && trainingPhoto) {
-        const uploaded = await uploadMultipleFiles([trainingPhoto], "ptw-training");
+      if (!form.trainingPending && form.trainingType === "photo" && trainingPhotos.length > 0) {
+        const uploaded = await uploadMultipleFiles(trainingPhotos, "ptw-training");
         photoPath = uploaded[0] || photoPath;
       }
 
@@ -1253,17 +1259,85 @@ function PtwApplyForm() {
               </div>
             </div>
 
-            <div className="field" style={{ marginTop: 12 }}>
+<div className="field" style={{ marginTop: 12 }}>
               <label>첨부자료 (작업자 명단, 장비목록, 도면 등 여러 장 선택 가능)</label>
               <input
+                key={fireInputKey}
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={(e) => setFireFiles(Array.from(e.target.files || []))}
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files || []);
+                  if (picked.length === 0) return;
+                  const urls = picked.map((f) => URL.createObjectURL(f));
+                  setFireFiles((prev) => [...prev, ...picked]);
+                  setFirePreviewUrls((prev) => [...prev, ...urls]);
+                  setFireInputKey((k) => k + 1);
+                }}
               />
               {fireFiles.length > 0 && (
-                <div style={{ fontSize: 12, color: "#15803d", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "#15803d", marginTop: 6, fontWeight: 600 }}>
                   선택된 파일: {fireFiles.length}개
+                </div>
+              )}
+              {firePreviewUrls.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {firePreviewUrls.map((url, idx) => (
+                    <div
+                      key={url}
+                      style={{
+                        position: "relative",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        border: "1px solid #cbd5e1",
+                        aspectRatio: "1 / 1",
+                        background: "#fff",
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`화기 첨부 미리보기 ${idx + 1}`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`화기 사진 ${idx + 1} 삭제`}
+                        onClick={() => {
+                          setFirePreviewUrls((prev) => {
+                            if (prev[idx]) URL.revokeObjectURL(prev[idx]);
+                            return prev.filter((_, i) => i !== idx);
+                          });
+                          setFireFiles((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          border: "none",
+                          background: "rgba(15, 23, 42, 0.78)",
+                          color: "#fff",
+                          fontSize: 13,
+                          fontWeight: "bold",
+                          lineHeight: "22px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1755,17 +1829,85 @@ function PtwApplyForm() {
             >
               ⑤ 운반경로(작업도면) 및 기타 붙임자료
             </h4>
-            <div className="field">
+<div className="field">
               <label>작업도면 / 장비 제원표 / 자격증·보험증 사진 첨부 (여러 장 선택 가능)</label>
               <input
+                key={heavyInputKey}
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={(e) => setHeavyFiles(Array.from(e.target.files || []))}
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files || []);
+                  if (picked.length === 0) return;
+                  const urls = picked.map((f) => URL.createObjectURL(f));
+                  setHeavyFiles((prev) => [...prev, ...picked]);
+                  setHeavyPreviewUrls((prev) => [...prev, ...urls]);
+                  setHeavyInputKey((k) => k + 1);
+                }}
               />
               {heavyFiles.length > 0 && (
-                <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 6, fontWeight: 600 }}>
                   선택된 파일: {heavyFiles.length}개
+                </div>
+              )}
+              {heavyPreviewUrls.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {heavyPreviewUrls.map((url, idx) => (
+                    <div
+                      key={url}
+                      style={{
+                        position: "relative",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        border: "1px solid #cbd5e1",
+                        aspectRatio: "1 / 1",
+                        background: "#fff",
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`중량물 첨부 미리보기 ${idx + 1}`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`중량물 사진 ${idx + 1} 삭제`}
+                        onClick={() => {
+                          setHeavyPreviewUrls((prev) => {
+                            if (prev[idx]) URL.revokeObjectURL(prev[idx]);
+                            return prev.filter((_, i) => i !== idx);
+                          });
+                          setHeavyFiles((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          border: "none",
+                          background: "rgba(15, 23, 42, 0.78)",
+                          color: "#fff",
+                          fontSize: 13,
+                          fontWeight: "bold",
+                          lineHeight: "22px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -2191,14 +2333,88 @@ function PtwApplyForm() {
                     </div>
                   </div>
                 </div>
-              ) : (
+) : (
                 <div className="field">
-                  <label>안전교육일지 사진 첨부</label>
+                  <label>안전교육일지 사진 첨부 (여러 장 선택 가능)</label>
                   <input
+                    key={trainingInputKey}
                     type="file"
                     accept="image/*"
-                    onChange={(e) => setTrainingPhoto(e.target.files?.[0] || null)}
+                    multiple
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files || []);
+                      if (picked.length === 0) return;
+                      const urls = picked.map((f) => URL.createObjectURL(f));
+                      setTrainingPhotos((prev) => [...prev, ...picked]);
+                      setTrainingPreviewUrls((prev) => [...prev, ...urls]);
+                      setTrainingInputKey((k) => k + 1);
+                    }}
                   />
+                  {trainingPhotos.length > 0 && (
+                    <div style={{ fontSize: 12, color: "#15803d", marginTop: 6, fontWeight: 600 }}>
+                      선택된 사진: {trainingPhotos.length}장
+                    </div>
+                  )}
+                  {trainingPreviewUrls.length > 0 && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      {trainingPreviewUrls.map((url, idx) => (
+                        <div
+                          key={url}
+                          style={{
+                            position: "relative",
+                            borderRadius: 8,
+                            overflow: "hidden",
+                            border: "1px solid #cbd5e1",
+                            aspectRatio: "1 / 1",
+                            background: "#f8fafc",
+                          }}
+                        >
+                          <img
+                            src={url}
+                            alt={`안전교육일지 미리보기 ${idx + 1}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                          <button
+                            type="button"
+                            aria-label={`교육일지 사진 ${idx + 1} 삭제`}
+                            onClick={() => {
+                              setTrainingPreviewUrls((prev) => {
+                                if (prev[idx]) URL.revokeObjectURL(prev[idx]);
+                                return prev.filter((_, i) => i !== idx);
+                              });
+                              setTrainingPhotos((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              border: "none",
+                              background: "rgba(15, 23, 42, 0.78)",
+                              color: "#fff",
+                              fontSize: 13,
+                              fontWeight: "bold",
+                              lineHeight: "22px",
+                              textAlign: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>

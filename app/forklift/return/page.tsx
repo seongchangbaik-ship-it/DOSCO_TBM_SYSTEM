@@ -39,9 +39,10 @@ export default function ForkliftReturnPage() {
   const [returnType, setReturnType] = useState<string>("1공장 출하사무실");
   const [customReturnLocation, setCustomReturnLocation] = useState("");
   const [returnConfirmed, setReturnConfirmed] = useState(false);
-  const [issueStatus, setIssueStatus] = useState<"없음" | "있음">("없음");
+const [issueStatus, setIssueStatus] = useState<"없음" | "있음">("없음");
   const [returnNote, setReturnNote] = useState("");
-  const [returnPhotoData, setReturnPhotoData] = useState<string | null>(null);
+  const [returnPhotos, setReturnPhotos] = useState<string[]>([]);
+  const [returnPhotoInputKey, setReturnPhotoInputKey] = useState(0);
   const [savingReturn, setSavingReturn] = useState(false);
 
   // 반납 확인 모달 상태
@@ -98,22 +99,38 @@ export default function ForkliftReturnPage() {
     );
     setCustomReturnLocation("");
     setReturnConfirmed(false);
-    setIssueStatus("없음");
+setIssueStatus("없음");
     setReturnNote("");
-    setReturnPhotoData(null);
+    setReturnPhotos([]);
+    setReturnPhotoInputKey((k) => k + 1);
   }
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setReturnPhotoData(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    const dataUrls = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve(typeof reader.result === "string" ? reader.result : "");
+            reader.onerror = () => resolve("");
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+
+    const validUrls = dataUrls.filter(Boolean);
+    if (validUrls.length > 0) {
+      setReturnPhotos((prev) => [...prev, ...validUrls]);
+    }
+    setReturnPhotoInputKey((k) => k + 1);
+  }
+
+  function handleRemoveReturnPhoto(index: number) {
+    setReturnPhotos((prev) => prev.filter((_, idx) => idx !== index));
   }
 
   async function confirmReturn() {
@@ -150,7 +167,7 @@ export default function ForkliftReturnPage() {
           return_location: finalReturnLocation,
           return_issue_status: issueStatus,
           return_note: returnNote.trim() || null,
-          return_photo_data: returnPhotoData,
+          return_photo_data: returnPhotos[0] || null,
         })
         .in("id", targetIds);
 
@@ -656,35 +673,73 @@ export default function ForkliftReturnPage() {
               )}
             </div>
 
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>반납 사진 첨부 (선택)</label>
+<div className="field" style={{ marginTop: 12 }}>
+              <label>반납 사진 첨부 (선택 · 여러 장 가능)</label>
               <input
+                key={returnPhotoInputKey}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handlePhotoChange}
                 style={{ marginTop: 6, fontSize: 13 }}
               />
-              {returnPhotoData && (
-                <div style={{ marginTop: 8 }}>
-                  <img
-                    src={returnPhotoData}
-                    alt="반납 사진 미리보기"
-                    style={{
-                      width: "100%",
-                      maxHeight: 180,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                      border: "1px solid #cbd5e1",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    style={{ marginTop: 6, padding: "4px 10px", fontSize: 12 }}
-                    onClick={() => setReturnPhotoData(null)}
-                  >
-                    사진 제거
-                  </button>
+              {returnPhotos.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {returnPhotos.map((url, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        position: "relative",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        border: "1px solid #cbd5e1",
+                        aspectRatio: "1 / 1",
+                        background: "#f8fafc",
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`반납 사진 미리보기 ${idx + 1}`}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`반납 사진 ${idx + 1} 삭제`}
+                        onClick={() => handleRemoveReturnPhoto(idx)}
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          border: "none",
+                          background: "rgba(15, 23, 42, 0.78)",
+                          color: "#fff",
+                          fontSize: 13,
+                          fontWeight: "bold",
+                          lineHeight: "22px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
