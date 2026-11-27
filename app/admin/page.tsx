@@ -66,12 +66,55 @@ export default function Admin() {
   const [removedPhotoPaths, setRemovedPhotoPaths] = useState<string[]>([]);
   const [selectedPreviewUrls, setSelectedPreviewUrls] = useState<string[]>([]);
 
+const DEFAULT_SAFETY_POINT =
+    "설비 점검·정비 전 반드시 정지 및 전원 차단(LOTO)을 확인하고, 작업 전 주변 인원 안전을 살피세요.";
+  const SAFETY_POINT_STORAGE_KEY = "dosco_main_safety_point";
+
+  const [safetyPointInput, setSafetyPointInput] = useState(DEFAULT_SAFETY_POINT);
+  const [safetyPointMsg, setSafetyPointMsg] = useState("");
+
   const [title, setTitle] = useState("주간 TBM 안전교육");
   const [topic, setTopic] = useState("");
   const [content, setContent] = useState("");
   const [label, setLabel] = useState("2026년 11월 3주차");
   const [start, setStart] = useState(new Date().toISOString().slice(0, 10));
   const [end, setEnd] = useState(new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10));
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(SAFETY_POINT_STORAGE_KEY);
+      if (saved && saved.trim()) {
+        setSafetyPointInput(saved);
+      }
+    } catch {
+      // ignore storage read error
+    }
+  }, []);
+
+  function saveSafetyPoint() {
+    const trimmed = safetyPointInput.trim();
+    if (!trimmed) {
+      setSafetyPointMsg("전광판에 표시할 문구를 입력해 주세요.");
+      return;
+    }
+    try {
+      window.localStorage.setItem(SAFETY_POINT_STORAGE_KEY, trimmed);
+      setSafetyPointInput(trimmed);
+      setSafetyPointMsg("메인 화면 안전 POINT 전광판 문구가 저장되었습니다.");
+    } catch {
+      setSafetyPointMsg("문구 저장 중 오류가 발생했습니다.");
+    }
+  }
+
+  function resetSafetyPoint() {
+    try {
+      window.localStorage.removeItem(SAFETY_POINT_STORAGE_KEY);
+    } catch {
+      // ignore storage remove error
+    }
+    setSafetyPointInput(DEFAULT_SAFETY_POINT);
+    setSafetyPointMsg("기본 안전 문구(또는 최신 TBM 주제 자동 연동)로 초기화했습니다.");
+  }
 
   function handlePhotoSelect(e: any) {
     const files = Array.from(e.target.files || []) as File[];
@@ -951,10 +994,50 @@ export default function Admin() {
             <div className="muted">조별 사진 제출</div>
             <div className="metric">{photos.length}</div>
           </div>
-          <div className="card">
+<div className="card">
             <div className="muted">최근 회차 확인 인원</div>
             <div className="metric">{count}</div>
           </div>
+        </div>
+
+        {/* 메인 화면 안전 POINT 전광판 문구 관리 */}
+        <div className="section card">
+          <div className="row between" style={{ marginBottom: 8 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>📢 메인 화면 ‘안전 POINT’ 전광판 문구</h2>
+              <div className="muted" style={{ fontSize: 13 }}>
+                여기에 입력한 문구가 메인 홈(/) 상단 흐르는 전광판에 우선 표시됩니다. (비우거나 초기화 시 최신 TBM 주제 연동)
+              </div>
+            </div>
+          </div>
+
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label>전광판 표시 문구 (1줄 권장)</label>
+            <input
+              className="input"
+              value={safetyPointInput}
+              onChange={(e) => setSafetyPointInput(e.target.value)}
+              placeholder="예: [11월 4주차] 끼임·협착 사고 예방 — 설비 정지 및 LOTO 확인 후 작업하세요."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveSafetyPoint();
+              }}
+            />
+          </div>
+
+          <div className="row" style={{ gap: 8 }}>
+            <button type="button" className="btn" onClick={saveSafetyPoint}>
+              전광판 문구 저장
+            </button>
+            <button type="button" className="btn secondary" onClick={resetSafetyPoint}>
+              기본값으로 초기화
+            </button>
+          </div>
+
+          {safetyPointMsg && (
+            <p className="muted" style={{ marginTop: 10, marginBottom: 0, fontSize: 13 }}>
+              {safetyPointMsg}
+            </p>
+          )}
         </div>
 
         {/* 새 TBM 교육자료 등록 및 목록 */}
